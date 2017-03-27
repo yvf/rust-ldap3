@@ -88,10 +88,10 @@ named!(equal <u64>, do_parse!(
 ));
 
 pub fn is_delimiter(chr: u8) -> bool {
-    chr == '=' as u8 ||
-    chr == '<' as u8 ||
-    chr == '>' as u8 ||
-    chr == '~' as u8
+    chr == b'=' ||
+    chr == b'<' ||
+    chr == b'>' ||
+    chr == b'~'
 }
 
 #[cfg(test)]
