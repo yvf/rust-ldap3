@@ -80,11 +80,11 @@ named!(simple <Tag>, do_parse!(
     }))
 ));
 
-named!(filtertype <u64>, call!(equal));
-
-named!(equal <u64>, do_parse!(
-    char!('=') >>
-    (3)
+named!(filtertype <u64>, alt!(
+    char!('=') => { |_| 3 } |
+    tag!(">=") => { |_| 5 } |
+    tag!("<=") => { |_| 6 } |
+    tag!("~=") => { |_| 8 }
 ));
 
 pub fn is_delimiter(chr: u8) -> bool {
