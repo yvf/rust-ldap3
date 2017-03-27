@@ -1,0 +1,15 @@
+[package]
+name = "asnom"
+version = "0.1.1"
+authors = ["Gregor Reitzenstein <dean4devil@paranoidlabs.org>"]
+license = "MIT"
+
+description = "A ASN.1 BER Parser&Writer based on Nom"
+#repository = "https://github.com/dequbed/asnom"
+
+keywords = ["ASN1", "BER", "Nom"]
+categories = ["encoding", "parsing"]
+
+[dependencies]
+nom = "2.0.1"
+byteorder = "1.0.0"
