@@ -1,8 +1,9 @@
 extern crate asnom;
-extern crate rfc4515;
 
 extern crate futures;
 extern crate native_tls;
+#[macro_use]
+extern crate nom;
 extern crate tokio_core;
 extern crate tokio_proto;
 extern crate tokio_service;
@@ -19,6 +20,7 @@ mod service;
 
 mod bind;
 mod search;
+mod filter;
 
 pub use ldap::Ldap;
 pub use sync::LdapSync;

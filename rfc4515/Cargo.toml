@@ -1,8 +1,0 @@
-[package]
-name = "rfc4515"
-version = "0.1.0"
-authors = ["Gregor Reitzenstein <dean4devil@paranoidlabs.org>"]
-
-[dependencies]
-nom = "2.0"
-asnom = { path = "../asnom" }

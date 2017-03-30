@@ -5,7 +5,7 @@ use asnom::structure::StructureTag;
 use asnom::structures::{Tag, Sequence, Integer, OctetString, Boolean};
 use asnom::common::TagClass::*;
 
-use rfc4515::parse;
+use filter::parse;
 
 use futures::{Future, stream, Stream};
 use tokio_service::Service;

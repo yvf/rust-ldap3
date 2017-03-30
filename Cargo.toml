@@ -18,8 +18,8 @@ tokio-core = "0.1"
 tokio-proto = "0.1"
 tokio-service = "0.1"
 tokio-tls = { version = "0.1.2", features = [ "tokio-proto" ] }
+nom = "2.0"
 asnom = { path = "asnom" }
-rfc4515 = { path = "rfc4515" }
 
 [dev-dependencies]
 env_logger = "0.4.2"
