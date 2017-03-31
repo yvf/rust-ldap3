@@ -2,7 +2,7 @@ use std::default::Default;
 use std::str;
 
 use nom::IResult;
-use nom::{be_u8, digit, is_alphabetic, is_alphanumeric};
+use nom::{be_u8, digit, is_alphabetic, is_alphanumeric, is_hex_digit};
 
 use asnom::common::TagClass;
 use asnom::structures::{Boolean, ExplicitTag, OctetString, Sequence, Tag};
@@ -20,17 +20,33 @@ pub fn parse(input: &str) -> Result<Tag, ()> {
     }
 }
 
+const AND_FILT: u64 = 0;
+const OR_FILT: u64 = 1;
+const NOT_FILT: u64 = 2;
+
+const EQ_MATCH: u64 = 3;
+const SUBSTR_MATCH: u64 = 4;
+const GTE_MATCH: u64 = 5;
+const LTE_MATCH: u64 = 6;
+const PRES_MATCH: u64 = 7;
+const APPROX_MATCH: u64 = 8;
+const EXT_MATCH: u64 = 9;
+
+const SUB_INITIAL: u64 = 0;
+const SUB_ANY: u64 = 1;
+const SUB_FINAL: u64 = 2;
+
 named!(filtexpr<Tag>, alt!(filter | item));
 
 named!(filter<Tag>, delimited!(char!('('), filtercomp, char!(')')));
 named!(filtercomp<Tag>, alt!(and | or | not | item));
-named!(filterlist<Vec<Tag>>, many1!(filter));
+named!(filterlist<Vec<Tag>>, many0!(filter));
 
 named!(and<Tag>, map!(preceded!(char!('&'), filterlist),
     |tagv: Vec<Tag>| -> Tag {
         Tag::Sequence(Sequence {
             class: TagClass::Context,
-            id: 0,
+            id: AND_FILT,
             inner: tagv,
         })
     }
@@ -40,7 +56,7 @@ named!(or<Tag>, map!(preceded!(char!('|'), filterlist),
     |tagv: Vec<Tag>| -> Tag {
         Tag::Sequence(Sequence {
             class: TagClass::Context,
-            id: 1,
+            id: OR_FILT,
             inner: tagv,
         })
     }
@@ -50,122 +66,171 @@ named!(not<Tag>, map!(preceded!(char!('!'), filter),
     |tag: Tag| -> Tag {
         Tag::ExplicitTag(ExplicitTag {
             class: TagClass::Context,
-            id: 2,
+            id: NOT_FILT,
             inner: Box::new(tag),
         })
     }
 ));
 
-named!(item<Tag>, alt!(non_extensible | extensible));
+named!(item<Tag>, alt!(eq | non_eq | extensible));
 
-const EQ_MATCH: u64 = 3;
+enum Unescaper {
+    WantFirst,
+    WantSecond(u8),
+    Value(u8),
+    Error,
+}
 
-named!(non_extensible<Tag>, do_parse!(
-    attr: attributedescription >>
-    filtertype: filtertype >>
-    value: verify!(take_while!(is_value_char), |v: &[u8]| !str::from_utf8(v).expect("assertion value").contains("**")) >> ({
-        if filtertype != EQ_MATCH || !value.contains(&b'*') {
-            simple_tag(attr, filtertype, value)
+impl Unescaper {
+    fn feed(&self, c: u8) -> Unescaper {
+        match *self {
+            Unescaper::Error => Unescaper::Error,
+            Unescaper::WantFirst => {
+                if is_hex_digit(c) {
+                    Unescaper::WantSecond(c - if c <= b'9' { b'0' } else { (c & 0x20) + b'A' - 10 })
+                } else {
+                    Unescaper::Error
+                }
+            },
+            Unescaper::WantSecond(partial) => {
+                if is_hex_digit(c) {
+                    Unescaper::Value((partial << 4) + (c - if c <= b'9' { b'0' } else { (c & 0x20) + b'A' - 10 }))
+                } else {
+                    Unescaper::Error
+                }
+            },
+            Unescaper::Value(_v) => if c != b'\\' { Unescaper::Value(c) } else { Unescaper::WantFirst },
+        }
+    }
+}
+
+// Any byte in the assertion value may be represented by \NN, where N is a hex digit.
+// Some characters must be represented in this way: parentheses, asterisk and backslash
+// itself.
+named!(unescaped<Vec<u8>>, map_res!(fold_many0!(
+    verify!(be_u8, is_value_char),
+    (Unescaper::Value(0), Vec::new()),
+    |(mut u, mut vec): (Unescaper, Vec<_>), c: u8| {
+        u = u.feed(c);
+        if let Unescaper::Value(c) = u {
+            vec.push(c);
+        }
+        (u, vec)
+    }), |(u, vec): (Unescaper, Vec<_>)| -> Result<Vec<u8>, ()> {
+        if let Unescaper::Value(_) = u {
+            Ok(vec)
         } else {
-            if value.len() == 1 && value[0] == b'*' {
-                present_tag(attr)
-            } else {
-                substr_tag(attr, value)
+            Err(())
+        }
+    }
+));
+
+named!(non_eq<Tag>, do_parse!(
+    attr: attributedescription >>
+    filterop: alt!(tag!(">=") | tag!("<=") | tag!("~=")) >>
+    value: unescaped >> ({
+        Tag::Sequence(Sequence {
+            class: TagClass::Context,
+            id: filtertag(filterop),
+            inner: vec![
+                   Tag::OctetString(OctetString {
+                       inner: attr.to_vec(),
+                       .. Default::default()
+                   }),
+                   Tag::OctetString(OctetString {
+                       inner: value,
+                       .. Default::default()
+                   })
+            ]
+        })
+    })
+));
+
+fn filtertag(filterop: &[u8]) -> u64 {
+    match filterop {
+        b">=" => GTE_MATCH,
+        b"<=" => LTE_MATCH,
+        b"~=" => APPROX_MATCH,
+        _ => unimplemented!(),
+    }
+}
+
+named!(eq<Tag>, do_parse!(
+    attr: attributedescription >>
+    tag!("=") >>
+    initial: unescaped >>
+    mid_final: map_res!(many0!(preceded!(tag!("*"), unescaped)), |v: Vec<Vec<u8>>| -> Result<Vec<Vec<u8>>, ()> {
+        // an empty element may exist only at the very end; otherwise, we have two adjacent asterisks
+        if v.iter().enumerate().fold(false, |acc, (n, ref ve)| acc || ve.is_empty() && n + 1 != v.len()) {
+            Err(())
+        } else {
+            Ok(v)
+        }
+    }) >> ({
+        if mid_final.is_empty() {
+            // simple equality, no asterisks in assertion value
+            Tag::Sequence(Sequence {
+                class: TagClass::Context,
+                id: EQ_MATCH,
+                inner: vec![
+                       Tag::OctetString(OctetString {
+                           inner: attr.to_vec(),
+                           .. Default::default()
+                       }),
+                       Tag::OctetString(OctetString {
+                           inner: initial,
+                           .. Default::default()
+                       })
+                ]
+            })
+        } else if initial.is_empty() && mid_final.len() == 1 && mid_final[0].is_empty() {
+            // presence, single asterisk in assertion value
+            Tag::OctetString(OctetString {
+                class: TagClass::Context,
+                id: PRES_MATCH,
+                inner: attr.to_vec(),
+            })
+        } else {
+            // substring match
+            let mut inner = vec![];
+            if !initial.is_empty() {
+                inner.push(Tag::OctetString(OctetString {
+                    class: TagClass::Context,
+                    id: SUB_INITIAL,
+                    inner: initial,
+                }));
             }
+            let n = mid_final.len();
+            for (i, sub_elem) in mid_final.into_iter().enumerate() {
+                if sub_elem.is_empty() {
+                    break;
+                }
+                inner.push(Tag::OctetString(OctetString {
+                    class: TagClass::Context,
+                    id: if i + 1 != n { SUB_ANY } else { SUB_FINAL },
+                    inner: sub_elem,
+                }));
+            }
+            Tag::Sequence(Sequence {
+                class: TagClass::Context,
+                id: SUBSTR_MATCH,
+                inner: vec![
+                       Tag::OctetString(OctetString {
+                           inner: attr.to_vec(),
+                           .. Default::default()
+                       }),
+                       Tag::Sequence(Sequence {
+                           inner: inner,
+                           .. Default::default()
+                       })
+                ]
+            })
         }
     })
 ));
 
 fn is_value_char(c: u8) -> bool {
-    c != 0 && c != b'(' && c != b')' && c != b'\\'
-}
-
-named!(filtertype<u64>, alt!(
-    char!('=') => { |_| 3 } |
-    tag!(">=") => { |_| 5 } |
-    tag!("<=") => { |_| 6 } |
-    tag!("~=") => { |_| 8 }
-));
-
-fn simple_tag(attr: &[u8], filtertype: u64, value: &[u8]) -> Tag {
-    Tag::Sequence(Sequence {
-        class: TagClass::Context,
-        id: filtertype,
-        inner: vec![
-               Tag::OctetString(OctetString {
-                   inner: attr.to_vec(),
-                   .. Default::default()
-               }),
-               Tag::OctetString(OctetString {
-                   inner: value.to_vec(),
-                   .. Default::default()
-               })
-        ]
-    })
-}
-
-fn present_tag(attr: &[u8]) -> Tag {
-    (Tag::OctetString(OctetString {
-        class: TagClass::Context,
-        id: 7,
-        inner: attr.to_vec(),
-    }))
-}
-
-const SUB_MATCH: u64 = 4;
-
-const SUB_INITIAL: u64 = 0;
-const SUB_ANY: u64 = 1;
-const SUB_FINAL: u64 = 2;
-
-fn substr_tag(attr: &[u8], value: &[u8]) -> Tag {
-    let mut inner = vec![];
-    let mut first = true;
-    let mut replace_last = true;
-    for sub_elem in value.split(|&b| b == b'*') {
-        if first {
-            first = false;
-            if !sub_elem.is_empty() {
-                inner.push(Tag::OctetString(OctetString {
-                    class: TagClass::Context,
-                    id: SUB_INITIAL,
-                    inner: sub_elem.to_vec(),
-                }));
-            }
-        } else {
-            if sub_elem.is_empty() {
-                replace_last = false;
-            } else {
-                inner.push(Tag::OctetString(OctetString {
-                    class: TagClass::Context,
-                    id: SUB_ANY,
-                    inner: sub_elem.to_vec(),
-                }));
-            }
-        }
-    }
-    if replace_last {
-        let mut last_elem = inner.pop().expect("last element");
-        match last_elem {
-            Tag::OctetString(ref mut o) => { o.id = SUB_FINAL; },
-            _ => unimplemented!(),
-        }
-        inner.push(last_elem);
-    }
-    Tag::Sequence(Sequence {
-        class: TagClass::Context,
-        id: SUB_MATCH,
-        inner: vec![
-               Tag::OctetString(OctetString {
-                   inner: attr.to_vec(),
-                   .. Default::default()
-               }),
-               Tag::Sequence(Sequence {
-                   inner: inner,
-                   .. Default::default()
-               })
-        ]
-    })
+    c != 0 && c != b'(' && c != b')' && c != b'*'
 }
 
 named!(extensible<Tag>, alt!(attr_dn_mrule | dn_mrule));
@@ -175,7 +240,7 @@ named!(attr_dn_mrule<Tag>, do_parse!(
     dn: opt!(tag!(":dn")) >>
     mrule: opt!(preceded!(char!(':'), attributetype)) >>
     tag!(":=") >>
-    value: take_while!(is_ext_value_char) >>
+    value: unescaped >>
     (extensible_tag(mrule, Some(attr), value, dn.is_some()))
 ));
 
@@ -183,15 +248,11 @@ named!(dn_mrule<Tag>, do_parse!(
     dn: opt!(tag!(":dn")) >>
     mrule: preceded!(char!(':'), attributetype) >>
     tag!(":=") >>
-    value: take_while!(is_ext_value_char) >>
+    value: unescaped >>
     (extensible_tag(Some(mrule), None, value, dn.is_some()))
 ));
 
-fn is_ext_value_char(c: u8) -> bool {
-    is_value_char(c) && c != b'*'
-}
-
-fn extensible_tag(mrule: Option<&[u8]>, attr: Option<&[u8]>, value: &[u8], dn: bool) -> Tag {
+fn extensible_tag(mrule: Option<&[u8]>, attr: Option<&[u8]>, value: Vec<u8>, dn: bool) -> Tag {
     let mut inner = vec![];
     if let Some(mrule) = mrule {
         inner.push(Tag::OctetString(OctetString {
@@ -210,7 +271,7 @@ fn extensible_tag(mrule: Option<&[u8]>, attr: Option<&[u8]>, value: &[u8], dn: b
     inner.push(Tag::OctetString(OctetString {
         class: TagClass::Context,
         id: 3,
-        inner: value.to_vec()
+        inner: value
     }));
     if dn {
         inner.push(Tag::Boolean(Boolean {
@@ -221,7 +282,7 @@ fn extensible_tag(mrule: Option<&[u8]>, attr: Option<&[u8]>, value: &[u8], dn: b
     }
     Tag::Sequence(Sequence {
         class: TagClass::Context,
-        id: 9,
+        id: EXT_MATCH,
         inner: inner
     })
 }
@@ -240,6 +301,7 @@ named!(numericoid<&[u8]>, recognize!(
     )
 ));
 
+// A number may be zero, but must not have superfluous leading zeroes
 named!(number<&[u8]>, verify!(digit, |d: &[u8]| d.len() == 1 || d[0] != b'0'));
 
 named!(descr<&[u8]>, recognize!(
