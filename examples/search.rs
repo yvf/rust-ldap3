@@ -12,7 +12,7 @@ pub fn main() {
     if res {
         println!("Bind succeeded!");
         let res2 = ldap.search("dc=plabs".to_string(),
-                               ldap::Scope::WholeSubtree,
+                               ldap::Scope::Subtree,
                                ldap::DerefAliases::Never,
                                false,
                                "(objectClass=*)".to_string());

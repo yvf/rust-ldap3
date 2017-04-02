@@ -14,7 +14,7 @@ pub fn main() {
     let bind = core.run(ldap.simple_bind("cn=root,dc=plabs".to_string(), "asdf".to_string()));
 
     let search_results = core.run(ldap.search("dc=plabs".to_string(),
-                                  ldap::Scope::WholeSubtree,
+                                  ldap::Scope::Subtree,
                                   ldap::DerefAliases::Never,
                                   false,
                                   "(objectClass=*)".to_string()));
