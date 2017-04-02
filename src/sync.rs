@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use ldap::Ldap;
 use search::{Scope, DerefAliases, SearchEntry};
 
-use tokio_core::reactor::{Core, Handle};
+use tokio_core::reactor::Core;
 
 pub struct LdapSync {
     inner: Ldap,

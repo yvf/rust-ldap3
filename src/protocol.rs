@@ -1,19 +1,20 @@
-use tokio_core::io::{Io, Codec, EasyBuf, Framed};
 use std::io;
 use std::collections::HashSet;
 
+use bytes::BytesMut;
+use tokio_io::codec::{Decoder, Encoder, Framed};
+use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_proto::streaming::multiplex::{Frame, ClientProto};
 
 use asnom::common;
-use asnom::IResult;
-use asnom::structures::{Tag, Integer, Sequence, ASNTag};
-use asnom::parse::Parser;
+use asnom::Consumer;
 use asnom::ConsumerState;
 use asnom::Move;
 use asnom::Input;
-use asnom::Consumer;
-
-use asnom::parse::{parse_tag, parse_uint};
+use asnom::IResult;
+use asnom::structures::{Tag, Integer, Sequence, ASNTag};
+use asnom::parse::Parser;
+use asnom::parse::parse_uint;
 use asnom::write;
 
 #[derive(Debug, Clone)]
@@ -21,13 +22,13 @@ pub struct LdapCodec {
     search_seen: HashSet<u64>,
 }
 
-impl Codec for LdapCodec {
-    type In = Frame<Tag, Tag, io::Error>;
-    type Out = Frame<Tag, Tag, io::Error>;
+impl Decoder for LdapCodec {
+    type Item = Frame<Tag, Tag, Self::Error>;
+    type Error = io::Error;
 
-    fn decode(&mut self, buf: &mut EasyBuf) -> Result<Option<Self::In>, io::Error> {
+    fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         let mut parser = Parser::new();
-        let (amt, tag) = match *parser.handle(Input::Element(buf.as_slice())) {
+        let (amt, tag) = match *parser.handle(Input::Element(buf)) {
             ConsumerState::Continue(_) => return Ok(None),
             ConsumerState::Error(_e) => return Err(io::Error::from(io::ErrorKind::Other)),
             ConsumerState::Done(amt, ref tag) => (amt, tag),
@@ -37,7 +38,7 @@ impl Codec for LdapCodec {
             Move::Seek(_) => return Err(io::Error::from(io::ErrorKind::Other)),
             Move::Consume(amt) => amt,
         };
-        buf.drain_to(amt);
+        buf.split_to(amt);
         let tag = tag.clone();
         if let Some(mut tags) = tag.match_id(16u64).and_then(|x| x.expect_constructed()) {
             let protoop = tags.pop().unwrap();
@@ -102,8 +103,13 @@ impl Codec for LdapCodec {
         }
         return Err(io::Error::new(io::ErrorKind::Other, "Invalid (RequestId, Tag) received."));
     }
+}
 
-    fn encode(&mut self, msg: Self::Out, into: &mut Vec<u8>) -> io::Result<()> {
+impl Encoder for LdapCodec {
+    type Item = Frame<Tag, Tag, Self::Error>;
+    type Error = io::Error;
+
+    fn encode(&mut self, msg: Self::Item, into: &mut BytesMut) -> io::Result<()> {
         match msg {
             Frame::Message {message, id, body: _, solo: _} => {
                 let outtag = Tag::Sequence(Sequence {
@@ -129,7 +135,7 @@ impl Codec for LdapCodec {
 
 pub struct LdapProto;
 
-impl<T: Io + 'static> ClientProto<T> for LdapProto {
+impl<T: AsyncRead + AsyncWrite + 'static> ClientProto<T> for LdapProto {
     type Request = Tag;
     type RequestBody = Tag;
     type Response = Tag;

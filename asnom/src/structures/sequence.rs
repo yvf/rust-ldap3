@@ -39,7 +39,7 @@ pub struct SequenceOf<T> {
     pub inner: Vec<T>,
 }
 
-impl<T: ASNTag + Sized> SequenceOf<T> {
+impl<T: ASNTag + Sized> ASNTag for SequenceOf<T> {
     fn into_structure(self) -> structure::StructureTag {
         structure::StructureTag {
             id: self.id,

@@ -1,6 +1,7 @@
+extern crate byteorder;
+extern crate bytes;
 #[macro_use]
 extern crate nom;
-extern crate byteorder;
 
 pub mod parse;
 pub mod write;

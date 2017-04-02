@@ -1,13 +1,18 @@
+use bytes::BytesMut;
+use byteorder::{BigEndian, WriteBytesExt};
 use common::{TagClass, TagStructure};
 use structure::{StructureTag, PL};
 
-use std::io;
-use std::io::Write;
+use std::io::{self, Write};
 
-use byteorder::BigEndian;
-use byteorder::WriteBytesExt;
+pub fn encode_into(buf: &mut BytesMut, tag: StructureTag) -> io::Result<()> {
+    let mut tag_vec = Vec::new();
+    encode_inner(&mut tag_vec, tag)?;
+    buf.extend(tag_vec);
+    Ok(())
+}
 
-pub fn encode_into(buf: &mut Vec<u8>, tag: StructureTag) -> io::Result<()> {
+fn encode_inner(buf: &mut Vec<u8>, tag: StructureTag) -> io::Result<()> {
     let structure = match tag.payload {
         PL::P(_) => TagStructure::Primitive,
         PL::C(_) => TagStructure::Constructed,
@@ -17,26 +22,22 @@ pub fn encode_into(buf: &mut Vec<u8>, tag: StructureTag) -> io::Result<()> {
     match tag.payload {
         PL::P(v) => {
             write_length(buf, v.len());
-            for byte in v {
-                buf.push(byte);
-            }
+            buf.extend(v);
         },
         PL::C(tags) => {
-            let mut tmp: Vec<u8> = Vec::new();
+            let mut tmp = Vec::new();
             for tag in tags {
-                try!(encode_into(&mut tmp, tag));
+                try!(encode_inner(&mut tmp, tag));
             }
             write_length(buf, tmp.len());
-            for byte in tmp {
-                buf.push(byte);
-            }
+            buf.extend(tmp);
         }
     };
 
     Ok(())
 }
 
-pub fn write_type(mut w: &mut Write, class: TagClass, structure: TagStructure, id: u64) {
+fn write_type(w: &mut Write, class: TagClass, structure: TagStructure, id: u64) {
     let extended_tag: Option<Vec<u8>>;
 
     let type_byte = {
@@ -92,7 +93,7 @@ pub fn write_type(mut w: &mut Write, class: TagClass, structure: TagStructure, i
 }
 
 // Yes I know you could overflow the length in theory. But, do you have 2^64 bytes of memory?
-pub fn write_length(mut w: &mut Write, length: usize) {
+fn write_length(w: &mut Write, length: usize) {
     // Short form
     if length < 128
     {

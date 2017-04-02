@@ -1,5 +1,4 @@
 use std::io;
-use std::iter;
 use std::net::{SocketAddr, ToSocketAddrs};
 
 use asnom::structures::Tag;
