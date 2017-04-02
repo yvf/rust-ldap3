@@ -27,84 +27,80 @@ impl Codec for LdapCodec {
 
     fn decode(&mut self, buf: &mut EasyBuf) -> Result<Option<Self::In>, io::Error> {
         let mut parser = Parser::new();
-        match parser.handle(Input::Element(buf.as_slice())) {
-            &ConsumerState::Done(amt, ref tag) => {
-                match amt {
-                    Move::Consume(amt) => {
-                        buf.drain_to(amt);
-
-                        let tag = tag.clone();
-                        if let Some(mut tags) = tag.match_id(16u64).and_then(|x| x.expect_constructed()) {
-                            let protoop = tags.pop().unwrap();
-                            let msgid: Vec<u8> = tags.pop().unwrap()
-                                            .match_class(common::TagClass::Universal)
-                                            .and_then(|x| x.match_id(2u64))
-                                            .and_then(|x| x.expect_primitive()).unwrap();
-                            if let IResult::Done(_, id) = parse_uint(msgid.as_slice()) {
-                                return match protoop.id {
-                                    // SearchResultEntry
-                                    4 => {
-                                        debug!("Received a search result entry");
-                                        // We have already received the first of those results, so we only
-                                        // send a body frame.
-                                        if self.search_seen.contains(&id) {
-                                            Ok(Some(Frame::Body {
-                                                id: id as u64,
-                                                chunk: Some(Tag::StructureTag(protoop)),
-                                            }))
-                                        } // If we haven't yet seen that search, we need to initially send a whole message
-                                        else {
-                                            self.search_seen.insert(id);
-                                            Ok(Some(Frame::Message {
-                                                id: id as u64,
-                                                message: Tag::StructureTag(protoop),
-                                                body: true,
-                                                solo: false,
-                                            }))
-                                        }
-                                    },
-                                    // SearchResultDone
-                                    5 => {
-                                        debug!("Received a search result done");
-                                        let seen_res_entry = self.search_seen.contains(&id);
-                                        self.search_seen.remove(&id);
-                                        if seen_res_entry {
-                                            Ok(Some(Frame::Body {
-                                                id: id as u64,
-                                                chunk: None,
-                                            }))
-                                        } else {
-                                            Ok(Some(Frame::Message {
-                                                id: id as u64,
-                                                message: Tag::StructureTag(protoop),
-                                                body: false,
-                                                solo: false,
-                                            }))
-                                        }
-                                    },
-                                    // Any other Message
-                                    _ => {
-                                        debug!("Received a tag id {}", id);
-                                        Ok(Some(Frame::Message {
-                                            id: id as u64,
-                                            message: Tag::StructureTag(protoop),
-                                            body: false,
-                                            solo: false,
-                                        }))
-                                    },
-                                }
-                            }
+        let (amt, tag) = match *parser.handle(Input::Element(buf.as_slice())) {
+            ConsumerState::Continue(_) => return Ok(None),
+            ConsumerState::Error(_e) => return Err(io::Error::from(io::ErrorKind::Other)),
+            ConsumerState::Done(amt, ref tag) => (amt, tag),
+        };
+        let amt = match amt {
+            Move::Await(_) => return Ok(None),
+            Move::Seek(_) => return Err(io::Error::from(io::ErrorKind::Other)),
+            Move::Consume(amt) => amt,
+        };
+        buf.drain_to(amt);
+        let tag = tag.clone();
+        if let Some(mut tags) = tag.match_id(16u64).and_then(|x| x.expect_constructed()) {
+            let protoop = tags.pop().unwrap();
+            let msgid: Vec<u8> = tags.pop().unwrap()
+                            .match_class(common::TagClass::Universal)
+                            .and_then(|x| x.match_id(2u64))
+                            .and_then(|x| x.expect_primitive()).unwrap();
+            if let IResult::Done(_, id) = parse_uint(msgid.as_slice()) {
+                return match protoop.id {
+                    // SearchResultEntry
+                    4 => {
+                        debug!("Received a search result entry");
+                        // We have already received the first of those results, so we only
+                        // send a body frame.
+                        if self.search_seen.contains(&id) {
+                            Ok(Some(Frame::Body {
+                                id: id as u64,
+                                chunk: Some(Tag::StructureTag(protoop)),
+                            }))
+                        } // If we haven't yet seen that search, we need to initially send a whole message
+                        else {
+                            self.search_seen.insert(id);
+                            Ok(Some(Frame::Message {
+                                id: id as u64,
+                                message: Tag::StructureTag(protoop),
+                                body: true,
+                                solo: false,
+                            }))
                         }
-
-                        return Err(io::Error::new(io::ErrorKind::Other, "Invalid (RequestId, Tag) received."));
                     },
-                    Move::Seek(_) => Err(io::Error::from(io::ErrorKind::Other)),
-                    Move::Await(_) => Ok(None)
+                    // SearchResultDone
+                    5 => {
+                        debug!("Received a search result done");
+                        let seen_res_entry = self.search_seen.contains(&id);
+                        self.search_seen.remove(&id);
+                        if seen_res_entry {
+                            Ok(Some(Frame::Body {
+                                id: id as u64,
+                                chunk: None,
+                            }))
+                        } else {
+                            Ok(Some(Frame::Message {
+                                id: id as u64,
+                                message: Tag::StructureTag(protoop),
+                                body: false,
+                                solo: false,
+                            }))
+                        }
+                    },
+                    // Any other Message
+                    _ => {
+                        debug!("Received a tag id {}", id);
+                        Ok(Some(Frame::Message {
+                            id: id as u64,
+                            message: Tag::StructureTag(protoop),
+                            body: false,
+                            solo: false,
+                        }))
+                    },
                 }
-            },
-            &ConsumerState::Continue(_) => Ok(None),
-            &ConsumerState::Error(_e) => Err(io::Error::from(io::ErrorKind::Other)),
+            }
         }
+        return Err(io::Error::new(io::ErrorKind::Other, "Invalid (RequestId, Tag) received."));
     }
 
     fn encode(&mut self, msg: Self::Out, into: &mut Vec<u8>) -> io::Result<()> {
