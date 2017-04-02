@@ -15,9 +15,9 @@ use service::{LdapMessage, LdapMessageStream};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Scope {
-    BaseObject   = 0,
-    SingleLevel  = 1,
-    WholeSubtree = 2,
+    Base     = 0,
+    OneLevel = 1,
+    Subtree  = 2,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
