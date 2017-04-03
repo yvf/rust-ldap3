@@ -13,8 +13,10 @@ use tokio_tls::proto::Client as TlsClient;
 use protocol::LdapProto;
 use service::{LdapMessage, TokioMessage};
 
+struct ClientMap(ClientProxy<TokioMessage, TokioMessage, io::Error>);
+
 pub struct Ldap {
-    inner: ClientTypeMap<ClientProxy<TokioMessage, TokioMessage, io::Error>>,
+    inner: ClientMap,
 }
 
 impl Ldap {
@@ -23,8 +25,7 @@ impl Ldap {
         let ret = TcpClient::new(LdapProto)
             .connect(addr, handle)
             .map(|client_proxy| {
-                let typemap = ClientTypeMap { inner: client_proxy };
-                Ldap { inner: typemap }
+                Ldap { inner: ClientMap(client_proxy) }
             });
         Box::new(ret)
     }
@@ -44,8 +45,7 @@ impl Ldap {
         let ret = TcpClient::new(wrapper)
             .connect(&sockaddr.unwrap(), handle)
             .map(|client_proxy| {
-                let typemap = ClientTypeMap { inner: client_proxy };
-                Ldap { inner: typemap }
+                Ldap { inner: ClientMap(client_proxy) }
             });
         Box::new(ret)
     }
@@ -62,19 +62,13 @@ impl Service for Ldap {
     }
 }
 
-struct ClientTypeMap<T> {
-    inner: T
-}
-
-impl<T> Service for ClientTypeMap<T>
-    where T: Service<Request = TokioMessage, Response = TokioMessage, Error = io::Error>,
-          T::Future: 'static {
+impl Service for ClientMap {
     type Request = LdapMessage;
     type Response = LdapMessage;
     type Error = io::Error;
-    type Future = Box<Future<Item = LdapMessage, Error = io::Error>>;
+    type Future = Box<Future<Item=LdapMessage, Error=io::Error>>;
 
     fn call(&self, req: LdapMessage) -> Self::Future {
-        Box::new(self.inner.call(req.into()).map(LdapMessage::from))
+        Box::new(self.0.call(req.into()).map(LdapMessage::from))
     }
 }
