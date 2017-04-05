@@ -17,7 +17,6 @@ extern crate byteorder;
 mod ldap;
 mod sync;
 mod protocol;
-mod service;
 
 mod bind;
 mod search;

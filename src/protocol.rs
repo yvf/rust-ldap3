@@ -17,6 +17,8 @@ use asnom::parse::Parser;
 use asnom::parse::parse_uint;
 use asnom::write;
 
+use ldap::LdapOp;
+
 #[derive(Debug, Clone)]
 pub struct LdapCodec {
     search_seen: HashSet<u64>,
@@ -106,43 +108,44 @@ impl Decoder for LdapCodec {
 }
 
 impl Encoder for LdapCodec {
-    type Item = Frame<Tag, Tag, Self::Error>;
+    type Item = Frame<LdapOp, (), Self::Error>;
     type Error = io::Error;
 
     fn encode(&mut self, msg: Self::Item, into: &mut BytesMut) -> io::Result<()> {
-        match msg {
-            Frame::Message {message, id, body: _, solo: _} => {
-                let outtag = Tag::Sequence(Sequence {
-                    inner: vec![
-                        Tag::Integer(Integer {
-                            inner: id as i64,
-                            .. Default::default()
-                        }),
-                        message,
-                    ],
-                    .. Default::default()
-                });
+        if let Frame::Message {message, id, body: _, solo: _} = msg {
+            match message {
+                LdapOp::Single(tag) => {
+                    let outtag = Tag::Sequence(Sequence {
+                        inner: vec![
+                            Tag::Integer(Integer {
+                                inner: id as i64,
+                                .. Default::default()
+                            }),
+                            tag,
+                        ],
+                        .. Default::default()
+                    });
 
-                let outstruct = outtag.into_structure();
-                trace!("Sending packet: {:?}", &outstruct);
-                try!(write::encode_into(into, outstruct));
-                Ok(())
-            },
-            _ => unimplemented!(),
+                    let outstruct = outtag.into_structure();
+                    trace!("Sending packet: {:?}", &outstruct);
+                    try!(write::encode_into(into, outstruct));
+                }
+                _ => unimplemented!(),
+            }
         }
+        Ok(())
     }
 }
 
 pub struct LdapProto;
 
 impl<T: AsyncRead + AsyncWrite + 'static> ClientProto<T> for LdapProto {
-    type Request = Tag;
-    type RequestBody = Tag;
+    type Request = LdapOp;
+    type RequestBody = ();
     type Response = Tag;
     type ResponseBody = Tag;
     type Error = io::Error;
 
-    /// `Framed<T, LineCodec>` is the return value of `io.framed(LineCodec)`
     type Transport = Framed<T, LdapCodec>;
     type BindTransport = Result<Self::Transport, io::Error>;
 

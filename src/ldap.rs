@@ -5,18 +5,29 @@ use asnom::structures::Tag;
 use futures::{future, Future};
 use native_tls::TlsConnector;
 use tokio_core::reactor::Handle;
-use tokio_proto::util::client_proxy::ClientProxy;
 use tokio_proto::TcpClient;
+use tokio_proto::streaming::{Body, Message};
+use tokio_proto::streaming::multiplex::RequestId;
+use tokio_proto::util::client_proxy::ClientProxy;
 use tokio_service::Service;
 use tokio_tls::proto::Client as TlsClient;
 
 use protocol::LdapProto;
-use service::{LdapMessage, TokioMessage};
 
-struct ClientMap(ClientProxy<TokioMessage, TokioMessage, io::Error>);
+pub type RequestMessage = Message<LdapOp, Body<(), io::Error>>;
+pub type ResponseMessage = Message<Tag, Body<Tag, io::Error>>;
+
+struct ClientMap(ClientProxy<RequestMessage, ResponseMessage, io::Error>);
 
 pub struct Ldap {
     inner: ClientMap,
+}
+
+pub enum LdapOp {
+    Single(Tag),
+    Streaming(Tag),
+    Chunk(RequestId),
+    Cancel(RequestId, Tag),
 }
 
 impl Ldap {
@@ -52,23 +63,23 @@ impl Ldap {
 }
 
 impl Service for Ldap {
-    type Request = Tag;
-    type Response = LdapMessage;
+    type Request = LdapOp;
+    type Response = ResponseMessage;
     type Error = io::Error;
-    type Future = Box<Future<Item = LdapMessage, Error = io::Error>>;
+    type Future = Box<Future<Item=ResponseMessage, Error=io::Error>>;
 
     fn call(&self, req: Self::Request) -> Self::Future {
-        self.inner.call(LdapMessage::Once(req))
+        self.inner.call(req)
     }
 }
 
 impl Service for ClientMap {
-    type Request = LdapMessage;
-    type Response = LdapMessage;
+    type Request = LdapOp;
+    type Response = ResponseMessage;
     type Error = io::Error;
-    type Future = Box<Future<Item=LdapMessage, Error=io::Error>>;
+    type Future = Box<Future<Item=ResponseMessage, Error=io::Error>>;
 
-    fn call(&self, req: LdapMessage) -> Self::Future {
-        Box::new(self.0.call(req.into()).map(LdapMessage::from))
+    fn call(&self, req: Self::Request) -> Self::Future {
+        Box::new(self.0.call(Message::WithoutBody(req)))
     }
 }

@@ -8,10 +8,10 @@ use asnom::common::TagClass::*;
 use filter::parse;
 
 use futures::{Future, stream, Stream};
+use tokio_proto::streaming::{Body, Message};
 use tokio_service::Service;
 
-use ldap::Ldap;
-use service::{LdapMessage, LdapMessageStream};
+use ldap::{Ldap, LdapOp};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Scope {
@@ -136,15 +136,15 @@ impl Ldap {
             ],
         });
 
-        let fut = self.call(req).and_then(|res| {
+        let fut = self.call(LdapOp::Single(req)).and_then(|res| {
             let ostr = match res {
-                LdapMessage::Stream(first, body) => {
-                    let fstr = stream::once(Ok(first));
-                    fstr.chain(body)
+                Message::WithBody(tag, inner) => {
+                    let fstr = stream::once(Ok(tag));
+                    fstr.chain(inner)
                 },
-                LdapMessage::Once(first) => {
-                    let fstr = stream::once(Ok(first));
-                    fstr.chain(LdapMessageStream::empty())
+                Message::WithoutBody(tag) => {
+                    let fstr = stream::once(Ok(tag));
+                    fstr.chain(Body::empty())
                 },
             };
             ostr.map(|x| SearchEntry::construct(x))

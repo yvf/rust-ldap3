@@ -1,16 +1,14 @@
 use std::io;
 
 use asnom::structures::{Tag, Sequence, Integer, OctetString};
-
 use asnom::common::TagClass::*;
-
 use asnom::structures::ASNTag;
 
 use futures::Future;
+use tokio_proto::streaming::Message;
 use tokio_service::Service;
 
-use ldap::Ldap;
-use service::LdapMessage;
+use ldap::{Ldap, LdapOp};
 
 impl Ldap {
     pub fn simple_bind(&self, dn: String, pw: String) ->
@@ -35,9 +33,9 @@ impl Ldap {
             ],
         });
 
-        let fut = self.call(req).and_then(|res|
+        let fut = self.call(LdapOp::Single(req)).and_then(|res|
             match res {
-                LdapMessage::Once(Tag::StructureTag(tag)) => {
+                Message::WithoutBody(Tag::StructureTag(tag)) => {
                     if let Some(i) = tag.expect_constructed() {
                         return Ok(i[0] == Tag::Integer(Integer {
                             id: 10,
