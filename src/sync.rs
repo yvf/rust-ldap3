@@ -1,10 +1,11 @@
 use std::io;
 use std::net::SocketAddr;
 
+use tokio_core::reactor::Core;
+use tokio_proto::streaming::multiplex::RequestId;
+
 use ldap::Ldap;
 use search::{Scope, DerefAliases, SearchEntry};
-
-use tokio_core::reactor::Core;
 
 pub struct LdapSync {
     inner: Ldap,
@@ -47,5 +48,19 @@ impl LdapSync {
                   filter: String,
                   attrs: Vec<String>) -> io::Result<Vec<SearchEntry>> {
         self.core.run(self.inner.search(base, scope, deref, typesonly, filter, attrs))
+    }
+
+    pub fn streaming_search(&mut self,
+                            base: String,
+                            scope: Scope,
+                            deref: DerefAliases,
+                            typesonly: bool,
+                            filter: String,
+                            attrs: Vec<String>) -> io::Result<RequestId> {
+        self.core.run(self.inner.streaming_search(base, scope, deref, typesonly, filter, attrs))
+    }
+
+    pub fn streaming_chunk(&mut self, id: RequestId) -> io::Result<SearchEntry> {
+        self.core.run(self.inner.streaming_chunk(id))
     }
 }

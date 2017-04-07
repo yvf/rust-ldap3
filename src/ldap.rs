@@ -1,8 +1,11 @@
+use std::cell::RefCell;
 use std::io;
 use std::net::{SocketAddr, ToSocketAddrs};
+use std::rc::Rc;
 
 use asnom::structures::Tag;
 use futures::{future, Future};
+use futures::sync::oneshot;
 use native_tls::TlsConnector;
 use tokio_core::reactor::Handle;
 use tokio_proto::TcpClient;
@@ -12,7 +15,7 @@ use tokio_proto::util::client_proxy::ClientProxy;
 use tokio_service::Service;
 use tokio_tls::proto::Client as TlsClient;
 
-use protocol::LdapProto;
+use protocol::{LdapProto, Exchanges};
 
 pub type RequestMessage = Message<LdapOp, Body<(), io::Error>>;
 pub type ResponseMessage = Message<Tag, Body<Tag, io::Error>>;
@@ -21,22 +24,38 @@ struct ClientMap(ClientProxy<RequestMessage, ResponseMessage, io::Error>);
 
 pub struct Ldap {
     inner: ClientMap,
+    exchanges: Rc<RefCell<Exchanges>>,
+    handle: Handle,
 }
 
 pub enum LdapOp {
     Single(Tag),
-    Streaming(Tag),
-    Chunk(RequestId),
+    Streaming(Tag, oneshot::Sender<RequestId>),
     Cancel(RequestId, Tag),
+}
+
+pub fn ldap_handle(ldap: &Ldap) -> Handle {
+    ldap.handle.clone()
+}
+
+pub fn ldap_exchanges(ldap: &Ldap) -> Rc<RefCell<Exchanges>> {
+    ldap.exchanges.clone()
 }
 
 impl Ldap {
     pub fn connect(addr: &SocketAddr, handle: &Handle) ->
         Box<Future<Item = Ldap, Error = io::Error>> {
-        let ret = TcpClient::new(LdapProto)
+        let proto = LdapProto::new();
+        let exchanges = proto.exchanges();
+        let loop_handle = handle.clone();
+        let ret = TcpClient::new(proto)
             .connect(addr, handle)
             .map(|client_proxy| {
-                Ldap { inner: ClientMap(client_proxy) }
+                Ldap {
+                    inner: ClientMap(client_proxy),
+                    exchanges: exchanges,
+                    handle: loop_handle,
+                }
             });
         Box::new(ret)
     }
@@ -50,13 +69,20 @@ impl Ldap {
         if sockaddr.is_none() {
             return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "no addresses found")));
         }
-        let wrapper = TlsClient::new(LdapProto,
+        let proto = LdapProto::new();
+        let exchanges = proto.exchanges();
+        let loop_handle = handle.clone();
+        let wrapper = TlsClient::new(proto,
             TlsConnector::builder().expect("tls_builder").build().expect("connector"),
             addr.split(':').next().expect("hostname"));
         let ret = TcpClient::new(wrapper)
             .connect(&sockaddr.unwrap(), handle)
             .map(|client_proxy| {
-                Ldap { inner: ClientMap(client_proxy) }
+                Ldap {
+                    inner: ClientMap(client_proxy),
+                    exchanges: exchanges,
+                    handle: loop_handle,
+                }
             });
         Box::new(ret)
     }

@@ -7,11 +7,14 @@ use asnom::common::TagClass::*;
 
 use filter::parse;
 
-use futures::{Future, stream, Stream};
+use futures::{future, Future, stream, Stream};
+use futures::sync::oneshot;
 use tokio_proto::streaming::{Body, Message};
+use tokio_proto::streaming::multiplex::RequestId;
 use tokio_service::Service;
 
-use ldap::{Ldap, LdapOp};
+use ldap::{ldap_exchanges, ldap_handle, Ldap, LdapOp};
+use protocol::StreamingResult;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Scope {
@@ -35,11 +38,13 @@ pub enum SearchEntry {
         object_name: String,
         attributes: HashMap<String, Vec<String>>,
     },
+    Empty
 }
 
 impl SearchEntry {
     pub fn construct(tag: Tag) -> SearchEntry {
         match tag {
+            Tag::Null(_) => SearchEntry::Empty,
             Tag::StructureTag(t) => {
                 match t.id {
                     // Search Result Entry
@@ -154,5 +159,80 @@ impl Ldap {
 
         Box::new(fut)
     }
-}
 
+    pub fn streaming_search(&self,
+                    base: String,
+                    scope: Scope,
+                    deref: DerefAliases,
+                    typesonly: bool,
+                    filter: String,
+                    attrs: Vec<String>) ->
+        Box<Future<Item=RequestId, Error=io::Error>> {
+        let req = Tag::Sequence(Sequence {
+            id: 3,
+            class: Application,
+            inner: vec![
+                   Tag::OctetString(OctetString {
+                       inner: base.into_bytes(),
+                       .. Default::default()
+                   }),
+                   Tag::Integer(Integer {
+                       inner: scope as i64,
+                       .. Default::default()
+                   }),
+                   Tag::Integer(Integer {
+                       inner: deref as i64,
+                       .. Default::default()
+                   }),
+                   Tag::Integer(Integer {
+                       inner: 0,
+                       .. Default::default()
+                   }),
+                   Tag::Integer(Integer {
+                       inner: 0,
+                       .. Default::default()
+                   }),
+                   Tag::Boolean(Boolean {
+                       inner: typesonly,
+                       .. Default::default()
+                   }),
+                   parse(&filter).unwrap(),
+                   Tag::Sequence(Sequence {
+                       inner: attrs.into_iter().map(|s|
+                            Tag::OctetString(OctetString { inner: s.into_bytes(), ..Default::default() })).collect(),
+                       .. Default::default()
+                   })
+            ],
+        });
+
+        let (tx, rx) = oneshot::channel::<RequestId>();
+        let fut = self.call(LdapOp::Streaming(req, tx)).and_then(|res| {
+            let ostr = match res {
+                Message::WithBody(tag, inner) => {
+                    let fstr = stream::once(Ok(tag));
+                    fstr.chain(inner)
+                },
+                Message::WithoutBody(tag) => {
+                    let fstr = stream::once(Ok(tag));
+                    fstr.chain(Body::empty())
+                },
+            };
+            ostr.map(|x| SearchEntry::construct(x))
+                .collect()
+                .and_then(|x| Ok(x))
+        });
+        ldap_handle(self).spawn(fut.then(|_x| Ok(())));
+        let fut = rx.map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)));
+        Box::new(fut)
+    }
+
+    pub fn streaming_chunk(&self, id: RequestId) -> Box<Future<Item=SearchEntry, Error=io::Error>> {
+        let exchanges = ldap_exchanges(self);
+        let fut = match exchanges.borrow_mut().pop_frame(id) {
+            StreamingResult::Entry(tag) => return Box::new(future::ok(SearchEntry::construct(tag))),
+            StreamingResult::Future(rx) => rx.map(|t| SearchEntry::construct(t)).map_err(|_e| io::Error::new(io::ErrorKind::Other, "cancelled")),
+            StreamingResult::Error => return Box::new(future::err(io::Error::new(io::ErrorKind::Other, format!("No id {} in exchange", id)))),
+        };
+        Box::new(fut)
+    }
+}
