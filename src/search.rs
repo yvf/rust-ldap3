@@ -1,5 +1,7 @@
-use std::io;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::io;
+use std::rc::Rc;
 
 use asnom::structure::StructureTag;
 use asnom::structures::{Tag, Sequence, Integer, OctetString, Boolean};
@@ -7,14 +9,19 @@ use asnom::common::TagClass::*;
 
 use filter::parse;
 
-use futures::{future, Future, stream, Stream};
-use futures::sync::oneshot;
-use tokio_proto::streaming::{Body, Message};
-use tokio_proto::streaming::multiplex::RequestId;
+use futures::{Async, Future, Poll, Stream};
+//use futures::{Async, future, Future, Poll, stream, Stream};
+use futures::sync::mpsc;
+//use tokio_proto::streaming::{Body, Message};
+use tokio_proto::multiplex::RequestId;
 use tokio_service::Service;
 
-use ldap::{ldap_exchanges, ldap_handle, Ldap, LdapOp};
-use protocol::StreamingResult;
+//use ldap::{ldap_exchanges, ldap_handle, Ldap, LdapOp};
+//use ldap::handle;
+use ldap::bundle;
+use ldap::{Ldap, LdapOp};
+use protocol::ProtoBundle;
+//use protocol::StreamingResult;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Scope {
@@ -31,6 +38,25 @@ pub enum DerefAliases {
     Always            = 3,
 }
 
+pub struct SearchStream {
+    id: RequestId,
+    bundle: Rc<RefCell<ProtoBundle>>,
+    rx: mpsc::UnboundedReceiver<Tag>,
+}
+
+impl Stream for SearchStream {
+    type Item = Tag;
+    type Error = io::Error;
+
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        let tag = try_ready!(self.rx.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "")));
+        match tag {
+            Some(Tag::StructureTag(StructureTag { class: _, id, payload: _ })) if id == 5 => Ok(Async::Ready(None)),
+            tag => Ok(Async::Ready(tag))
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum SearchEntry {
     Reference(Vec<String>),
@@ -38,13 +64,11 @@ pub enum SearchEntry {
         object_name: String,
         attributes: HashMap<String, Vec<String>>,
     },
-    Empty
 }
 
 impl SearchEntry {
     pub fn construct(tag: Tag) -> SearchEntry {
         match tag {
-            Tag::Null(_) => SearchEntry::Empty,
             Tag::StructureTag(t) => {
                 match t.id {
                     // Search Result Entry
@@ -103,7 +127,9 @@ impl Ldap {
                     typesonly: bool,
                     filter: String,
                     attrs: Vec<String>) ->
-        Box<Future<Item = Vec<SearchEntry>, Error = io::Error>> {
+        //SearchStream {
+        Box<Future<Item=SearchStream, Error=io::Error>> {
+        //Box<Future<Item = Vec<SearchEntry>, Error = io::Error>> {
         let req = Tag::Sequence(Sequence {
             id: 3,
             class: Application,
@@ -141,6 +167,7 @@ impl Ldap {
             ],
         });
 
+        /*
         let fut = self.call(LdapOp::Single(req)).and_then(|res| {
             let ostr = match res {
                 Message::WithBody(tag, inner) => {
@@ -156,10 +183,33 @@ impl Ldap {
                 .collect()
                 .and_then(|x| Ok(x))
         });
-
+        */
+        let (tx, rx) = mpsc::unbounded::<Tag>();
+        let bundle = bundle(self);
+        let fut = self.call(LdapOp::Multi(req, tx.clone())).and_then(move |res| {
+            let id = match res {
+                Tag::Integer(Integer { id: _, class: _, inner }) => inner,
+                _ => unimplemented!(),
+            };
+            Ok(SearchStream {
+                id: id as RequestId,
+                bundle: bundle,
+                rx: rx,
+            })
+        });
         Box::new(fut)
+        /*
+        let fut = self.call(LdapOp::Multi(req, tx.clone()));
+        handle(self).spawn(fut.then(|_x| Ok(())));
+
+        SearchStream {
+            id: 0,
+            rx: rx,
+        }
+        */
     }
 
+    /*
     pub fn streaming_search(&self,
                     base: String,
                     scope: Scope,
@@ -235,4 +285,5 @@ impl Ldap {
         };
         Box::new(fut)
     }
+    */
 }

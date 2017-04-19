@@ -1,6 +1,7 @@
 extern crate asnom;
 
 extern crate bytes;
+#[macro_use]
 extern crate futures;
 #[macro_use]
 extern crate log;
@@ -15,14 +16,14 @@ extern crate tokio_tls;
 extern crate byteorder;
 
 mod ldap;
-mod sync;
+//mod sync;
 mod protocol;
 
-mod bind;
+//mod bind;
 mod search;
 mod filter;
 
 pub use ldap::Ldap;
-pub use sync::LdapSync;
+//pub use sync::LdapSync;
 
 pub use search::{Scope, DerefAliases, SearchEntry};
