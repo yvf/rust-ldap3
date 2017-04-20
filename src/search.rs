@@ -10,18 +10,13 @@ use asnom::common::TagClass::*;
 use filter::parse;
 
 use futures::{Async, Future, Poll, Stream};
-//use futures::{Async, future, Future, Poll, stream, Stream};
 use futures::sync::mpsc;
-//use tokio_proto::streaming::{Body, Message};
 use tokio_proto::multiplex::RequestId;
 use tokio_service::Service;
 
-//use ldap::{ldap_exchanges, ldap_handle, Ldap, LdapOp};
-//use ldap::handle;
 use ldap::bundle;
 use ldap::{Ldap, LdapOp};
 use protocol::ProtoBundle;
-//use protocol::StreamingResult;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Scope {
@@ -41,7 +36,7 @@ pub enum DerefAliases {
 pub struct SearchStream {
     id: RequestId,
     bundle: Rc<RefCell<ProtoBundle>>,
-    rx: mpsc::UnboundedReceiver<Tag>,
+    rx: mpsc::UnboundedReceiver<(Tag, Option<StructureTag>)>,
 }
 
 impl Stream for SearchStream {
@@ -49,10 +44,11 @@ impl Stream for SearchStream {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        let tag = try_ready!(self.rx.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "")));
-        match tag {
-            Some(Tag::StructureTag(StructureTag { class: _, id, payload: _ })) if id == 5 => Ok(Async::Ready(None)),
-            tag => Ok(Async::Ready(tag))
+        let tuple = try_ready!(self.rx.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "")));
+        match tuple {
+            Some((Tag::StructureTag(StructureTag { class: _, id, payload: _ }), _)) if id == 5 => Ok(Async::Ready(None)),
+            Some(tuple) => Ok(Async::Ready(Some(tuple.0))),
+            None => Ok(Async::Ready(None)),
         }
     }
 }
@@ -127,9 +123,7 @@ impl Ldap {
                     typesonly: bool,
                     filter: String,
                     attrs: Vec<String>) ->
-        //SearchStream {
         Box<Future<Item=SearchStream, Error=io::Error>> {
-        //Box<Future<Item = Vec<SearchEntry>, Error = io::Error>> {
         let req = Tag::Sequence(Sequence {
             id: 3,
             class: Application,
@@ -167,28 +161,11 @@ impl Ldap {
             ],
         });
 
-        /*
-        let fut = self.call(LdapOp::Single(req)).and_then(|res| {
-            let ostr = match res {
-                Message::WithBody(tag, inner) => {
-                    let fstr = stream::once(Ok(tag));
-                    fstr.chain(inner)
-                },
-                Message::WithoutBody(tag) => {
-                    let fstr = stream::once(Ok(tag));
-                    fstr.chain(Body::empty())
-                },
-            };
-            ostr.map(|x| SearchEntry::construct(x))
-                .collect()
-                .and_then(|x| Ok(x))
-        });
-        */
-        let (tx, rx) = mpsc::unbounded::<Tag>();
+        let (tx, rx) = mpsc::unbounded::<(Tag, Option<StructureTag>)>();
         let bundle = bundle(self);
         let fut = self.call(LdapOp::Multi(req, tx.clone())).and_then(move |res| {
             let id = match res {
-                Tag::Integer(Integer { id: _, class: _, inner }) => inner,
+                (Tag::Integer(Integer { id: _, class: _, inner }), _) => inner,
                 _ => unimplemented!(),
             };
             Ok(SearchStream {
@@ -197,93 +174,7 @@ impl Ldap {
                 rx: rx,
             })
         });
-        Box::new(fut)
-        /*
-        let fut = self.call(LdapOp::Multi(req, tx.clone()));
-        handle(self).spawn(fut.then(|_x| Ok(())));
 
-        SearchStream {
-            id: 0,
-            rx: rx,
-        }
-        */
-    }
-
-    /*
-    pub fn streaming_search(&self,
-                    base: String,
-                    scope: Scope,
-                    deref: DerefAliases,
-                    typesonly: bool,
-                    filter: String,
-                    attrs: Vec<String>) ->
-        Box<Future<Item=RequestId, Error=io::Error>> {
-        let req = Tag::Sequence(Sequence {
-            id: 3,
-            class: Application,
-            inner: vec![
-                   Tag::OctetString(OctetString {
-                       inner: base.into_bytes(),
-                       .. Default::default()
-                   }),
-                   Tag::Integer(Integer {
-                       inner: scope as i64,
-                       .. Default::default()
-                   }),
-                   Tag::Integer(Integer {
-                       inner: deref as i64,
-                       .. Default::default()
-                   }),
-                   Tag::Integer(Integer {
-                       inner: 0,
-                       .. Default::default()
-                   }),
-                   Tag::Integer(Integer {
-                       inner: 0,
-                       .. Default::default()
-                   }),
-                   Tag::Boolean(Boolean {
-                       inner: typesonly,
-                       .. Default::default()
-                   }),
-                   parse(&filter).unwrap(),
-                   Tag::Sequence(Sequence {
-                       inner: attrs.into_iter().map(|s|
-                            Tag::OctetString(OctetString { inner: s.into_bytes(), ..Default::default() })).collect(),
-                       .. Default::default()
-                   })
-            ],
-        });
-
-        let (tx, rx) = oneshot::channel::<RequestId>();
-        let fut = self.call(LdapOp::Streaming(req, tx)).and_then(|res| {
-            let ostr = match res {
-                Message::WithBody(tag, inner) => {
-                    let fstr = stream::once(Ok(tag));
-                    fstr.chain(inner)
-                },
-                Message::WithoutBody(tag) => {
-                    let fstr = stream::once(Ok(tag));
-                    fstr.chain(Body::empty())
-                },
-            };
-            ostr.map(|x| SearchEntry::construct(x))
-                .collect()
-                .and_then(|x| Ok(x))
-        });
-        ldap_handle(self).spawn(fut.then(|_x| Ok(())));
-        let fut = rx.map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)));
         Box::new(fut)
     }
-
-    pub fn streaming_chunk(&self, id: RequestId) -> Box<Future<Item=SearchEntry, Error=io::Error>> {
-        let exchanges = ldap_exchanges(self);
-        let fut = match exchanges.borrow_mut().pop_frame(id) {
-            StreamingResult::Entry(tag) => return Box::new(future::ok(SearchEntry::construct(tag))),
-            StreamingResult::Future(rx) => rx.map(|t| SearchEntry::construct(t)).map_err(|_e| io::Error::new(io::ErrorKind::Other, "cancelled")),
-            StreamingResult::Error => return Box::new(future::err(io::Error::new(io::ErrorKind::Other, format!("No id {} in exchange", id)))),
-        };
-        Box::new(fut)
-    }
-    */
 }

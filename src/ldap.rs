@@ -3,42 +3,25 @@ use std::io;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::rc::Rc;
 
+use asnom::structure::StructureTag;
 use asnom::structures::Tag;
 use futures::{future, Future};
-//use futures::sync::oneshot;
 use futures::sync::mpsc;
 use native_tls::TlsConnector;
 use tokio_core::net::TcpStream;
 use tokio_core::reactor::Handle;
 use tokio_proto::TcpClient;
-//use tokio_proto::streaming::{Body, Message};
 use tokio_proto::multiplex::{ClientService, RequestId};
-//use tokio_proto::multiplex::{ClientProto, ClientService, RequestId};
-//use tokio_proto::util::client_proxy::ClientProxy;
 use tokio_service::Service;
 use tokio_tls::proto::Client as TlsClient;
 
 use protocol::{LdapProto, ProtoBundle};
-//use protocol::{LdapProto, Exchanges};
 
-//pub type RequestMessage = Message<LdapOp, Body<(), io::Error>>;
-//pub type ResponseMessage = Message<Tag, Body<Tag, io::Error>>;
-//pub type RequestMessage = (RequestId, LdapOp);
-//pub type ResponseMessage = (RequestId, Tag);
-
-//struct ClientMap(ClientProxy<RequestMessage, ResponseMessage, io::Error>);
 enum ClientMap {
     Plain(ClientService<TcpStream, LdapProto>),
     Tls(ClientService<TcpStream, TlsClient<LdapProto>>),
 }
 
-/*
-pub struct Ldap {
-    inner: ClientMap,
-    exchanges: Rc<RefCell<Exchanges>>,
-    handle: Handle,
-}
-*/
 pub struct Ldap {
     inner: ClientMap,
     bundle: Rc<RefCell<ProtoBundle>>,
@@ -48,15 +31,9 @@ pub fn bundle(ldap: &Ldap) -> Rc<RefCell<ProtoBundle>> {
     ldap.bundle.clone()
 }
 
-/*
-pub fn handle(ldap: &Ldap) -> Handle {
-    ldap.bundle.borrow().handle.clone()
-}
-*/
-
 pub enum LdapOp {
     Single(Tag),
-    Multi(Tag, mpsc::UnboundedSender<Tag>),
+    Multi(Tag, mpsc::UnboundedSender<(Tag, Option<StructureTag>)>),
     Cancel(Tag, RequestId),
 }
 
@@ -104,7 +81,7 @@ impl Ldap {
 
 impl Service for Ldap {
     type Request = LdapOp;
-    type Response = Tag;
+    type Response = (Tag, Option<StructureTag>);
     type Error = io::Error;
     type Future = Box<Future<Item=Self::Response, Error=io::Error>>;
 
@@ -115,12 +92,11 @@ impl Service for Ldap {
 
 impl Service for ClientMap {
     type Request = LdapOp;
-    type Response = Tag;
+    type Response = (Tag, Option<StructureTag>);
     type Error = io::Error;
     type Future = Box<Future<Item=Self::Response, Error=io::Error>>;
 
     fn call(&self, req: Self::Request) -> Self::Future {
-        //Box::new(self.0.call(Message::WithoutBody(req)))
         match *self {
             ClientMap::Plain(ref p) => Box::new(p.call(req)),
             ClientMap::Tls(ref t) => Box::new(t.call(req)),
