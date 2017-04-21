@@ -1,8 +1,8 @@
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io;
 use std::rc::Rc;
-use std::u64;
+use std::{i32, u64};
 
 use bytes::BytesMut;
 use futures::sync::mpsc;
@@ -23,9 +23,11 @@ use asnom::write;
 
 use ldap::LdapOp;
 
+pub type LdapRequestId = i32;
+
 pub struct ProtoBundle {
     pub search_helpers: HashMap<RequestId, SearchHelper>,
-    pub id_map: HashSet<LdapRequestId>,
+    pub id_map: HashMap<LdapRequestId, RequestId>,
     pub next_id: LdapRequestId,
     pub handle: Handle,
 }
@@ -34,17 +36,25 @@ impl ProtoBundle {
     fn create_search_helper(&mut self, id: RequestId, tx: mpsc::UnboundedSender<(Tag, Option<StructureTag>)>) {
         self.search_helpers.insert(id, SearchHelper {
             seen: false,
+            msgid: 0,           // not valid, must be properly initialized later
             tx: tx,
         });
+    }
+
+    fn inc_next_id(&mut self) -> LdapRequestId {
+        if self.next_id == i32::MAX {
+            self.next_id = 0;
+        }
+        self.next_id += 1;
+        self.next_id
     }
 }
 
 pub struct SearchHelper {
-    seen: bool,
-    tx: mpsc::UnboundedSender<(Tag, Option<StructureTag>)>,
+    pub seen: bool,
+    pub msgid: LdapRequestId,
+    pub tx: mpsc::UnboundedSender<(Tag, Option<StructureTag>)>,
 }
-
-pub type LdapRequestId = i32;
 
 impl SearchHelper {
     fn send_tag_tuple(&mut self, tuple: (Tag, Option<StructureTag>)) -> io::Result<()> {
@@ -61,7 +71,7 @@ impl Decoder for LdapCodec {
     type Error = io::Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let decoding_error = io::Error::new(io::ErrorKind::Other, "decoding error");
+        let decoding_error = io::Error::new(io::ErrorKind::Other, "Decoding error");
         let mut parser = Parser::new();
         let (amt, tag) = match *parser.handle(Input::Element(buf)) {
             ConsumerState::Continue(_) => return Ok(None),
@@ -92,19 +102,23 @@ impl Decoder for LdapCodec {
         } else {
             (maybe_controls, None)
         };
-        let id = match parse_uint(tags.pop().expect("element")
+        let msgid = match parse_uint(tags.pop().expect("element")
                 .match_class(TagClass::Universal)
                 .and_then(|t| t.match_id(Types::Integer as u64))
                 .and_then(|t| t.expect_primitive()).expect("primitive")
                 .as_slice()) {
-            IResult::Done(_, id) => id,
+            IResult::Done(_, id) => id as i32,
             _ => return Err(decoding_error),
+        };
+        let id = match self.bundle.borrow().id_map.get(&msgid) {
+            Some(&id) => id,
+            None => return Err(io::Error::new(io::ErrorKind::Other, format!("No id found for message id: {}", msgid))),
         };
         match protoop.id {
             4|5|19 => {
                 let null_tag = Tag::Null(Null { ..Default::default() });
                 let id_tag = Tag::Integer(Integer {
-                    inner: id as i64,
+                    inner: msgid as i64,
                     .. Default::default()
                 });
                 let mut bundle = self.bundle.borrow_mut();
@@ -136,19 +150,36 @@ impl Encoder for LdapCodec {
             LdapOp::Multi(tag, tx) => {
                 self.bundle.borrow_mut().create_search_helper(id, tx);
                 tag
-            }
+            },
             _ => unimplemented!(),
         };
-        let outtag = Tag::Sequence(Sequence {
-            inner: vec![
-                Tag::Integer(Integer {
-                    inner: id as i64,
-                    .. Default::default()
-                }),
-                tag,
-            ],
-            .. Default::default()
-        });
+        let outtag = {
+            // tokio-proto ids are u64, and LDAP (client) message ids are i32 > 0,
+            // so we must have wraparound logic and a mapping from the latter to
+            // the former
+            let mut bundle = self.bundle.borrow_mut();
+            let prev_ldap_id = bundle.next_id;
+            let mut next_ldap_id = prev_ldap_id;
+            while bundle.id_map.entry(next_ldap_id).or_insert(id) != &id {
+                next_ldap_id = bundle.inc_next_id();
+                assert_ne!(next_ldap_id, prev_ldap_id, "LDAP message id wraparound with no free slots");
+            }
+            bundle.inc_next_id();
+            match bundle.search_helpers.get_mut(&id) {
+                Some(ref mut helper) => helper.msgid = next_ldap_id,
+                None => (),
+            }
+            Tag::Sequence(Sequence {
+                inner: vec![
+                    Tag::Integer(Integer {
+                        inner: next_ldap_id as i64,
+                        .. Default::default()
+                    }),
+                    tag,
+                ],
+                .. Default::default()
+            })
+        };
         let outstruct = outtag.into_structure();
         trace!("Sending packet: {:?}", &outstruct);
         write::encode_into(into, outstruct)?;
@@ -165,7 +196,7 @@ impl LdapProto {
         LdapProto {
             bundle: Rc::new(RefCell::new(ProtoBundle {
                 search_helpers: HashMap::new(),
-                id_map: HashSet::new(),
+                id_map: HashMap::new(),
                 next_id: 1,
                 handle: handle,
             }))

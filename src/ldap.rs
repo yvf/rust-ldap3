@@ -17,11 +17,13 @@ use tokio_tls::proto::Client as TlsClient;
 
 use protocol::{LdapProto, ProtoBundle};
 
+#[derive(Clone)]
 enum ClientMap {
     Plain(ClientService<TcpStream, LdapProto>),
     Tls(ClientService<TcpStream, TlsClient<LdapProto>>),
 }
 
+#[derive(Clone)]
 pub struct Ldap {
     inner: ClientMap,
     bundle: Rc<RefCell<ProtoBundle>>,

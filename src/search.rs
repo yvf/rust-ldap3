@@ -46,7 +46,16 @@ impl Stream for SearchStream {
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         let tuple = try_ready!(self.rx.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "")));
         match tuple {
-            Some((Tag::StructureTag(StructureTag { class: _, id, payload: _ }), _)) if id == 5 => Ok(Async::Ready(None)),
+            Some((Tag::StructureTag(StructureTag { class: _, id, payload: _ }), _)) if id == 5 => {
+                let mut bundle = self.bundle.borrow_mut();
+                let msgid = match bundle.search_helpers.get(&self.id) {
+                    Some(ref helper) => helper.msgid,
+                    None => return Ok(Async::Ready(None)),
+                };
+                bundle.search_helpers.remove(&self.id);
+                bundle.id_map.remove(&msgid);
+                Ok(Async::Ready(None))
+            }
             Some(tuple) => Ok(Async::Ready(Some(tuple.0))),
             None => Ok(Async::Ready(None)),
         }
