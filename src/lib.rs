@@ -19,7 +19,7 @@ mod ldap;
 //mod sync;
 mod protocol;
 
-//mod bind;
+mod bind;
 mod search;
 mod filter;
 

@@ -54,7 +54,7 @@ impl Stream for SearchStream {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
-            let item = try_ready!(self.rx_i.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "search poll")));
+            let item = try_ready!(self.rx_i.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "poll search stream")));
             match item {
                 Some(SearchItem::Done(_id, mut result, controls)) => {
                     result.refs.extend(self.refs.drain(..));
@@ -84,7 +84,7 @@ impl Stream for SearchStream {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub struct SearchEntry {
     dn: String,
     attrs: HashMap<String, Vec<String>>,

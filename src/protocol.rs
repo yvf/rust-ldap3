@@ -71,6 +71,15 @@ pub struct LdapResult {
     pub refs: Vec<HashSet<String>>,
 }
 
+impl From<Tag> for LdapResult {
+    fn from(t: Tag) -> LdapResult {
+        match t {
+            Tag::StructureTag(t) => t.into(),
+            _ => unimplemented!(),
+        }
+    }
+}
+
 impl From<StructureTag> for LdapResult {
     fn from(t: StructureTag) -> LdapResult {
         let mut tags = t.expect_constructed().expect("result sequence").into_iter();
