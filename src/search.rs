@@ -10,7 +10,7 @@ use asnom::common::TagClass::*;
 use filter::parse;
 
 use futures::{Async, Future, Poll, Stream};
-use futures::sync::mpsc;
+use futures::sync::{mpsc, oneshot};
 use tokio_proto::multiplex::RequestId;
 use tokio_service::Service;
 
@@ -42,20 +42,22 @@ pub enum SearchItem {
 pub struct SearchStream {
     id: RequestId,
     bundle: Rc<RefCell<ProtoBundle>>,
-    rx: mpsc::UnboundedReceiver<SearchItem>,
+    _tx_i: mpsc::UnboundedSender<SearchItem>,
+    rx_i: mpsc::UnboundedReceiver<SearchItem>,
+    tx_r: Option<oneshot::Sender<(LdapResult, Option<StructureTag>)>>,
     refs: Vec<HashSet<String>>,
 }
 
 impl Stream for SearchStream {
-    type Item = Tag;
+    type Item = StructureTag;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
-            let item = try_ready!(self.rx.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "")));
+            let item = try_ready!(self.rx_i.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "search poll")));
             match item {
-                Some(SearchItem::Done(_id, mut _result, _controls)) => {
-                    _result.refs.extend(self.refs.drain(..));
+                Some(SearchItem::Done(_id, mut result, controls)) => {
+                    result.refs.extend(self.refs.drain(..));
                     let mut bundle = self.bundle.borrow_mut();
                     let msgid = match bundle.search_helpers.get(&self.id) {
                         Some(ref helper) => helper.msgid,
@@ -63,9 +65,11 @@ impl Stream for SearchStream {
                     };
                     bundle.search_helpers.remove(&self.id);
                     bundle.id_map.remove(&msgid);
+                    let tx_r = self.tx_r.take().expect("oneshot tx");
+                    tx_r.send((result, controls)).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
                     return Ok(Async::Ready(None));
                 },
-                Some(SearchItem::Entry(tag)) => return Ok(Async::Ready(Some(Tag::StructureTag(tag)))),
+                Some(SearchItem::Entry(tag)) => return Ok(Async::Ready(Some(tag))),
                 Some(SearchItem::Referral(tag)) => {
                     self.refs.push(tag.expect_constructed().expect("referrals").into_iter()
                         .map(|t| t.expect_primitive().expect("octet string"))
@@ -81,65 +85,34 @@ impl Stream for SearchStream {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum SearchEntry {
-    Reference(Vec<String>),
-    Object {
-        object_name: String,
-        attributes: HashMap<String, Vec<String>>,
-    },
+pub struct SearchEntry {
+    dn: String,
+    attrs: HashMap<String, Vec<String>>,
 }
 
 impl SearchEntry {
-    pub fn construct(tag: Tag) -> SearchEntry {
-        match tag {
-            Tag::StructureTag(t) => {
-                match t.id {
-                    // Search Result Entry
-                    // Search Result Done (if the result set is empty)
-                    4|5 => {
-                        let mut tags = t.expect_constructed().unwrap();
-                        let attributes = tags.pop().unwrap();
-                        let object_name = tags.pop().unwrap();
-                        let object_name = String::from_utf8(object_name.expect_primitive().unwrap()).unwrap();
-
-                        let a = construct_attributes(attributes.expect_constructed().unwrap_or(vec![])).unwrap();
-
-                        SearchEntry::Object {
-                            object_name: object_name,
-                            attributes: a,
-                        }
-                    },
-                    // Search Result Reference
-                    19 => {
-                        // TODO actually handle this case
-                        SearchEntry::Reference(vec![])
-                    },
-                    _ => panic!("Search received a non-search tag!"),
-                }
-            }
-            _ => unimplemented!()
+    pub fn construct(tag: StructureTag) -> SearchEntry {
+        let mut tags = tag.match_id(4).and_then(|t| t.expect_constructed()).expect("entry").into_iter();
+        let dn = String::from_utf8(tags.next().expect("element").expect_primitive().expect("octet string"))
+            .expect("dn");
+        let mut attr_vals = HashMap::new();
+        let attrs = tags.next().expect("element").expect_constructed().expect("attrs").into_iter();
+        for a_v in attrs {
+            let mut part_attr = a_v.expect_constructed().expect("partial attribute").into_iter();
+            let a_type = String::from_utf8(part_attr.next().expect("element").expect_primitive().expect("octet string"))
+                .expect("attribute type");
+            let values = part_attr.next().expect("element").expect_constructed().expect("values").into_iter()
+                .map(|t| t.expect_primitive().expect("octet string"))
+                .map(String::from_utf8)
+                .map(|s| s.expect("value"))
+                .collect();
+            attr_vals.insert(a_type, values);
+        }
+        SearchEntry {
+            dn: dn,
+            attrs: attr_vals,
         }
     }
-}
-
-fn construct_attributes(tags: Vec<StructureTag>) -> Option<HashMap<String, Vec<String>>> {
-    let mut map = HashMap::new();
-    for tag in tags.into_iter() {
-        let mut inner = tag.expect_constructed().unwrap();
-
-        let values = inner.pop().unwrap();
-        let valuev = values.expect_constructed().unwrap()
-                           .into_iter()
-                           .map(|t| t.expect_primitive().unwrap())
-                           .map(|v| String::from_utf8(v).unwrap())
-                           .collect();
-        let key = inner.pop().unwrap();
-        let keystr = String::from_utf8(key.expect_primitive().unwrap()).unwrap();
-
-        map.insert(keystr, valuev);
-    }
-
-    Some(map)
 }
 
 impl Ldap {
@@ -150,7 +123,7 @@ impl Ldap {
                     typesonly: bool,
                     filter: String,
                     attrs: Vec<String>) ->
-        Box<Future<Item=SearchStream, Error=io::Error>> {
+        Box<Future<Item=(SearchStream, oneshot::Receiver<(LdapResult, Option<StructureTag>)>), Error=io::Error>> {
         let req = Tag::Sequence(Sequence {
             id: 3,
             class: Application,
@@ -188,19 +161,22 @@ impl Ldap {
             ],
         });
 
-        let (tx, rx) = mpsc::unbounded::<SearchItem>();
+        let (tx_i, rx_i) = mpsc::unbounded::<SearchItem>();
+        let (tx_r, rx_r) = oneshot::channel::<(LdapResult, Option<StructureTag>)>();
         let bundle = bundle(self);
-        let fut = self.call(LdapOp::Multi(req, tx.clone())).and_then(move |res| {
+        let fut = self.call(LdapOp::Multi(req, tx_i.clone())).and_then(move |res| {
             let id = match res {
                 (Tag::Integer(Integer { id: _, class: _, inner }), _) => inner,
                 _ => unimplemented!(),
             };
-            Ok(SearchStream {
+            Ok((SearchStream {
                 id: id as RequestId,
                 bundle: bundle,
-                rx: rx,
+                _tx_i: tx_i,
+                rx_i: rx_i,
+                tx_r: Some(tx_r),
                 refs: Vec::new(),
-            })
+            }, rx_r))
         });
 
         Box::new(fut)

@@ -26,4 +26,5 @@ mod filter;
 pub use ldap::Ldap;
 //pub use sync::LdapSync;
 
-pub use search::{Scope, DerefAliases, SearchEntry};
+pub use search::{DerefAliases, Scope, SearchEntry};
+pub use protocol::LdapResult;

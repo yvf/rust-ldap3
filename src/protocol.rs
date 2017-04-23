@@ -168,7 +168,7 @@ impl Decoder for LdapCodec {
             op_id @ 4 | op_id @ 5 | op_id @ 19 => {
                 let null_tag = Tag::Null(Null { ..Default::default() });
                 let id_tag = Tag::Integer(Integer {
-                    inner: msgid as i64,
+                    inner: id as i64,
                     .. Default::default()
                 });
                 let mut bundle = self.bundle.borrow_mut();
