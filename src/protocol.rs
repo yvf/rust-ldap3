@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::rc::Rc;
 use std::{i32, u64};
@@ -22,6 +22,7 @@ use asnom::universal::Types;
 use asnom::write;
 
 use ldap::LdapOp;
+use search::SearchItem;
 
 pub type LdapRequestId = i32;
 
@@ -33,7 +34,7 @@ pub struct ProtoBundle {
 }
 
 impl ProtoBundle {
-    fn create_search_helper(&mut self, id: RequestId, tx: mpsc::UnboundedSender<(Tag, Option<StructureTag>)>) {
+    fn create_search_helper(&mut self, id: RequestId, tx: mpsc::UnboundedSender<SearchItem>) {
         self.search_helpers.insert(id, SearchHelper {
             seen: false,
             msgid: 0,           // not valid, must be properly initialized later
@@ -53,12 +54,61 @@ impl ProtoBundle {
 pub struct SearchHelper {
     pub seen: bool,
     pub msgid: LdapRequestId,
-    pub tx: mpsc::UnboundedSender<(Tag, Option<StructureTag>)>,
+    pub tx: mpsc::UnboundedSender<SearchItem>,
 }
 
 impl SearchHelper {
-    fn send_tag_tuple(&mut self, tuple: (Tag, Option<StructureTag>)) -> io::Result<()> {
-        self.tx.send(tuple).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)))
+    fn send_item(&mut self, item: SearchItem) -> io::Result<()> {
+        self.tx.send(item).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)))
+    }
+}
+
+#[derive(Debug)]
+pub struct LdapResult {
+    pub rc: u8,
+    pub matched: String,
+    pub text: String,
+    pub refs: Vec<HashSet<String>>,
+}
+
+impl From<StructureTag> for LdapResult {
+    fn from(t: StructureTag) -> LdapResult {
+        let mut tags = t.expect_constructed().expect("result sequence").into_iter();
+        let rc = match parse_uint(tags.next().expect("element")
+                .match_class(TagClass::Universal)
+                .and_then(|t| t.match_id(Types::Enumerated as u64))
+                .and_then(|t| t.expect_primitive()).expect("result code")
+                .as_slice()) {
+            IResult::Done(_, rc) => rc as u8,
+            _ => panic!("failed to parse result code"),
+        };
+        let matched = String::from_utf8(tags.next().expect("element").expect_primitive().expect("octet string"))
+            .expect("matched dn");
+        let text = String::from_utf8(tags.next().expect("element").expect_primitive().expect("octet string"))
+            .expect("diagnostic message");
+        let mut refs = Vec::new();
+        match tags.next() {
+            None => (),
+            Some(raw_refs) => {
+                let raw_refs = match raw_refs.match_class(TagClass::Context)
+                        .and_then(|t| t.match_id(3))
+                        .and_then(|t| t.expect_constructed()) {
+                    Some(rr) => rr,
+                    None => panic!("failed to parse referrals"),
+                };
+                refs.push(raw_refs.into_iter()
+                    .map(|t| t.expect_primitive().expect("octet string"))
+                    .map(String::from_utf8)
+                    .map(|s| s.expect("uri"))
+                    .collect());
+            },
+        }
+        LdapResult {
+            rc: rc,
+            matched: matched,
+            text: text,
+            refs: refs,
+        }
     }
 }
 
@@ -105,7 +155,7 @@ impl Decoder for LdapCodec {
         let msgid = match parse_uint(tags.pop().expect("element")
                 .match_class(TagClass::Universal)
                 .and_then(|t| t.match_id(Types::Integer as u64))
-                .and_then(|t| t.expect_primitive()).expect("primitive")
+                .and_then(|t| t.expect_primitive()).expect("message id")
                 .as_slice()) {
             IResult::Done(_, id) => id as i32,
             _ => return Err(decoding_error),
@@ -115,7 +165,7 @@ impl Decoder for LdapCodec {
             None => return Err(io::Error::new(io::ErrorKind::Other, format!("No id found for message id: {}", msgid))),
         };
         match protoop.id {
-            4|5|19 => {
+            op_id @ 4 | op_id @ 5 | op_id @ 19 => {
                 let null_tag = Tag::Null(Null { ..Default::default() });
                 let id_tag = Tag::Integer(Integer {
                     inner: msgid as i64,
@@ -126,7 +176,12 @@ impl Decoder for LdapCodec {
                     Some(h) => h,
                     None => return Err(io::Error::new(io::ErrorKind::Other, format!("Id mismatch: {}", id))),
                 };
-                helper.send_tag_tuple((Tag::StructureTag(protoop), controls))?;
+                helper.send_item(match op_id {
+                    4 => SearchItem::Entry(protoop),
+                    5 => SearchItem::Done(id, protoop.into(), controls),
+                    19 => SearchItem::Referral(protoop),
+                    _ => panic!("impossible op_id"),
+                })?;
                 if helper.seen {
                     Ok(Some((u64::MAX, (null_tag, None))))
                 } else {

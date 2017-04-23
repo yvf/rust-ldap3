@@ -16,6 +16,7 @@ use tokio_service::Service;
 use tokio_tls::proto::Client as TlsClient;
 
 use protocol::{LdapProto, ProtoBundle};
+use search::SearchItem;
 
 #[derive(Clone)]
 enum ClientMap {
@@ -35,7 +36,7 @@ pub fn bundle(ldap: &Ldap) -> Rc<RefCell<ProtoBundle>> {
 
 pub enum LdapOp {
     Single(Tag),
-    Multi(Tag, mpsc::UnboundedSender<(Tag, Option<StructureTag>)>),
+    Multi(Tag, mpsc::UnboundedSender<SearchItem>),
     Cancel(Tag, RequestId),
 }
 

@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::rc::Rc;
 
@@ -16,7 +16,7 @@ use tokio_service::Service;
 
 use ldap::bundle;
 use ldap::{Ldap, LdapOp};
-use protocol::ProtoBundle;
+use protocol::{LdapResult, ProtoBundle};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Scope {
@@ -33,10 +33,17 @@ pub enum DerefAliases {
     Always            = 3,
 }
 
+pub enum SearchItem {
+    Entry(StructureTag),
+    Referral(StructureTag),
+    Done(RequestId, LdapResult, Option<StructureTag>),
+}
+
 pub struct SearchStream {
     id: RequestId,
     bundle: Rc<RefCell<ProtoBundle>>,
-    rx: mpsc::UnboundedReceiver<(Tag, Option<StructureTag>)>,
+    rx: mpsc::UnboundedReceiver<SearchItem>,
+    refs: Vec<HashSet<String>>,
 }
 
 impl Stream for SearchStream {
@@ -44,20 +51,31 @@ impl Stream for SearchStream {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        let tuple = try_ready!(self.rx.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "")));
-        match tuple {
-            Some((Tag::StructureTag(StructureTag { class: _, id, payload: _ }), _)) if id == 5 => {
-                let mut bundle = self.bundle.borrow_mut();
-                let msgid = match bundle.search_helpers.get(&self.id) {
-                    Some(ref helper) => helper.msgid,
-                    None => return Ok(Async::Ready(None)),
-                };
-                bundle.search_helpers.remove(&self.id);
-                bundle.id_map.remove(&msgid);
-                Ok(Async::Ready(None))
+        loop {
+            let item = try_ready!(self.rx.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "")));
+            match item {
+                Some(SearchItem::Done(_id, mut _result, _controls)) => {
+                    _result.refs.extend(self.refs.drain(..));
+                    let mut bundle = self.bundle.borrow_mut();
+                    let msgid = match bundle.search_helpers.get(&self.id) {
+                        Some(ref helper) => helper.msgid,
+                        None => return Ok(Async::Ready(None)),
+                    };
+                    bundle.search_helpers.remove(&self.id);
+                    bundle.id_map.remove(&msgid);
+                    return Ok(Async::Ready(None));
+                },
+                Some(SearchItem::Entry(tag)) => return Ok(Async::Ready(Some(Tag::StructureTag(tag)))),
+                Some(SearchItem::Referral(tag)) => {
+                    self.refs.push(tag.expect_constructed().expect("referrals").into_iter()
+                        .map(|t| t.expect_primitive().expect("octet string"))
+                        .map(String::from_utf8)
+                        .map(|s| s.expect("uri"))
+                        .collect());
+                    continue;
+                },
+                None => return Ok(Async::Ready(None)),
             }
-            Some(tuple) => Ok(Async::Ready(Some(tuple.0))),
-            None => Ok(Async::Ready(None)),
         }
     }
 }
@@ -170,7 +188,7 @@ impl Ldap {
             ],
         });
 
-        let (tx, rx) = mpsc::unbounded::<(Tag, Option<StructureTag>)>();
+        let (tx, rx) = mpsc::unbounded::<SearchItem>();
         let bundle = bundle(self);
         let fut = self.call(LdapOp::Multi(req, tx.clone())).and_then(move |res| {
             let id = match res {
@@ -181,6 +199,7 @@ impl Ldap {
                 id: id as RequestId,
                 bundle: bundle,
                 rx: rx,
+                refs: Vec::new(),
             })
         });
 
