@@ -20,6 +20,7 @@ mod ldap;
 mod protocol;
 
 mod bind;
+mod conn;
 mod search;
 mod filter;
 
@@ -28,3 +29,4 @@ pub use ldap::Ldap;
 
 pub use search::{DerefAliases, Scope, SearchEntry};
 pub use protocol::LdapResult;
+pub use conn::LdapConn;
