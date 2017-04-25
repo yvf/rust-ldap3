@@ -1,6 +1,7 @@
 extern crate asnom;
 
 extern crate bytes;
+extern crate byteorder;
 #[macro_use]
 extern crate futures;
 #[macro_use]
@@ -13,7 +14,7 @@ extern crate tokio_io;
 extern crate tokio_proto;
 extern crate tokio_service;
 extern crate tokio_tls;
-extern crate byteorder;
+extern crate url;
 
 mod ldap;
 //mod sync;
