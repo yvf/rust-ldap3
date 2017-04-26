@@ -3,10 +3,12 @@ use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 
 use futures::{Async, Future, Poll};
 use futures::future::Shared;
-use tokio_core::reactor::Handle;
+use tokio_core::reactor::{Core, Handle};
 use url::{Host, Url};
 
+use asnom::structure::StructureTag;
 use ldap::Ldap;
+use protocol::LdapResult;
 
 struct LdapWrapper {
     inner: Ldap,
@@ -38,12 +40,33 @@ impl LdapWrapper {
     }
 }
 
-#[derive(Clone)]
 pub struct LdapConn {
-    in_progress: Shared<Box<Future<Item=LdapWrapper, Error=io::Error>>>,
+    core: Core,
+    inner: Ldap,
 }
 
 impl LdapConn {
+    pub fn new(url: &str) -> io::Result<Self> {
+        let mut core = Core::new()?;
+        let conn = LdapConnAsync::new(url, &core.handle())?;
+        let ldap = core.run(conn)?;
+        Ok(LdapConn {
+            core: core,
+            inner: ldap,
+        })
+    }
+
+    pub fn simple_bind(&mut self, bind_dn: &str, bind_pw: &str) -> io::Result<(LdapResult, Option<StructureTag>)> {
+        Ok(self.core.run(self.inner.clone().simple_bind(bind_dn, bind_pw))?)
+    }
+}
+
+#[derive(Clone)]
+pub struct LdapConnAsync {
+    in_progress: Shared<Box<Future<Item=LdapWrapper, Error=io::Error>>>,
+}
+
+impl LdapConnAsync {
     pub fn new(url: &str, handle: &Handle) -> io::Result<Self> {
         let url = Url::parse(url).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))?;
         let mut port = 389;
@@ -73,7 +96,7 @@ impl LdapConn {
             }
             _ => None,
         };
-        Ok(LdapConn {
+        Ok(LdapConnAsync {
             in_progress: match scheme {
                 "ldap" => LdapWrapper::connect(&addr.expect("addr"), &handle).shared(),
                 "ldaps" => LdapWrapper::connect_ssl(&host_port, &handle).shared(),
@@ -83,7 +106,7 @@ impl LdapConn {
     }
 }
 
-impl Future for LdapConn {
+impl Future for LdapConnAsync {
     type Item = Ldap;
     type Error = io::Error;
 

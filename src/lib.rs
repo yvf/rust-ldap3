@@ -16,18 +16,14 @@ extern crate tokio_service;
 extern crate tokio_tls;
 extern crate url;
 
-mod ldap;
-//mod sync;
-mod protocol;
-
 mod bind;
 mod conn;
+mod ldap;
+mod protocol;
 mod search;
 mod filter;
 
+pub use conn::{LdapConn, LdapConnAsync};
 pub use ldap::Ldap;
-//pub use sync::LdapSync;
-
-pub use search::{DerefAliases, Scope, SearchEntry};
 pub use protocol::LdapResult;
-pub use conn::LdapConn;
+pub use search::{DerefAliases, Scope, SearchEntry};
