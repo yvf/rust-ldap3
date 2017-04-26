@@ -27,10 +27,10 @@ pub enum Scope {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DerefAliases {
-    Never             = 0,
-    InSearch          = 1,
-    FindingBaseObject = 2,
-    Always            = 3,
+    Never     = 0,
+    Searching = 1,
+    Finding   = 2,
+    Always    = 3,
 }
 
 pub enum SearchItem {
