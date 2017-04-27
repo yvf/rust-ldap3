@@ -117,6 +117,10 @@ impl LdapConn {
     pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: S, attrs: Vec<(S, HashSet<S>)>) -> io::Result<(LdapResult, Option<StructureTag>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().add(dn, attrs))?)
     }
+
+    pub fn delete<S: AsRef<str>>(&self, dn: S) -> io::Result<(LdapResult, Option<StructureTag>)> {
+        Ok(self.core.borrow_mut().run(self.inner.clone().delete(dn))?)
+    }
 }
 
 #[derive(Clone)]

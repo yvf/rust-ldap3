@@ -108,7 +108,7 @@ In order of appearance in the RFC:
 - [x] Search
 - [ ] Modify
 - [x] Add
-- [ ] Delete
+- [x] Delete
 - [ ] ModifyDN
 - [ ] Compare
 - [ ] Abandon
