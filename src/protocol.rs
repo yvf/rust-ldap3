@@ -59,7 +59,7 @@ pub struct SearchHelper {
 
 impl SearchHelper {
     fn send_item(&mut self, item: SearchItem) -> io::Result<()> {
-        self.tx.send(item).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)))
+        self.tx.send(item).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))
     }
 }
 

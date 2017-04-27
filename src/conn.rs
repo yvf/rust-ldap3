@@ -1,14 +1,18 @@
+use std::cell::RefCell;
 use std::io;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
+use std::rc::Rc;
 
-use futures::{Async, Future, Poll};
+use futures::{Async, Future, Poll, Stream};
 use futures::future::Shared;
+use futures::sync::oneshot;
 use tokio_core::reactor::{Core, Handle};
 use url::{Host, Url};
 
 use asnom::structure::StructureTag;
 use ldap::Ldap;
 use protocol::LdapResult;
+use search::{SearchOptions, SearchStream, Scope};
 
 struct LdapWrapper {
     inner: Ldap,
@@ -40,8 +44,35 @@ impl LdapWrapper {
     }
 }
 
+pub struct EntryStream {
+    core: Rc<RefCell<Core>>,
+    strm: Option<SearchStream>,
+    rx_r: Option<oneshot::Receiver<(LdapResult, Option<StructureTag>)>>,
+}
+
+impl EntryStream {
+    pub fn next(&mut self) -> io::Result<Option<StructureTag>> {
+        let strm = self.strm.take();
+        if strm.is_none() {
+            return Err(io::Error::new(io::ErrorKind::Other, "cannot fetch from an invalid stream"));
+        }
+        let (tag, strm) = self.core.borrow_mut().run(strm.expect("stream").into_future()).map_err(|e| e.0)?;
+        self.strm = Some(strm);
+        Ok(tag)
+    }
+
+    pub fn result(&mut self) -> io::Result<(LdapResult, Option<StructureTag>)> {
+        if self.strm.is_none() {
+            return Err(io::Error::new(io::ErrorKind::Other, "cannot return result from an invalid stream"));
+        }
+        let rx_r = self.rx_r.take().expect("oneshot rx");
+        let res = self.core.borrow_mut().run(rx_r).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))?;
+        Ok(res)
+    }
+}
+
 pub struct LdapConn {
-    core: Core,
+    core: Rc<RefCell<Core>>,
     inner: Ldap,
 }
 
@@ -51,13 +82,33 @@ impl LdapConn {
         let conn = LdapConnAsync::new(url, &core.handle())?;
         let ldap = core.run(conn)?;
         Ok(LdapConn {
-            core: core,
+            core: Rc::new(RefCell::new(core)),
             inner: ldap,
         })
     }
 
-    pub fn simple_bind(&mut self, bind_dn: &str, bind_pw: &str) -> io::Result<(LdapResult, Option<StructureTag>)> {
-        Ok(self.core.run(self.inner.clone().simple_bind(bind_dn, bind_pw))?)
+    pub fn simple_bind(&self, bind_dn: &str, bind_pw: &str) -> io::Result<(LdapResult, Option<StructureTag>)> {
+        Ok(self.core.borrow_mut().run(self.inner.clone().simple_bind(bind_dn, bind_pw))?)
+    }
+
+    pub fn with_search_options(&self, opts: SearchOptions) -> &Self {
+        self.inner.with_search_options(opts);
+        self
+    }
+
+    pub fn search(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<&str>) -> io::Result<(Vec<StructureTag>, LdapResult, Option<StructureTag>)> {
+        let srch = self.inner.clone().search(base, scope, filter, attrs)
+            .and_then(|(strm, rx_r)| {
+                rx_r.map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))
+                    .join(strm.collect())
+            });
+        let ((result, controls), result_set) = self.core.borrow_mut().run(srch)?;
+        Ok((result_set, result, controls))
+    }
+
+    pub fn streaming_search(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<&str>) -> io::Result<EntryStream> {
+        let (strm, rx_r) = self.core.borrow_mut().run(self.inner.clone().search(base, scope, filter, attrs))?;
+        Ok(EntryStream { core: self.core.clone(), strm: Some(strm), rx_r: Some(rx_r) })
     }
 }
 

@@ -14,7 +14,7 @@ use futures::sync::{mpsc, oneshot};
 use tokio_proto::multiplex::RequestId;
 use tokio_service::Service;
 
-use ldap::bundle;
+use ldap::{bundle, next_search_options};
 use ldap::{Ldap, LdapOp};
 use protocol::{LdapResult, ProtoBundle};
 
@@ -115,21 +115,57 @@ impl SearchEntry {
     }
 }
 
+pub struct SearchOptions {
+    deref: DerefAliases,
+    typesonly: bool,
+    timelimit: i32,
+    sizelimit: i32,
+}
+
+impl SearchOptions {
+    pub fn new() -> Self {
+        SearchOptions {
+            deref: DerefAliases::Never,
+            typesonly: false,
+            timelimit: 0,
+            sizelimit: 0,
+        }
+    }
+
+    pub fn deref(mut self, d: DerefAliases) -> Self {
+        self.deref = d;
+        self
+    }
+
+    pub fn typesonly(mut self, typesonly: bool) -> Self {
+        self.typesonly = typesonly;
+        self
+    }
+
+    pub fn timelimit(mut self, timelimit: i32) -> Self {
+        self.timelimit = timelimit;
+        self
+    }
+
+    pub fn sizelimit(mut self, sizelimit: i32) -> Self {
+        self.sizelimit = sizelimit;
+        self
+    }
+}
+
 impl Ldap {
-    pub fn search(&self,
-                    base: String,
-                    scope: Scope,
-                    deref: DerefAliases,
-                    typesonly: bool,
-                    filter: String,
-                    attrs: Vec<String>) ->
+    pub fn search(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<&str>) ->
         Box<Future<Item=(SearchStream, oneshot::Receiver<(LdapResult, Option<StructureTag>)>), Error=io::Error>> {
+        let opts = match next_search_options(self) {
+            Some(opts) => opts,
+            None => SearchOptions::new(),
+        };
         let req = Tag::Sequence(Sequence {
             id: 3,
             class: Application,
             inner: vec![
                    Tag::OctetString(OctetString {
-                       inner: base.into_bytes(),
+                       inner: Vec::from(base.as_bytes()),
                        .. Default::default()
                    }),
                    Tag::Integer(Integer {
@@ -137,25 +173,25 @@ impl Ldap {
                        .. Default::default()
                    }),
                    Tag::Integer(Integer {
-                       inner: deref as i64,
+                       inner: opts.deref as i64,
                        .. Default::default()
                    }),
                    Tag::Integer(Integer {
-                       inner: 0,
+                       inner: opts.sizelimit as i64,
                        .. Default::default()
                    }),
                    Tag::Integer(Integer {
-                       inner: 0,
+                       inner: opts.timelimit as i64,
                        .. Default::default()
                    }),
                    Tag::Boolean(Boolean {
-                       inner: typesonly,
+                       inner: opts.typesonly,
                        .. Default::default()
                    }),
-                   parse(&filter).unwrap(),
+                   parse(filter).unwrap(),
                    Tag::Sequence(Sequence {
                        inner: attrs.into_iter().map(|s|
-                            Tag::OctetString(OctetString { inner: s.into_bytes(), ..Default::default() })).collect(),
+                            Tag::OctetString(OctetString { inner: Vec::from(s.as_bytes()), ..Default::default() })).collect(),
                        .. Default::default()
                    })
             ],

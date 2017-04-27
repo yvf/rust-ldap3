@@ -23,7 +23,7 @@ mod protocol;
 mod search;
 mod filter;
 
-pub use conn::{LdapConn, LdapConnAsync};
+pub use conn::{EntryStream, LdapConn, LdapConnAsync};
 pub use ldap::Ldap;
 pub use protocol::LdapResult;
-pub use search::{DerefAliases, Scope, SearchEntry};
+pub use search::{DerefAliases, Scope, SearchEntry, SearchOptions};

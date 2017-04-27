@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::io;
+use std::{io, mem};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::rc::Rc;
 
@@ -16,7 +16,7 @@ use tokio_service::Service;
 use tokio_tls::proto::Client as TlsClient;
 
 use protocol::{LdapProto, ProtoBundle};
-use search::SearchItem;
+use search::{SearchItem, SearchOptions};
 
 #[derive(Clone)]
 enum ClientMap {
@@ -28,10 +28,16 @@ enum ClientMap {
 pub struct Ldap {
     inner: ClientMap,
     bundle: Rc<RefCell<ProtoBundle>>,
+    next_search_options: Rc<RefCell<Option<SearchOptions>>>,
+    _next_req_controls: Rc<RefCell<Option<Vec<StructureTag>>>>,
 }
 
 pub fn bundle(ldap: &Ldap) -> Rc<RefCell<ProtoBundle>> {
     ldap.bundle.clone()
+}
+
+pub fn next_search_options(ldap: &Ldap) -> Option<SearchOptions> {
+    ldap.next_search_options.borrow_mut().take()
 }
 
 pub enum LdapOp {
@@ -51,6 +57,8 @@ impl Ldap {
                 Ldap {
                     inner: ClientMap::Plain(client_proxy),
                     bundle: bundle,
+                    next_search_options: Rc::new(RefCell::new(None)),
+                    _next_req_controls: Rc::new(RefCell::new(None)),
                 }
             });
         Box::new(ret)
@@ -76,9 +84,16 @@ impl Ldap {
                 Ldap {
                     inner: ClientMap::Tls(client_proxy),
                     bundle: bundle,
+                    next_search_options: Rc::new(RefCell::new(None)),
+                    _next_req_controls: Rc::new(RefCell::new(None)),
                 }
             });
         Box::new(ret)
+    }
+
+    pub fn with_search_options(&self, opts: SearchOptions) -> &Self {
+        mem::replace(&mut *self.next_search_options.borrow_mut(), Some(opts));
+        self
     }
 }
 
