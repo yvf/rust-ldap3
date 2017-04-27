@@ -8,7 +8,7 @@ pub mod null;
 pub mod explicit;
 
 // Reexport everything
-pub use self::integer::Integer;
+pub use self::integer::{Enumerated, Integer};
 pub use self::sequence::{Sequence, SequenceOf, Set, SetOf};
 pub use self::octetstring::OctetString;
 pub use self::boolean::Boolean;
@@ -29,6 +29,7 @@ pub trait ASNTag {
 /// This enum does not cover all ASN.1 Types but only the types needed for LDAPv3.
 pub enum Tag {
     Integer(integer::Integer),
+    Enumerated(integer::Enumerated),
     Sequence(sequence::Sequence),
     Set(sequence::Set),
     OctetString(octetstring::OctetString),
@@ -42,6 +43,7 @@ impl ASNTag for Tag {
     fn into_structure(self) -> structure::StructureTag {
         match self {
             Tag::Integer(i)      => i.into_structure(),
+            Tag::Enumerated(i)   => i.into_structure(),
             Tag::Sequence(i)     => i.into_structure(),
             Tag::Set(i)          => i.into_structure(),
             Tag::OctetString(i)  => i.into_structure(),
