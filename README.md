@@ -1,44 +1,124 @@
-<p align="center">
-  <h1>rust-ldap</h1>
-  <br>
+# LDAPv3 client library
 
-  A Pure-Rust LDAP Library using Tokio & Futures.
-  <br>
+A pure-Rust LDAP library using the Tokio stack.
 
-  <a href="https://crates.io/crates/ldap">
-      <img src="https://img.shields.io/crates/d/ldap.svg" alt="rust-ldap on crates.io">
-  </a>
-  <a href="https://docs.rs/ldap">
-      <img src="https://docs.rs/ldap/badge.svg" alt="docs: release versions documentation">
-  </a>
-</p>
+The library can be used either synchronously or asynchronously. The aim is to
+offer essentially the same call interface for both flavors, with the necessary
+differences in interaction and return values according to the nature of I/O.
 
-Feel free to join #rust-ldap on Mozilla IRC for questions & general chat.
+## Usage
 
+First, add this to your `Cargo.toml`:
 
-### RFC compliance
+```toml
+[dependencies.ldap3]
+version = "0.4.0"
+```
 
-- [x] Bind (4.2)
-- [ ] Unbind (4.3)
-- [ ] Search (4.5)
-- [ ] Modify (4.6)
-- [ ] Add (4.7)
-- [ ] Delete (4.8)
-- [ ] Modify DN (4.9)
-- [ ] Compare (4.10)
-- [ ] Abandon (4.11)
-- [ ] Extended Operation (4.12)
-- [ ] TLS / STARTTLS (4.14 / 5)
+Next, add this to your crate root (`src/lib.rs` or `src/main.rs`):
 
-### rfc4515 (Search Filter String Representation)
+```toml
+extern crate ldap3;
+```
 
-The search filter crate [has moved](https://github.com/dequbed/rfc4515).
+### Synchronous example
+
+```rust
+extern crate ldap3;
+
+use ldap3::{LdapConn, Scope, SearchEntry};
+
+fn main() {
+    let ldap = LdapConn::new("ldap://ldap.example.org").expect("ldap conn");
+
+    let (result_set, result, _controls) = ldap.search(
+        "ou=People,dc=example,dc=org",
+        Scope::Subtree,
+        "objectClass=inetOrgPerson",
+        vec!["uid"]
+    ).expect("all results");
+
+    println!("{:?}", result);
+    for entry in result_set {
+        println!("{:?}", SearchEntry::construct(entry));
+    }
+}
+```
+
+### Asynchronous example
+
+```rust
+extern crate futures;
+extern crate ldap3;
+extern crate tokio_core;
+
+use std::io;
+
+use futures::{Future, Stream};
+use ldap::{LdapConnAsync, Scope, SearchEntry};
+use tokio_core::reactor::Core;
+
+fn main() {
+    let mut core = Core::new().expect("core");
+    let handle = core.handle();
+
+    let ldap = LdapConnAsync::new("ldaps://ldap.example.org", &handle).expect("ldap conn");
+    let srch = ldap
+        .and_then(|ldap| {
+            ldap.search(
+                "ou=People,dc=example,dc=org",
+                Scope::Subtree,
+                "objectClass=inetOrgPerson",
+                vec!["uid"])
+        })
+        .and_then(|(strm, rx)| {
+            rx.map_err(|_e| io::Error::from(io::ErrorKind::Other))
+                .join(strm.for_each(move |tag| {
+                    println!("{:?}", SearchEntry::construct(tag));
+                    Ok(())
+                }))
+        });
+
+    let ((result, _controls), _) = core.run(srch).expect("op result");
+    println!("{:?}", result);
+}
+```
+
+## Status
+
+All basic operations should appear soon, as well as the support for request
+controls. Once that's in place, the driver should be well equipped for the
+majority of uses, albeit lacking the automated handling of several common
+scenarios, such as referral chasing and paged result handling. Those two are
+high on the list of development priorities.
+
+TLS support exists for the case of immediate negotiation (aka __ldaps://__.)
+Caveat: certificate and hostname checking __can't be turned off__, as this
+depends on the `native-tls` crate, which is still very young and has patchy
+support for handling unorthodox or broken crypto.
+
+StartTLS will probably be supported in the medium term. Patches are welcome.
+
+### Implemented operations
+
+In order of appearance in the RFC:
+
+- [x] Bind
+- [ ] Unbind
+- [x] Search
+- [ ] Modify
+- [ ] Add
+- [ ] Delete
+- [ ] ModifyDN
+- [ ] Compare
+- [ ] Abandon
+- [ ] Extended
 
 ## License
 
-Licensed under either of
+Licensed under either of:
 
- * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+ * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE)), or
+ * MIT license ([LICENSE-MIT](LICENSE-MIT))
 
 at your option.
