@@ -130,7 +130,7 @@ impl Decoder for LdapCodec {
     type Error = io::Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let decoding_error = io::Error::new(io::ErrorKind::Other, "Decoding error");
+        let decoding_error = io::Error::new(io::ErrorKind::Other, "decoding error");
         let mut parser = Parser::new();
         let (amt, tag) = match *parser.handle(Input::Element(buf)) {
             ConsumerState::Continue(_) => return Ok(None),
@@ -171,7 +171,7 @@ impl Decoder for LdapCodec {
         };
         let id = match self.bundle.borrow().id_map.get(&msgid) {
             Some(&id) => id,
-            None => return Err(io::Error::new(io::ErrorKind::Other, format!("No id found for message id: {}", msgid))),
+            None => return Err(io::Error::new(io::ErrorKind::Other, format!("no id found for message id: {}", msgid))),
         };
         match protoop.id {
             op_id @ 4 | op_id @ 5 | op_id @ 19 => {
@@ -183,7 +183,7 @@ impl Decoder for LdapCodec {
                 let mut bundle = self.bundle.borrow_mut();
                 let mut helper = match bundle.search_helpers.get_mut(&id) {
                     Some(h) => h,
-                    None => return Err(io::Error::new(io::ErrorKind::Other, format!("Id mismatch: {}", id))),
+                    None => return Err(io::Error::new(io::ErrorKind::Other, format!("id mismatch: {}", id))),
                 };
                 helper.send_item(match op_id {
                     4 => SearchItem::Entry(protoop),
