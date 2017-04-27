@@ -17,7 +17,7 @@ version = "0.4.0"
 
 Next, add this to your crate root (`src/lib.rs` or `src/main.rs`):
 
-```toml
+```rust
 extern crate ldap3;
 ```
 
@@ -103,7 +103,7 @@ StartTLS will probably be supported in the medium term. Patches are welcome.
 
 In order of appearance in the RFC:
 
-- [x] Bind
+- [x] Bind (simple)
 - [ ] Unbind
 - [x] Search
 - [ ] Modify
