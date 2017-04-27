@@ -5,7 +5,7 @@ use std::io;
 use std::rc::Rc;
 
 use asnom::structure::StructureTag;
-use asnom::structures::{Tag, Sequence, Integer, OctetString, Boolean};
+use asnom::structures::{Boolean, Enumerated, Integer, OctetString, Sequence, Tag};
 use asnom::common::TagClass::*;
 
 use filter::parse;
@@ -169,11 +169,11 @@ impl Ldap {
                        inner: Vec::from(base.as_bytes()),
                        .. Default::default()
                    }),
-                   Tag::Integer(Integer {
+                   Tag::Enumerated(Enumerated {
                        inner: scope as i64,
                        .. Default::default()
                    }),
-                   Tag::Integer(Integer {
+                   Tag::Enumerated(Enumerated {
                        inner: opts.deref as i64,
                        .. Default::default()
                    }),
