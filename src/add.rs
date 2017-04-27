@@ -14,7 +14,7 @@ use ldap::{Ldap, LdapOp};
 use protocol::LdapResult;
 
 impl Ldap {
-    pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: S, attrs: Vec<(S, HashSet<S>)>) ->
+    pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: &str, attrs: Vec<(S, HashSet<S>)>) ->
         Box<Future<Item=(LdapResult, Option<StructureTag>), Error=io::Error>> {
         let mut any_empty = false;
         let req = Tag::Sequence(Sequence {
@@ -22,7 +22,7 @@ impl Ldap {
             class: TagClass::Application,
             inner: vec![
                    Tag::OctetString(OctetString {
-                       inner: Vec::from(dn.as_ref()),
+                       inner: Vec::from(dn.as_bytes()),
                        .. Default::default()
                    }),
                    Tag::Sequence(Sequence {

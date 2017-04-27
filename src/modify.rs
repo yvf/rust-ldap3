@@ -20,7 +20,7 @@ pub enum Mod<S: AsRef<str> + Eq + Hash> {
 }
 
 impl Ldap {
-    pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: S, mods: Vec<Mod<S>>) ->
+    pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: &str, mods: Vec<Mod<S>>) ->
             Box<Future<Item=(LdapResult, Option<StructureTag>), Error=io::Error>> {
         let mut any_add_empty = false;
         let req = Tag::Sequence(Sequence {
@@ -28,7 +28,7 @@ impl Ldap {
             class: TagClass::Application,
             inner: vec![
                 Tag::OctetString(OctetString {
-                    inner: Vec::from(dn.as_ref()),
+                    inner: Vec::from(dn.as_bytes()),
                     .. Default::default()
                 }),
                 Tag::Sequence(Sequence {

@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::convert::AsRef;
 use std::io;
 use std::rc::Rc;
 
@@ -154,7 +155,7 @@ impl SearchOptions {
 }
 
 impl Ldap {
-    pub fn search(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<&str>) ->
+    pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) ->
         Box<Future<Item=(SearchStream, oneshot::Receiver<(LdapResult, Option<StructureTag>)>), Error=io::Error>> {
         let opts = match next_search_options(self) {
             Some(opts) => opts,
@@ -191,7 +192,7 @@ impl Ldap {
                    parse(filter).unwrap(),
                    Tag::Sequence(Sequence {
                        inner: attrs.into_iter().map(|s|
-                            Tag::OctetString(OctetString { inner: Vec::from(s.as_bytes()), ..Default::default() })).collect(),
+                            Tag::OctetString(OctetString { inner: Vec::from(s.as_ref()), ..Default::default() })).collect(),
                        .. Default::default()
                    })
             ],

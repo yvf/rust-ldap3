@@ -100,7 +100,7 @@ impl LdapConn {
         self
     }
 
-    pub fn search(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<&str>) -> io::Result<(Vec<StructureTag>, LdapResult, Option<StructureTag>)> {
+    pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<(Vec<StructureTag>, LdapResult, Option<StructureTag>)> {
         let srch = self.inner.clone().search(base, scope, filter, attrs)
             .and_then(|(strm, rx_r)| {
                 rx_r.map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))
@@ -110,20 +110,20 @@ impl LdapConn {
         Ok((result_set, result, controls))
     }
 
-    pub fn streaming_search(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<&str>) -> io::Result<EntryStream> {
+    pub fn streaming_search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<EntryStream> {
         let (strm, rx_r) = self.core.borrow_mut().run(self.inner.clone().search(base, scope, filter, attrs))?;
         Ok(EntryStream { core: self.core.clone(), strm: Some(strm), rx_r: Some(rx_r) })
     }
 
-    pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: S, attrs: Vec<(S, HashSet<S>)>) -> io::Result<(LdapResult, Option<StructureTag>)> {
+    pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: &str, attrs: Vec<(S, HashSet<S>)>) -> io::Result<(LdapResult, Option<StructureTag>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().add(dn, attrs))?)
     }
 
-    pub fn delete<S: AsRef<str>>(&self, dn: S) -> io::Result<(LdapResult, Option<StructureTag>)> {
+    pub fn delete(&self, dn: &str) -> io::Result<(LdapResult, Option<StructureTag>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().delete(dn))?)
     }
 
-    pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: S, mods: Vec<Mod<S>>) -> io::Result<(LdapResult, Option<StructureTag>)> {
+    pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: &str, mods: Vec<Mod<S>>) -> io::Result<(LdapResult, Option<StructureTag>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().modify(dn, mods))?)
     }
 }
