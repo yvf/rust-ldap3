@@ -92,7 +92,7 @@ majority of uses, albeit lacking the automated handling of several common
 scenarios, such as referral chasing and paged result handling. Those two are
 high on the list of development priorities.
 
-TLS support exists for the case of immediate negotiation (aka __ldaps://__.)
+TLS support exists for the case of immediate negotiation (aka __ldaps://__).
 Caveat: certificate and hostname checking __can't be turned off__, as this
 depends on the `native-tls` crate, which is still very young and has patchy
 support for handling unorthodox or broken crypto.
@@ -107,7 +107,7 @@ In order of appearance in the RFC:
 - [ ] Unbind
 - [x] Search
 - [ ] Modify
-- [ ] Add
+- [x] Add
 - [ ] Delete
 - [ ] ModifyDN
 - [ ] Compare

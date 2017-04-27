@@ -33,6 +33,33 @@ impl default::Default for Sequence {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct Set {
+    pub id: u64,
+    pub class: TagClass,
+    pub inner: Vec<Tag>,
+}
+
+impl ASNTag for Set {
+    fn into_structure(self) -> structure::StructureTag {
+        structure::StructureTag {
+            id: self.id,
+            class: self.class,
+            payload: structure::PL::C(self.inner.into_iter().map(|x| x.into_structure()).collect()),
+        }
+    }
+}
+
+impl default::Default for Set {
+    fn default() -> Self {
+        Set {
+            id: universal::Types::Set as u64,
+            class: TagClass::Universal,
+            inner: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct SequenceOf<T> {
     pub id: u64,
     pub class: TagClass,

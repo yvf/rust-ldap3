@@ -9,7 +9,7 @@ pub mod explicit;
 
 // Reexport everything
 pub use self::integer::Integer;
-pub use self::sequence::{Sequence, SequenceOf, SetOf};
+pub use self::sequence::{Sequence, SequenceOf, Set, SetOf};
 pub use self::octetstring::OctetString;
 pub use self::boolean::Boolean;
 pub use self::null::Null;
@@ -30,6 +30,7 @@ pub trait ASNTag {
 pub enum Tag {
     Integer(integer::Integer),
     Sequence(sequence::Sequence),
+    Set(sequence::Set),
     OctetString(octetstring::OctetString),
     Boolean(boolean::Boolean),
     Null(null::Null),
@@ -42,6 +43,7 @@ impl ASNTag for Tag {
         match self {
             Tag::Integer(i)      => i.into_structure(),
             Tag::Sequence(i)     => i.into_structure(),
+            Tag::Set(i)          => i.into_structure(),
             Tag::OctetString(i)  => i.into_structure(),
             Tag::Boolean(i)      => i.into_structure(),
             Tag::Null(i)         => i.into_structure(),

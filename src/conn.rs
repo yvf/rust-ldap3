@@ -1,4 +1,7 @@
 use std::cell::RefCell;
+use std::collections::HashSet;
+use std::convert::AsRef;
+use std::hash::Hash;
 use std::io;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::rc::Rc;
@@ -109,6 +112,10 @@ impl LdapConn {
     pub fn streaming_search(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<&str>) -> io::Result<EntryStream> {
         let (strm, rx_r) = self.core.borrow_mut().run(self.inner.clone().search(base, scope, filter, attrs))?;
         Ok(EntryStream { core: self.core.clone(), strm: Some(strm), rx_r: Some(rx_r) })
+    }
+
+    pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: S, attrs: Vec<(S, HashSet<S>)>) -> io::Result<(LdapResult, Option<StructureTag>)> {
+        Ok(self.core.borrow_mut().run(self.inner.clone().add(dn, attrs))?)
     }
 }
 

@@ -16,6 +16,7 @@ extern crate tokio_service;
 extern crate tokio_tls;
 extern crate url;
 
+mod add;
 mod bind;
 mod conn;
 mod ldap;
