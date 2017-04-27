@@ -106,7 +106,7 @@ In order of appearance in the RFC:
 - [x] Bind (simple)
 - [ ] Unbind
 - [x] Search
-- [ ] Modify
+- [x] Modify
 - [x] Add
 - [x] Delete
 - [ ] ModifyDN

@@ -14,6 +14,7 @@ use url::{Host, Url};
 
 use asnom::structure::StructureTag;
 use ldap::Ldap;
+use modify::Mod;
 use protocol::LdapResult;
 use search::{SearchOptions, SearchStream, Scope};
 
@@ -120,6 +121,10 @@ impl LdapConn {
 
     pub fn delete<S: AsRef<str>>(&self, dn: S) -> io::Result<(LdapResult, Option<StructureTag>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().delete(dn))?)
+    }
+
+    pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: S, mods: Vec<Mod<S>>) -> io::Result<(LdapResult, Option<StructureTag>)> {
+        Ok(self.core.borrow_mut().run(self.inner.clone().modify(dn, mods))?)
     }
 }
 

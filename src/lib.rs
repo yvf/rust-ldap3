@@ -21,11 +21,13 @@ mod bind;
 mod conn;
 mod delete;
 mod ldap;
+mod modify;
 mod protocol;
 mod search;
 mod filter;
 
 pub use conn::{EntryStream, LdapConn, LdapConnAsync};
 pub use ldap::Ldap;
+pub use modify::Mod;
 pub use protocol::LdapResult;
 pub use search::{DerefAliases, Scope, SearchEntry, SearchOptions};
