@@ -1,13 +1,13 @@
 [package]
-authors = ["Gregor Reitzenstein <dean4devil@paranoidlabs.org>"]
-description = "Pure Rust LDAP Implementation (Not abandonware anymore!)"
-documentation = "https://docs.rs/ldap"
-keywords = ["ldap", "libldap"]
+authors = ["Ivan Nejgebauer <inejge@gmail.com>", "Gregor Reitzenstein <dean4devil@paranoidlabs.org>"]
+description = "Pure Rust LDAPv3 Client"
+documentation = "https://docs.rs/ldap3"
+keywords = ["ldap", "client", "tokio", "async"]
 license = "MIT/Apache-2.0"
-name = "ldap"
+name = "ldap3"
 readme = "README.md"
-repository = "https://github.com/dequbed/rust-ldap"
-version = "0.3.0"
+repository = "https://github.com/inejge/ldap3"
+version = "0.4.0"
 
 [dependencies]
 byteorder = "1.0.0"
