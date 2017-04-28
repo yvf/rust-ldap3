@@ -126,6 +126,10 @@ impl LdapConn {
     pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: &str, mods: Vec<Mod<S>>) -> io::Result<(LdapResult, Option<StructureTag>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().modify(dn, mods))?)
     }
+
+    pub fn modifydn(&self, dn: &str, rdn: &str, delete_old: bool, new_sup: Option<&str>) -> io::Result<(LdapResult, Option<StructureTag>)> {
+        Ok(self.core.borrow_mut().run(self.inner.clone().modifydn(dn, rdn, delete_old, new_sup))?)
+    }
 }
 
 #[derive(Clone)]

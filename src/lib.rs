@@ -22,6 +22,7 @@ mod conn;
 mod delete;
 mod ldap;
 mod modify;
+mod modifydn;
 mod protocol;
 mod search;
 mod filter;

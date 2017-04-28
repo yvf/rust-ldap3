@@ -109,7 +109,7 @@ In order of appearance in the RFC:
 - [x] Modify
 - [x] Add
 - [x] Delete
-- [ ] ModifyDN
+- [x] ModifyDN
 - [ ] Compare
 - [ ] Abandon
 - [ ] Extended
