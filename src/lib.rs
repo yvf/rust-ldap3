@@ -19,6 +19,7 @@ extern crate url;
 mod add;
 mod bind;
 mod conn;
+pub mod controls;
 mod delete;
 mod ldap;
 mod modify;
