@@ -75,6 +75,7 @@ impl EntryStream {
     }
 }
 
+#[derive(Clone)]
 pub struct LdapConn {
     core: Rc<RefCell<Core>>,
     inner: Ldap,

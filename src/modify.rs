@@ -13,6 +13,7 @@ use tokio_service::Service;
 use ldap::{Ldap, LdapOp};
 use protocol::LdapResult;
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum Mod<S: AsRef<str> + Eq + Hash> {
     Add(S, HashSet<S>),
     Delete(S, HashSet<S>),
