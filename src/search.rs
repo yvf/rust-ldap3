@@ -156,7 +156,7 @@ impl SearchOptions {
 
 impl Ldap {
     pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) ->
-        Box<Future<Item=(SearchStream, oneshot::Receiver<(LdapResult, Option<StructureTag>)>), Error=io::Error>> {
+            Box<Future<Item=(SearchStream, oneshot::Receiver<(LdapResult, Option<StructureTag>)>), Error=io::Error>> {
         let opts = match next_search_options(self) {
             Some(opts) => opts,
             None => SearchOptions::new(),

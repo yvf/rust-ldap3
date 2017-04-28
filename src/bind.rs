@@ -12,7 +12,7 @@ use protocol::LdapResult;
 
 impl Ldap {
     pub fn simple_bind(&self, bind_dn: &str, bind_pw: &str) ->
-        Box<Future<Item=(LdapResult, Option<StructureTag>), Error=io::Error>> {
+            Box<Future<Item=(LdapResult, Option<StructureTag>), Error=io::Error>> {
         let req = Tag::Sequence(Sequence {
             id: 0,
             class: TagClass::Application,

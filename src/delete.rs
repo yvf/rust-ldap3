@@ -13,7 +13,7 @@ use protocol::LdapResult;
 
 impl Ldap {
     pub fn delete<S: AsRef<str>>(&self, dn: S) ->
-        Box<Future<Item=(LdapResult, Option<StructureTag>), Error=io::Error>> {
+            Box<Future<Item=(LdapResult, Option<StructureTag>), Error=io::Error>> {
         let req = Tag::OctetString(OctetString {
             id: 10,
             class: TagClass::Application,

@@ -217,7 +217,7 @@ impl Encoder for LdapCodec {
             },
             _ => unimplemented!(),
         };
-        let outtag = {
+        let outstruct = {
             // tokio-proto ids are u64, and LDAP (client) message ids are i32 > 0,
             // so we must have wraparound logic and a mapping from the latter to
             // the former
@@ -243,8 +243,7 @@ impl Encoder for LdapCodec {
                 ],
                 .. Default::default()
             })
-        };
-        let outstruct = outtag.into_structure();
+        }.into_structure();
         trace!("Sending packet: {:?}", &outstruct);
         write::encode_into(into, outstruct)?;
         Ok(())

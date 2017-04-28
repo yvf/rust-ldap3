@@ -15,7 +15,7 @@ use protocol::LdapResult;
 
 impl Ldap {
     pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: &str, attrs: Vec<(S, HashSet<S>)>) ->
-        Box<Future<Item=(LdapResult, Option<StructureTag>), Error=io::Error>> {
+            Box<Future<Item=(LdapResult, Option<StructureTag>), Error=io::Error>> {
         let mut any_empty = false;
         let req = Tag::Sequence(Sequence {
             id: 8,
