@@ -71,6 +71,7 @@ pub struct LdapResult {
     pub refs: Vec<HashSet<String>>,
 }
 
+#[doc(hidden)]
 impl From<Tag> for LdapResult {
     fn from(t: Tag) -> LdapResult {
         let t = match t {
