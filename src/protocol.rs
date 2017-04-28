@@ -73,15 +73,10 @@ pub struct LdapResult {
 
 impl From<Tag> for LdapResult {
     fn from(t: Tag) -> LdapResult {
-        match t {
-            Tag::StructureTag(t) => t.into(),
+        let t = match t {
+            Tag::StructureTag(t) => t,
             _ => unimplemented!(),
-        }
-    }
-}
-
-impl From<StructureTag> for LdapResult {
-    fn from(t: StructureTag) -> LdapResult {
+        };
         let mut tags = t.expect_constructed().expect("result sequence").into_iter();
         let rc = match parse_uint(tags.next().expect("element")
                 .match_class(TagClass::Universal)
@@ -187,7 +182,7 @@ impl Decoder for LdapCodec {
                 };
                 helper.send_item(match op_id {
                     4 => SearchItem::Entry(protoop),
-                    5 => SearchItem::Done(id, protoop.into(), controls),
+                    5 => SearchItem::Done(id, Tag::StructureTag(protoop).into(), controls),
                     19 => SearchItem::Referral(protoop),
                     _ => panic!("impossible op_id"),
                 })?;
