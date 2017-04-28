@@ -101,6 +101,11 @@ impl LdapConn {
         self
     }
 
+    pub fn with_controls(&self, ctrls: Vec<StructureTag>) -> &Self {
+        self.inner.with_controls(ctrls);
+        self
+    }
+
     pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<(Vec<StructureTag>, LdapResult, Option<StructureTag>)> {
         let srch = self.inner.clone().search(base, scope, filter, attrs)
             .and_then(|(strm, rx_r)| {

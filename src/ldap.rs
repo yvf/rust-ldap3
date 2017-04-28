@@ -29,7 +29,7 @@ pub struct Ldap {
     inner: ClientMap,
     bundle: Rc<RefCell<ProtoBundle>>,
     next_search_options: Rc<RefCell<Option<SearchOptions>>>,
-    _next_req_controls: Rc<RefCell<Option<Vec<StructureTag>>>>,
+    next_req_controls: Rc<RefCell<Option<Vec<StructureTag>>>>,
 }
 
 pub fn bundle(ldap: &Ldap) -> Rc<RefCell<ProtoBundle>> {
@@ -40,6 +40,10 @@ pub fn next_search_options(ldap: &Ldap) -> Option<SearchOptions> {
     ldap.next_search_options.borrow_mut().take()
 }
 
+pub fn next_req_controls(ldap: &Ldap) -> Option<Vec<StructureTag>> {
+    ldap.next_req_controls.borrow_mut().take()
+}
+
 pub enum LdapOp {
     Single(Tag),
     Multi(Tag, mpsc::UnboundedSender<SearchItem>),
@@ -48,7 +52,7 @@ pub enum LdapOp {
 
 impl Ldap {
     pub fn connect(addr: &SocketAddr, handle: &Handle) ->
-        Box<Future<Item=Ldap, Error=io::Error>> {
+            Box<Future<Item=Ldap, Error=io::Error>> {
         let proto = LdapProto::new(handle.clone());
         let bundle = proto.bundle();
         let ret = TcpClient::new(proto)
@@ -58,14 +62,14 @@ impl Ldap {
                     inner: ClientMap::Plain(client_proxy),
                     bundle: bundle,
                     next_search_options: Rc::new(RefCell::new(None)),
-                    _next_req_controls: Rc::new(RefCell::new(None)),
+                    next_req_controls: Rc::new(RefCell::new(None)),
                 }
             });
         Box::new(ret)
     }
 
     pub fn connect_ssl(addr: &str, handle: &Handle) ->
-        Box<Future<Item=Ldap, Error=io::Error>> {
+            Box<Future<Item=Ldap, Error=io::Error>> {
         if addr.parse::<SocketAddr>().ok().is_some() {
             return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "SSL connection must be by hostname")));
         }
@@ -85,7 +89,7 @@ impl Ldap {
                     inner: ClientMap::Tls(client_proxy),
                     bundle: bundle,
                     next_search_options: Rc::new(RefCell::new(None)),
-                    _next_req_controls: Rc::new(RefCell::new(None)),
+                    next_req_controls: Rc::new(RefCell::new(None)),
                 }
             });
         Box::new(ret)
@@ -93,6 +97,11 @@ impl Ldap {
 
     pub fn with_search_options(&self, opts: SearchOptions) -> &Self {
         mem::replace(&mut *self.next_search_options.borrow_mut(), Some(opts));
+        self
+    }
+
+    pub fn with_controls(&self, ctrls: Vec<StructureTag>) -> &Self {
+        mem::replace(&mut *self.next_req_controls.borrow_mut(), Some(ctrls));
         self
     }
 }
