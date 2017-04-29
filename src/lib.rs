@@ -39,7 +39,7 @@ pub use protocol::LdapResult;
 pub use search::{DerefAliases, Scope, SearchEntry, SearchOptions, SearchStream};
 
 pub mod asn1 {
-    pub use asnom::structure::StructureTag;
+    pub use asnom::structure::{PL, StructureTag};
     pub use asnom::structures::{ASNTag, Boolean, Enumerated, ExplicitTag, Integer, Null, OctetString, Sequence, Set, Tag};
     pub use asnom::common::TagClass;
 }
