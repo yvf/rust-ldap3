@@ -20,7 +20,7 @@ mod add;
 mod bind;
 mod conn;
 pub mod controls {
-    pub use controls_impl::{Control, PagedResults, RawControl};
+    pub use controls_impl::{Control, PagedResults, RawControl, RelaxRules};
     pub use controls_impl::construct_control;
 }
 mod controls_impl;

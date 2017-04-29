@@ -42,6 +42,14 @@ impl PagedResults {
     }
 }
 
+pub struct RelaxRules;
+
+impl RelaxRules {
+    pub fn req() -> StructureTag {
+        construct_control("1.3.6.1.4.1.4203.666.5.12", true, None)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Control {
     PagedResults(PagedResults, bool),
