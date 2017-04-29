@@ -21,6 +21,7 @@ use asnom::parse::Parser;
 use asnom::universal::Types;
 use asnom::write;
 
+use controls::{parse_controls, Control};
 use ldap::LdapOp;
 use search::SearchItem;
 
@@ -122,7 +123,7 @@ pub struct LdapCodec {
 }
 
 impl Decoder for LdapCodec {
-    type Item = (RequestId, (Tag, Option<StructureTag>));
+    type Item = (RequestId, (Tag, Vec<Control>));
     type Error = io::Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -157,6 +158,10 @@ impl Decoder for LdapCodec {
         } else {
             (maybe_controls, None)
         };
+        let controls = match controls {
+            Some(controls) => parse_controls(controls),
+            None => vec![],
+        };
         let msgid = match parse_uint(tags.pop().expect("element")
                 .match_class(TagClass::Universal)
                 .and_then(|t| t.match_id(Types::Integer as u64))
@@ -188,10 +193,10 @@ impl Decoder for LdapCodec {
                     _ => panic!("impossible op_id"),
                 })?;
                 if helper.seen {
-                    Ok(Some((u64::MAX, (null_tag, None))))
+                    Ok(Some((u64::MAX, (null_tag, vec![]))))
                 } else {
                     helper.seen = true;
-                    Ok(Some((id, (id_tag, None))))
+                    Ok(Some((id, (id_tag, vec![]))))
                 }
             },
             _ => Ok(Some((id, (Tag::StructureTag(protoop), controls)))),
@@ -205,11 +210,11 @@ impl Encoder for LdapCodec {
 
     fn encode(&mut self, msg: Self::Item, into: &mut BytesMut) -> io::Result<()> {
         let (id, op) = msg;
-        let tag = match op {
-            LdapOp::Single(tag) => tag,
-            LdapOp::Multi(tag, tx) => {
+        let (tag, controls) = match op {
+            LdapOp::Single(tag, controls) => (tag, controls),
+            LdapOp::Multi(tag, tx, controls) => {
                 self.bundle.borrow_mut().create_search_helper(id, tx);
-                tag
+                (tag, controls)
             },
             _ => unimplemented!(),
         };
@@ -229,17 +234,25 @@ impl Encoder for LdapCodec {
                 Some(ref mut helper) => helper.msgid = next_ldap_id,
                 None => (),
             }
+            let mut msg = vec![
+                Tag::Integer(Integer {
+                    inner: next_ldap_id as i64,
+                    .. Default::default()
+                }),
+                tag
+            ];
+            if let Some(controls) = controls {
+                msg.push(Tag::StructureTag(StructureTag {
+                    id: 0,
+                    class: TagClass::Context,
+                    payload: PL::C(controls)
+                }));
+            }
             Tag::Sequence(Sequence {
-                inner: vec![
-                    Tag::Integer(Integer {
-                        inner: next_ldap_id as i64,
-                        .. Default::default()
-                    }),
-                    tag,
-                ],
+                inner: msg,
                 .. Default::default()
-            })
-        }.into_structure();
+            }).into_structure()
+        };
         trace!("Sending packet: {:?}", &outstruct);
         write::encode_into(into, outstruct)?;
         Ok(())
@@ -272,9 +285,9 @@ pub struct ResponseFilter<T> {
 }
 
 impl<T> Stream for ResponseFilter<T>
-    where T: Stream<Item=(RequestId, (Tag, Option<StructureTag>)), Error=io::Error>
+    where T: Stream<Item=(RequestId, (Tag, Vec<Control>)), Error=io::Error>
 {
-    type Item = (RequestId, (Tag, Option<StructureTag>));
+    type Item = (RequestId, (Tag, Vec<Control>));
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -304,7 +317,7 @@ impl<T> futures::Sink for ResponseFilter<T>
 
 impl<T: AsyncRead + AsyncWrite + 'static> ClientProto<T> for LdapProto {
     type Request = LdapOp;
-    type Response = (Tag, Option<StructureTag>);
+    type Response = (Tag, Vec<Control>);
 
     type Transport = ResponseFilter<Framed<T, LdapCodec>>;
     type BindTransport = Result<Self::Transport, io::Error>;

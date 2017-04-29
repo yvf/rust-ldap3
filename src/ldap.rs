@@ -15,6 +15,7 @@ use tokio_proto::multiplex::{ClientService, RequestId};
 use tokio_service::Service;
 use tokio_tls::proto::Client as TlsClient;
 
+use controls::Control;
 use protocol::{LdapProto, ProtoBundle};
 use search::{SearchItem, SearchOptions};
 
@@ -45,9 +46,9 @@ pub fn next_req_controls(ldap: &Ldap) -> Option<Vec<StructureTag>> {
 }
 
 pub enum LdapOp {
-    Single(Tag),
-    Multi(Tag, mpsc::UnboundedSender<SearchItem>),
-    Cancel(Tag, RequestId),
+    Single(Tag, Option<Vec<StructureTag>>),
+    Multi(Tag, mpsc::UnboundedSender<SearchItem>, Option<Vec<StructureTag>>),
+    Cancel(Tag, RequestId, Option<Vec<StructureTag>>),
 }
 
 impl Ldap {
@@ -108,7 +109,7 @@ impl Ldap {
 
 impl Service for Ldap {
     type Request = LdapOp;
-    type Response = (Tag, Option<StructureTag>);
+    type Response = (Tag, Vec<Control>);
     type Error = io::Error;
     type Future = Box<Future<Item=Self::Response, Error=io::Error>>;
 
@@ -119,7 +120,7 @@ impl Service for Ldap {
 
 impl Service for ClientMap {
     type Request = LdapOp;
-    type Response = (Tag, Option<StructureTag>);
+    type Response = (Tag, Vec<Control>);
     type Error = io::Error;
     type Future = Box<Future<Item=Self::Response, Error=io::Error>>;
 

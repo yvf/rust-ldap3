@@ -13,6 +13,7 @@ use tokio_core::reactor::{Core, Handle};
 use url::{Host, Url};
 
 use asnom::structure::StructureTag;
+use controls::Control;
 use ldap::Ldap;
 use modify::Mod;
 use protocol::LdapResult;
@@ -51,7 +52,7 @@ impl LdapWrapper {
 pub struct EntryStream {
     core: Rc<RefCell<Core>>,
     strm: Option<SearchStream>,
-    rx_r: Option<oneshot::Receiver<(LdapResult, Option<StructureTag>)>>,
+    rx_r: Option<oneshot::Receiver<(LdapResult, Vec<Control>)>>,
 }
 
 impl EntryStream {
@@ -65,7 +66,7 @@ impl EntryStream {
         Ok(tag)
     }
 
-    pub fn result(&mut self) -> io::Result<(LdapResult, Option<StructureTag>)> {
+    pub fn result(&mut self) -> io::Result<(LdapResult, Vec<Control>)> {
         if self.strm.is_none() {
             return Err(io::Error::new(io::ErrorKind::Other, "cannot return result from an invalid stream"));
         }
@@ -92,7 +93,7 @@ impl LdapConn {
         })
     }
 
-    pub fn simple_bind(&self, bind_dn: &str, bind_pw: &str) -> io::Result<(LdapResult, Option<StructureTag>)> {
+    pub fn simple_bind(&self, bind_dn: &str, bind_pw: &str) -> io::Result<(LdapResult, Vec<Control>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().simple_bind(bind_dn, bind_pw))?)
     }
 
@@ -106,7 +107,7 @@ impl LdapConn {
         self
     }
 
-    pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<(Vec<StructureTag>, LdapResult, Option<StructureTag>)> {
+    pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<(Vec<StructureTag>, LdapResult, Vec<Control>)> {
         let srch = self.inner.clone().search(base, scope, filter, attrs)
             .and_then(|(strm, rx_r)| {
                 rx_r.map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))
@@ -121,19 +122,19 @@ impl LdapConn {
         Ok(EntryStream { core: self.core.clone(), strm: Some(strm), rx_r: Some(rx_r) })
     }
 
-    pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: &str, attrs: Vec<(S, HashSet<S>)>) -> io::Result<(LdapResult, Option<StructureTag>)> {
+    pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: &str, attrs: Vec<(S, HashSet<S>)>) -> io::Result<(LdapResult, Vec<Control>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().add(dn, attrs))?)
     }
 
-    pub fn delete(&self, dn: &str) -> io::Result<(LdapResult, Option<StructureTag>)> {
+    pub fn delete(&self, dn: &str) -> io::Result<(LdapResult, Vec<Control>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().delete(dn))?)
     }
 
-    pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: &str, mods: Vec<Mod<S>>) -> io::Result<(LdapResult, Option<StructureTag>)> {
+    pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: &str, mods: Vec<Mod<S>>) -> io::Result<(LdapResult, Vec<Control>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().modify(dn, mods))?)
     }
 
-    pub fn modifydn(&self, dn: &str, rdn: &str, delete_old: bool, new_sup: Option<&str>) -> io::Result<(LdapResult, Option<StructureTag>)> {
+    pub fn modifydn(&self, dn: &str, rdn: &str, delete_old: bool, new_sup: Option<&str>) -> io::Result<(LdapResult, Vec<Control>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().modifydn(dn, rdn, delete_old, new_sup))?)
     }
 }

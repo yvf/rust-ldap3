@@ -3,19 +3,19 @@ use std::convert::AsRef;
 use std::hash::Hash;
 use std::io;
 
-use asnom::structure::StructureTag;
 use asnom::structures::{Tag, Sequence, Set, OctetString};
 use asnom::common::TagClass;
 
 use futures::{future, Future};
 use tokio_service::Service;
 
-use ldap::{Ldap, LdapOp};
+use controls::Control;
+use ldap::{Ldap, LdapOp, next_req_controls};
 use protocol::LdapResult;
 
 impl Ldap {
     pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: &str, attrs: Vec<(S, HashSet<S>)>) ->
-            Box<Future<Item=(LdapResult, Option<StructureTag>), Error=io::Error>> {
+            Box<Future<Item=(LdapResult, Vec<Control>), Error=io::Error>> {
         let mut any_empty = false;
         let req = Tag::Sequence(Sequence {
             id: 8,
@@ -55,7 +55,7 @@ impl Ldap {
             return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "empty value set for Add")));
         }
 
-        let fut = self.call(LdapOp::Single(req))
+        let fut = self.call(LdapOp::Single(req, next_req_controls(self)))
             .and_then(|(result, controls)| Ok((result.into(), controls)));
 
         Box::new(fut)

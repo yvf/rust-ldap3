@@ -1,18 +1,18 @@
 use std::io;
 
-use asnom::structure::StructureTag;
 use asnom::structures::{Boolean, OctetString, Sequence, Tag};
 use asnom::common::TagClass;
 
 use futures::Future;
 use tokio_service::Service;
 
-use ldap::{Ldap, LdapOp};
+use controls::Control;
+use ldap::{Ldap, LdapOp, next_req_controls};
 use protocol::LdapResult;
 
 impl Ldap {
     pub fn modifydn(&self, dn: &str, rdn: &str, delete_old: bool, new_sup: Option<&str>) ->
-            Box<Future<Item=(LdapResult, Option<StructureTag>), Error=io::Error>> {
+            Box<Future<Item=(LdapResult, Vec<Control>), Error=io::Error>> {
         let mut params = vec![
            Tag::OctetString(OctetString {
                inner: Vec::from(dn.as_bytes()),
@@ -40,7 +40,7 @@ impl Ldap {
             inner: params
         });
 
-        let fut = self.call(LdapOp::Single(req))
+        let fut = self.call(LdapOp::Single(req, next_req_controls(self)))
             .and_then(|(result, controls)| Ok((result.into(), controls)));
 
         Box::new(fut)

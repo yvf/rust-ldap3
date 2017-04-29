@@ -8,14 +8,14 @@ use asnom::structure::StructureTag;
 use asnom::structures::{Boolean, Enumerated, Integer, OctetString, Sequence, Tag};
 use asnom::common::TagClass::*;
 
-use filter::parse;
-
 use futures::{Async, Future, Poll, Stream};
 use futures::sync::{mpsc, oneshot};
 use tokio_proto::multiplex::RequestId;
 use tokio_service::Service;
 
-use ldap::{bundle, next_search_options};
+use controls::Control;
+use filter::parse;
+use ldap::{bundle, next_search_options, next_req_controls};
 use ldap::{Ldap, LdapOp};
 use protocol::{LdapResult, ProtoBundle};
 
@@ -37,7 +37,7 @@ pub enum DerefAliases {
 pub enum SearchItem {
     Entry(StructureTag),
     Referral(StructureTag),
-    Done(RequestId, LdapResult, Option<StructureTag>),
+    Done(RequestId, LdapResult, Vec<Control>),
 }
 
 pub struct SearchStream {
@@ -45,7 +45,7 @@ pub struct SearchStream {
     bundle: Rc<RefCell<ProtoBundle>>,
     _tx_i: mpsc::UnboundedSender<SearchItem>,
     rx_i: mpsc::UnboundedReceiver<SearchItem>,
-    tx_r: Option<oneshot::Sender<(LdapResult, Option<StructureTag>)>>,
+    tx_r: Option<oneshot::Sender<(LdapResult, Vec<Control>)>>,
     refs: Vec<HashSet<String>>,
 }
 
@@ -156,7 +156,7 @@ impl SearchOptions {
 
 impl Ldap {
     pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) ->
-            Box<Future<Item=(SearchStream, oneshot::Receiver<(LdapResult, Option<StructureTag>)>), Error=io::Error>> {
+            Box<Future<Item=(SearchStream, oneshot::Receiver<(LdapResult, Vec<Control>)>), Error=io::Error>> {
         let opts = match next_search_options(self) {
             Some(opts) => opts,
             None => SearchOptions::new(),
@@ -199,9 +199,9 @@ impl Ldap {
         });
 
         let (tx_i, rx_i) = mpsc::unbounded::<SearchItem>();
-        let (tx_r, rx_r) = oneshot::channel::<(LdapResult, Option<StructureTag>)>();
+        let (tx_r, rx_r) = oneshot::channel::<(LdapResult, Vec<Control>)>();
         let bundle = bundle(self);
-        let fut = self.call(LdapOp::Multi(req, tx_i.clone())).and_then(move |res| {
+        let fut = self.call(LdapOp::Multi(req, tx_i.clone(), next_req_controls(self))).and_then(move |res| {
             let id = match res {
                 (Tag::Integer(Integer { id: _, class: _, inner }), _) => inner,
                 _ => unimplemented!(),
