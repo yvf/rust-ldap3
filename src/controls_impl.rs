@@ -10,9 +10,15 @@ use asnom::write;
 
 #[derive(Clone, Debug)]
 pub struct RawControl {
-    ctype: String,
-    crit: bool,
-    val: Option<Vec<u8>>,
+    pub ctype: String,
+    pub crit: bool,
+    pub val: Option<Vec<u8>>,
+}
+
+impl From<RawControl> for StructureTag {
+    fn from(rc: RawControl) -> StructureTag {
+        construct_control(&rc.ctype, rc.crit, rc.val)
+    }
 }
 
 #[derive(Clone, Debug)]
