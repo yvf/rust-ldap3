@@ -21,7 +21,8 @@ use asnom::parse::Parser;
 use asnom::universal::Types;
 use asnom::write;
 
-use controls::{parse_controls, Control};
+use controls::Control;
+use controls_impl::parse_controls;
 use ldap::LdapOp;
 use search::SearchItem;
 
