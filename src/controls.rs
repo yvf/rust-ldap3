@@ -17,8 +17,8 @@ pub struct RawControl {
 
 #[derive(Clone, Debug)]
 pub struct PagedResults {
-    size: i32,
-    cookie: Vec<u8>,
+    pub size: i32,
+    pub cookie: Vec<u8>,
 }
 
 impl PagedResults {
