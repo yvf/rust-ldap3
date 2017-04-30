@@ -5,6 +5,8 @@ extern crate byteorder;
 #[macro_use]
 extern crate futures;
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate log;
 extern crate native_tls;
 #[macro_use]
@@ -20,7 +22,9 @@ mod add;
 mod bind;
 mod conn;
 pub mod controls {
-    pub use controls_impl::{Control, PagedResults, RawControl, RelaxRules};
+    pub use controls_impl::{Control, MakeCritical, PagedResults, RawControl, RelaxRules};
+    pub use controls_impl::parse_control;
+    pub use controls_impl::types::{self, ControlType};
 }
 mod controls_impl;
 mod delete;
