@@ -87,8 +87,8 @@ impl Stream for SearchStream {
 
 #[derive(Debug)]
 pub struct SearchEntry {
-    dn: String,
-    attrs: HashMap<String, Vec<String>>,
+    pub dn: String,
+    pub attrs: HashMap<String, Vec<String>>,
 }
 
 impl SearchEntry {
