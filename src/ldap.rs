@@ -11,7 +11,7 @@ use native_tls::TlsConnector;
 use tokio_core::net::TcpStream;
 use tokio_core::reactor::Handle;
 use tokio_proto::TcpClient;
-use tokio_proto::multiplex::{ClientService, RequestId};
+use tokio_proto::multiplex::ClientService;
 use tokio_service::Service;
 use tokio_tls::proto::Client as TlsClient;
 
@@ -48,7 +48,7 @@ pub fn next_req_controls(ldap: &Ldap) -> Option<Vec<StructureTag>> {
 pub enum LdapOp {
     Single(Tag, Option<Vec<StructureTag>>),
     Multi(Tag, mpsc::UnboundedSender<SearchItem>, Option<Vec<StructureTag>>),
-    Cancel(Tag, RequestId, Option<Vec<StructureTag>>),
+    Solo(Tag, Option<Vec<StructureTag>>),
 }
 
 impl Ldap {

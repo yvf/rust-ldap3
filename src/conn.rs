@@ -137,6 +137,11 @@ impl LdapConn {
     pub fn modifydn(&self, dn: &str, rdn: &str, delete_old: bool, new_sup: Option<&str>) -> io::Result<(LdapResult, Vec<Control>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().modifydn(dn, rdn, delete_old, new_sup))?)
     }
+
+    pub fn unbind(&self) -> io::Result<()> {
+        Ok(self.core.borrow_mut().run(self.inner.clone().unbind())?)
+    }
+
 }
 
 #[derive(Clone)]

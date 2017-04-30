@@ -18,6 +18,7 @@ extern crate tokio_service;
 extern crate tokio_tls;
 extern crate url;
 
+mod abandon;
 mod add;
 mod bind;
 mod conn;
@@ -28,12 +29,13 @@ pub mod controls {
 }
 mod controls_impl;
 mod delete;
+mod filter;
 mod ldap;
 mod modify;
 mod modifydn;
 mod protocol;
 mod search;
-mod filter;
+mod unbind;
 
 pub use conn::{EntryStream, LdapConn, LdapConnAsync};
 pub use ldap::Ldap;

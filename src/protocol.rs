@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io;
 use std::rc::Rc;
 use std::{i32, u64};
@@ -33,6 +33,7 @@ pub struct ProtoBundle {
     pub id_map: HashMap<LdapRequestId, RequestId>,
     pub next_id: LdapRequestId,
     pub handle: Handle,
+    pub solo_op: VecDeque<RequestId>,
 }
 
 impl ProtoBundle {
@@ -217,7 +218,10 @@ impl Encoder for LdapCodec {
                 self.bundle.borrow_mut().create_search_helper(id, tx);
                 (tag, controls)
             },
-            _ => unimplemented!(),
+            LdapOp::Solo(tag, controls) => {
+                self.bundle.borrow_mut().solo_op.push_back(id);
+                (tag, controls)
+            },
         };
         let outstruct = {
             // tokio-proto ids are u64, and LDAP (client) message ids are i32 > 0,
@@ -272,6 +276,7 @@ impl LdapProto {
                 id_map: HashMap::new(),
                 next_id: 1,
                 handle: handle,
+                solo_op: VecDeque::new(),
             }))
         }
     }
@@ -283,6 +288,7 @@ impl LdapProto {
 
 pub struct ResponseFilter<T> {
     upstream: T,
+    bundle: Rc<RefCell<ProtoBundle>>,
 }
 
 impl<T> Stream for ResponseFilter<T>
@@ -293,6 +299,13 @@ impl<T> Stream for ResponseFilter<T>
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
+            match self.bundle.borrow_mut().solo_op.pop_front() {
+                Some(id) => {
+                    let null_tag = Tag::Null(Null { ..Default::default() });
+                    return Ok(Async::Ready(Some((id, (null_tag, vec![])))));
+                },
+                None => (),
+            }
             match try_ready!(self.upstream.poll()) {
                 Some((id, _)) if id == u64::MAX => continue,
                 msg => return Ok(Async::Ready(msg)),
@@ -329,6 +342,7 @@ impl<T: AsyncRead + AsyncWrite + 'static> ClientProto<T> for LdapProto {
         };
         Ok(ResponseFilter {
             upstream: io.framed(ldapcodec),
+            bundle: self.bundle.clone(),
         })
     }
 }

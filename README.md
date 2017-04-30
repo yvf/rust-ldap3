@@ -86,16 +86,14 @@ fn main() {
 
 ## Status
 
-All basic operations should appear soon, as well as the support for request
-controls. Once that's in place, the driver should be well equipped for the
-majority of uses, albeit lacking the automated handling of several common
-scenarios, such as referral chasing and paged result handling. Those two are
-high on the list of development priorities.
+All basic operations (except Compare, appearing soon) are implemented, as
+well as the support for request controls. The driver should now be well
+equipped for the majority of uses, albeit lacking the automated handling
+of several common scenarios, such as referral chasing and paged results.
+Those two are high on the list of development priorities.
 
 TLS support exists for the case of immediate negotiation (aka __ldaps://__).
-Caveat: certificate and hostname checking __can't be turned off__, as this
-depends on the `native-tls` crate, which is still very young and has patchy
-support for handling unorthodox or broken crypto.
+Caveat: certificate and hostname checking __can't be turned off__.
 
 StartTLS will probably be supported in the medium term. Patches are welcome.
 
@@ -104,14 +102,14 @@ StartTLS will probably be supported in the medium term. Patches are welcome.
 In order of appearance in the RFC:
 
 - [x] Bind (simple)
-- [ ] Unbind
+- [x] Unbind
 - [x] Search
 - [x] Modify
 - [x] Add
 - [x] Delete
 - [x] ModifyDN
 - [ ] Compare
-- [ ] Abandon
+- [x] Abandon (incomplete)
 - [ ] Extended
 
 ## License
