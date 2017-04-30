@@ -1,4 +1,3 @@
-use std::convert::AsRef;
 use std::io;
 
 use asnom::structures::{Tag, OctetString};
@@ -12,12 +11,12 @@ use ldap::{Ldap, LdapOp, next_req_controls};
 use protocol::LdapResult;
 
 impl Ldap {
-    pub fn delete<S: AsRef<str>>(&self, dn: S) ->
+    pub fn delete(&self, dn: &str) ->
             Box<Future<Item=(LdapResult, Vec<Control>), Error=io::Error>> {
         let req = Tag::OctetString(OctetString {
             id: 10,
             class: TagClass::Application,
-            inner: Vec::from(dn.as_ref())
+            inner: Vec::from(dn.as_bytes())
         });
 
         let fut = self.call(LdapOp::Single(req, next_req_controls(self)))
