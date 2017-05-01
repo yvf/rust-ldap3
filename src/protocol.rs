@@ -23,6 +23,7 @@ use asnom::write;
 
 use controls::Control;
 use controls_impl::parse_controls;
+use exop::Exop;
 use ldap::LdapOp;
 use search::SearchItem;
 
@@ -66,7 +67,7 @@ impl SearchHelper {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct LdapResult {
     pub rc: u8,
     pub matched: String,
@@ -74,9 +75,12 @@ pub struct LdapResult {
     pub refs: Vec<HashSet<String>>,
 }
 
+#[derive(Clone, Debug)]
+pub struct LdapResultExt(pub LdapResult, pub Exop);
+
 #[doc(hidden)]
-impl From<Tag> for LdapResult {
-    fn from(t: Tag) -> LdapResult {
+impl From<Tag> for LdapResultExt {
+    fn from(t: Tag) -> LdapResultExt {
         let t = match t {
             Tag::StructureTag(t) => t,
             _ => unimplemented!(),
@@ -95,28 +99,51 @@ impl From<Tag> for LdapResult {
         let text = String::from_utf8(tags.next().expect("element").expect_primitive().expect("octet string"))
             .expect("diagnostic message");
         let mut refs = Vec::new();
-        match tags.next() {
-            None => (),
-            Some(raw_refs) => {
-                let raw_refs = match raw_refs.match_class(TagClass::Context)
-                        .and_then(|t| t.match_id(3))
-                        .and_then(|t| t.expect_constructed()) {
-                    Some(rr) => rr,
-                    None => panic!("failed to parse referrals"),
-                };
-                refs.push(raw_refs.into_iter()
-                    .map(|t| t.expect_primitive().expect("octet string"))
-                    .map(String::from_utf8)
-                    .map(|s| s.expect("uri"))
-                    .collect());
+        let mut exop_name = None;
+        let mut exop_val = None;
+        loop {
+            match tags.next() {
+                None => break,
+                Some(comp) => match comp.id {
+                    3 => {
+                        let raw_refs = match comp.expect_constructed() {
+                            Some(rr) => rr,
+                            None => panic!("failed to parse referrals"),
+                        };
+                        refs.push(raw_refs.into_iter()
+                            .map(|t| t.expect_primitive().expect("octet string"))
+                            .map(String::from_utf8)
+                            .map(|s| s.expect("uri"))
+                            .collect());
+                    },
+                    10 => {
+                        exop_name = Some(String::from_utf8(comp.expect_primitive().expect("octet string")).expect("exop name"));
+                    }
+                    11 => {
+                        exop_val = Some(comp.expect_primitive().expect("octet string"));
+                    }
+                    _ => (),
+                },
+            }
+        }
+        LdapResultExt(
+            LdapResult {
+                rc: rc,
+                matched: matched,
+                text: text,
+                refs: refs,
             },
-        }
-        LdapResult {
-            rc: rc,
-            matched: matched,
-            text: text,
-            refs: refs,
-        }
+            Exop {
+                name: exop_name,
+                val: exop_val
+            })
+    }
+}
+
+#[doc(hidden)]
+impl From<Tag> for LdapResult {
+    fn from(t: Tag) -> LdapResult {
+        <LdapResultExt as From<Tag>>::from(t).0
     }
 }
 

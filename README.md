@@ -110,7 +110,7 @@ In order of appearance in the RFC:
 - [x] ModifyDN
 - [x] Compare
 - [x] Abandon (incomplete)
-- [ ] Extended
+- [x] Extended
 
 [1] Unbind doesn't close our side of the connection, since the underlying
 TCP stream is inaccessible in the present implementation.

@@ -30,6 +30,12 @@ pub mod controls {
 }
 mod controls_impl;
 mod delete;
+mod extended;
+mod exop_impl;
+pub mod exop {
+    pub use exop_impl::{Exop, WhoAmI, WhoAmIResp};
+    pub use exop_impl::parse_exop;
+}
 mod filter;
 mod ldap;
 mod modify;

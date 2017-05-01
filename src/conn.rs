@@ -13,7 +13,9 @@ use tokio_core::reactor::{Core, Handle};
 use url::{Host, Url};
 
 use asnom::structure::StructureTag;
+use asnom::structures::Tag;
 use controls::Control;
+use exop::Exop;
 use ldap::Ldap;
 use modify::Mod;
 use protocol::LdapResult;
@@ -144,6 +146,12 @@ impl LdapConn {
 
     pub fn compare<B: AsRef<[u8]>>(&self, dn: &str, attr: &str, val: B) -> io::Result<(LdapResult, Vec<Control>)> {
         Ok(self.core.borrow_mut().run(self.inner.clone().compare(dn, attr, val))?)
+    }
+
+    pub fn extended<E>(&self, exop: E) -> io::Result<(LdapResult, Exop, Vec<Control>)>
+        where Vec<Tag>: From<E>
+    {
+        Ok(self.core.borrow_mut().run(self.inner.clone().extended(exop))?)
     }
 }
 
