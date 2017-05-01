@@ -21,6 +21,7 @@ extern crate url;
 mod abandon;
 mod add;
 mod bind;
+mod compare;
 mod conn;
 pub mod controls {
     pub use controls_impl::{Control, MakeCritical, PagedResults, RawControl, RelaxRules};

@@ -142,6 +142,9 @@ impl LdapConn {
         Ok(self.core.borrow_mut().run(self.inner.clone().unbind())?)
     }
 
+    pub fn compare<B: AsRef<[u8]>>(&self, dn: &str, attr: &str, val: B) -> io::Result<(LdapResult, Vec<Control>)> {
+        Ok(self.core.borrow_mut().run(self.inner.clone().compare(dn, attr, val))?)
+    }
 }
 
 #[derive(Clone)]

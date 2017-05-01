@@ -86,11 +86,11 @@ fn main() {
 
 ## Status
 
-All basic operations (except Compare, appearing soon) are implemented, as
-well as the support for request controls. The driver should now be well
-equipped for the majority of uses, albeit lacking the automated handling
-of several common scenarios, such as referral chasing and paged results.
-Those two are high on the list of development priorities.
+All basic operations are implemented, as well as the support for request
+and response controls. The driver should now be well equipped for the majority
+of uses, albeit lacking the automated handling of several common scenarios,
+such as referral chasing and paged results. Those two are high on the list
+of development priorities.
 
 TLS support exists for the case of immediate negotiation (aka __ldaps://__).
 Caveat: certificate and hostname checking __can't be turned off__.
@@ -102,15 +102,18 @@ StartTLS will probably be supported in the medium term. Patches are welcome.
 In order of appearance in the RFC:
 
 - [x] Bind (simple)
-- [x] Unbind
+- [x] Unbind [1]
 - [x] Search
 - [x] Modify
 - [x] Add
 - [x] Delete
 - [x] ModifyDN
-- [ ] Compare
+- [x] Compare
 - [x] Abandon (incomplete)
 - [ ] Extended
+
+[1] Unbind doesn't close our side of the connection, since the underlying
+TCP stream is inaccessible in the present implementation.
 
 ## License
 
