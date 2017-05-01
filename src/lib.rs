@@ -24,6 +24,7 @@ mod bind;
 mod compare;
 mod conn;
 pub mod controls {
+    //! Control construction and parsing.
     pub use controls_impl::{Control, MakeCritical, PagedResults, RawControl, RelaxRules};
     pub use controls_impl::parse_control;
     pub use controls_impl::types::{self, ControlType};
@@ -33,6 +34,7 @@ mod delete;
 mod extended;
 mod exop_impl;
 pub mod exop {
+    //! Extended operation construction and parsing.
     pub use exop_impl::{Exop, WhoAmI, WhoAmIResp};
     pub use exop_impl::parse_exop;
 }
@@ -51,6 +53,7 @@ pub use protocol::LdapResult;
 pub use search::{DerefAliases, Scope, SearchEntry, SearchOptions, SearchStream};
 
 pub mod asn1 {
+    //! ASN.1 structure construction.
     pub use asnom::structure::{PL, StructureTag};
     pub use asnom::structures::{ASNTag, Boolean, Enumerated, ExplicitTag, Integer, Null, OctetString, Sequence, Set, Tag};
     pub use asnom::common::TagClass;

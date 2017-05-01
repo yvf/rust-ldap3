@@ -67,11 +67,16 @@ impl SearchHelper {
     }
 }
 
+/// Common components of an LDAP operation result.
 #[derive(Clone, Debug)]
 pub struct LdapResult {
+    /// Result code.
     pub rc: u8,
+    /// Matched component DN, where applicable.
     pub matched: String,
+    /// Additional diagnostic text.
     pub text: String,
+    /// Referrals.
     pub refs: Vec<HashSet<String>>,
 }
 

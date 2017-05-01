@@ -51,6 +51,7 @@ impl LdapWrapper {
     }
 }
 
+/// A handle for obtaining a stream of search results.
 pub struct EntryStream {
     core: Rc<RefCell<Core>>,
     strm: Option<SearchStream>,
@@ -78,6 +79,31 @@ impl EntryStream {
     }
 }
 
+/// A handle for LDAP operations. __Entry point for the synchronous interface__.
+///
+/// A connection is opened by calling [`new()`](#method.new). If successful, this returns
+/// a handle which is used for all subsequent operations on that connection.
+///
+/// Most LDAP operations allow attaching a series of _controls_, which augment or modify
+/// the operation. Controls are attached by calling [`with_controls()`](#method.with_controls)
+/// on the handle, and using the result to call another modifier or the operation itself.
+///
+/// The Search operation has many parameters, most of which are infrequently used. Those
+/// parameters can be specified by constructing a [`SearchOptions`](struct.SearchOptions.html)
+/// structure and passing it to [`with_search_options()`](#method.with_serach_options)
+/// called on the handle. This function can be combined with `with_controls()`, described above.
+///
+/// There are two ways to invoke a search. The first, using [`search()`](#method.search),
+/// returns all result entries in a single vector, which works best if it's known that the
+/// result set will be limited. The other way uses [`streaming_search()`](#method.streaming_search),
+/// which accepts the same parameters, but returns a handle which must be used to obtain
+/// result entries one by one.
+///
+/// As a rule, operations return a [`LdapResult`](struct.LdapResult.html) and a vector of
+/// response controls. `LdapResult` is a structure with result components, the most important
+/// of which is the result code, a numeric value indicating the outcome of the operation.
+/// Controls are not directly usable, and must be additionally parsed by the driver- or
+/// user-supplied code.
 #[derive(Clone)]
 pub struct LdapConn {
     core: Rc<RefCell<Core>>,
@@ -155,6 +181,7 @@ impl LdapConn {
     }
 }
 
+/// __async__ A handle for LDAP operations. Asynchronous analogue of `LdapConn`.
 #[derive(Clone)]
 pub struct LdapConnAsync {
     in_progress: Shared<Box<Future<Item=LdapWrapper, Error=io::Error>>>,

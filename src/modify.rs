@@ -13,10 +13,14 @@ use controls::Control;
 use ldap::{Ldap, LdapOp, next_req_controls};
 use protocol::LdapResult;
 
+/// Possible sub-operations for the Modify operation.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Mod<S: AsRef<str> + Eq + Hash> {
+    /// Add an attribute, with at least one value.
     Add(S, HashSet<S>),
+    /// Delete the entire attribute, or the given values of an attribute.
     Delete(S, HashSet<S>),
+    /// Replace an existing attribute, setting its values to those in the set, or delete it if no values are given.
     Replace(S, HashSet<S>),
 }
 

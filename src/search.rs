@@ -19,18 +19,27 @@ use ldap::{bundle, next_search_options, next_req_controls};
 use ldap::{Ldap, LdapOp};
 use protocol::{LdapResult, ProtoBundle};
 
+/// Possible values for search scope.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Scope {
+    /// Base object; search only the object named in the base DN.
     Base     = 0,
+    /// Search the objects immediately below the base DN.
     OneLevel = 1,
+    /// Search the object named in the base DN and the whole subtree below it.
     Subtree  = 2,
 }
 
+/// Possible values for alias dereferencing during search.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DerefAliases {
+    /// Never dereference.
     Never     = 0,
+    /// Dereference while retrieving objects according to search scope.
     Searching = 1,
+    /// Dereference while finding the base object.
     Finding   = 2,
+    /// Always dereference.
     Always    = 3,
 }
 
@@ -40,6 +49,7 @@ pub enum SearchItem {
     Done(RequestId, LdapResult, Vec<Control>),
 }
 
+/// __async__ A stream of search results.
 pub struct SearchStream {
     id: RequestId,
     bundle: Rc<RefCell<ProtoBundle>>,
@@ -85,9 +95,12 @@ impl Stream for SearchStream {
     }
 }
 
+/// A parsed search result entry.
 #[derive(Debug)]
 pub struct SearchEntry {
+    /// Entry DN.
     pub dn: String,
+    /// Attributes.
     pub attrs: HashMap<String, Vec<String>>,
 }
 
@@ -116,6 +129,7 @@ impl SearchEntry {
     }
 }
 
+/// Additional parameters for the Search operation.
 pub struct SearchOptions {
     deref: DerefAliases,
     typesonly: bool,
@@ -124,6 +138,7 @@ pub struct SearchOptions {
 }
 
 impl SearchOptions {
+    /// Create an instance of the structure with default values.
     pub fn new() -> Self {
         SearchOptions {
             deref: DerefAliases::Never,
@@ -133,21 +148,25 @@ impl SearchOptions {
         }
     }
 
+    /// Set the method for dereferencing aliases.
     pub fn deref(mut self, d: DerefAliases) -> Self {
         self.deref = d;
         self
     }
 
+    /// Set the indicator of returning just attribute names (`true`) vs. names and values (`false`).
     pub fn typesonly(mut self, typesonly: bool) -> Self {
         self.typesonly = typesonly;
         self
     }
 
+    /// Set the time limit, in seconds, for the whole search operation.
     pub fn timelimit(mut self, timelimit: i32) -> Self {
         self.timelimit = timelimit;
         self
     }
 
+    /// Set the size limit, in entries, for the whole search operation.
     pub fn sizelimit(mut self, sizelimit: i32) -> Self {
         self.sizelimit = sizelimit;
         self

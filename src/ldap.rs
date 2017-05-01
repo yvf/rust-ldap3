@@ -26,6 +26,7 @@ enum ClientMap {
 }
 
 #[derive(Clone)]
+/// __async__ An LDAP connection.
 pub struct Ldap {
     inner: ClientMap,
     bundle: Rc<RefCell<ProtoBundle>>,
