@@ -6,6 +6,8 @@ The library can be used either synchronously or asynchronously. The aim is to
 offer essentially the same call interface for both flavors, with the necessary
 differences in interaction and return values according to the nature of I/O.
 
+[Documentation](https://docs.rs/ldap3/)
+
 ## Usage
 
 First, add this to your `Cargo.toml`:
@@ -88,7 +90,7 @@ fn main() {
 
 All basic operations are implemented, as well as the support for request
 and response controls. The driver should now be well equipped for the majority
-of uses, albeit lacking the automated handling of several common scenarios,
+of uses, although it lacks automated handling of several common scenarios,
 such as referral chasing and paged results.
 
 TLS support exists for the case of immediate negotiation (aka __ldaps://__).
@@ -114,7 +116,7 @@ In order of appearance in the RFC:
 [1] Unbind doesn't close our side of the connection, since the underlying
 TCP stream is inaccessible in the present implementation.
 
-[2] Abandon accepts only request ids of active search operations.
+[2] Abandon accepts only request ids of active searches.
 
 ## License
 

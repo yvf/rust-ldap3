@@ -84,7 +84,6 @@ pub struct LdapResult {
 #[derive(Clone, Debug)]
 pub struct LdapResultExt(pub LdapResult, pub Exop);
 
-#[doc(hidden)]
 impl From<Tag> for LdapResultExt {
     fn from(t: Tag) -> LdapResultExt {
         let t = match t {

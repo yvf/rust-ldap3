@@ -79,8 +79,10 @@ pub use protocol::LdapResult;
 pub use search::{DerefAliases, Scope, SearchEntry, SearchOptions, SearchStream};
 
 pub mod asn1 {
-    //! ASN.1 structure construction.
+    //! ASN.1 structure construction and parsing.
+    pub use asnom::IResult;
+    pub use asnom::common::TagClass;
     pub use asnom::structure::{PL, StructureTag};
     pub use asnom::structures::{ASNTag, Boolean, Enumerated, ExplicitTag, Integer, Null, OctetString, Sequence, Set, Tag};
-    pub use asnom::common::TagClass;
+    pub use asnom::parse::{parse_tag, parse_uint};
 }
