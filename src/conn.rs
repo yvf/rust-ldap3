@@ -10,6 +10,7 @@ use futures::{Async, Future, Poll, Stream};
 use futures::future::Shared;
 use futures::sync::oneshot;
 use tokio_core::reactor::{Core, Handle};
+use tokio_proto::multiplex::RequestId;
 use url::{Host, Url};
 
 use asnom::structure::StructureTag;
@@ -76,6 +77,14 @@ impl EntryStream {
         let rx_r = self.rx_r.take().expect("oneshot rx");
         let res = self.core.borrow_mut().run(rx_r).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))?;
         Ok(res)
+    }
+
+    pub fn id(&mut self) -> Option<RequestId> {
+        if let Some(ref strm) = self.strm {
+            Some(strm.id())
+        } else {
+            None
+        }
     }
 }
 
@@ -178,6 +187,10 @@ impl LdapConn {
         where Vec<Tag>: From<E>
     {
         Ok(self.core.borrow_mut().run(self.inner.clone().extended(exop))?)
+    }
+
+    pub fn abandon(&self, id: RequestId) -> io::Result<()> {
+        Ok(self.core.borrow_mut().run(self.inner.clone().abandon(id))?)
     }
 }
 

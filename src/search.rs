@@ -59,23 +59,46 @@ pub struct SearchStream {
     refs: Vec<HashSet<String>>,
 }
 
+impl SearchStream {
+    pub fn id(&self) -> RequestId {
+        self.id
+    }
+
+    fn update_maps(&mut self) {
+        let mut bundle = self.bundle.borrow_mut();
+        let msgid = match bundle.search_helpers.get(&self.id) {
+            Some(ref helper) => helper.msgid,
+            None => return,
+        };
+        bundle.search_helpers.remove(&self.id);
+        bundle.id_map.remove(&msgid);
+    }
+}
+
 impl Stream for SearchStream {
     type Item = StructureTag;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        if self.bundle.borrow().abandoned.contains(&self.id) {
+            if let Some(tx_r) = self.tx_r.take() {
+                let cancel_res = LdapResult {
+                    rc: 80,
+                    matched: "".to_owned(),
+                    text: "search abandoned".to_owned(),
+                    refs: vec![]
+                };
+                self.update_maps();
+                tx_r.send((cancel_res, vec![])).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
+            }
+            return Ok(Async::Ready(None));
+        }
         loop {
             let item = try_ready!(self.rx_i.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "poll search stream")));
             match item {
                 Some(SearchItem::Done(_id, mut result, controls)) => {
                     result.refs.extend(self.refs.drain(..));
-                    let mut bundle = self.bundle.borrow_mut();
-                    let msgid = match bundle.search_helpers.get(&self.id) {
-                        Some(ref helper) => helper.msgid,
-                        None => return Ok(Async::Ready(None)),
-                    };
-                    bundle.search_helpers.remove(&self.id);
-                    bundle.id_map.remove(&msgid);
+                    self.update_maps();
                     let tx_r = self.tx_r.take().expect("oneshot tx");
                     tx_r.send((result, controls)).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
                     return Ok(Async::Ready(None));

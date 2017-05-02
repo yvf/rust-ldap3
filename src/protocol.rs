@@ -31,10 +31,11 @@ pub type LdapRequestId = i32;
 
 pub struct ProtoBundle {
     pub search_helpers: HashMap<RequestId, SearchHelper>,
+    pub abandoned: HashSet<RequestId>,
     pub id_map: HashMap<LdapRequestId, RequestId>,
     pub next_id: LdapRequestId,
     pub handle: Handle,
-    pub solo_op: VecDeque<RequestId>,
+    pub solo_ops: VecDeque<RequestId>,
 }
 
 impl ProtoBundle {
@@ -251,7 +252,7 @@ impl Encoder for LdapCodec {
                 (tag, controls)
             },
             LdapOp::Solo(tag, controls) => {
-                self.bundle.borrow_mut().solo_op.push_back(id);
+                self.bundle.borrow_mut().solo_ops.push_back(id);
                 (tag, controls)
             },
         };
@@ -305,10 +306,11 @@ impl LdapProto {
         LdapProto {
             bundle: Rc::new(RefCell::new(ProtoBundle {
                 search_helpers: HashMap::new(),
+                abandoned: HashSet::new(),
                 id_map: HashMap::new(),
                 next_id: 1,
                 handle: handle,
-                solo_op: VecDeque::new(),
+                solo_ops: VecDeque::new(),
             }))
         }
     }
@@ -331,7 +333,7 @@ impl<T> Stream for ResponseFilter<T>
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
-            match self.bundle.borrow_mut().solo_op.pop_front() {
+            match self.bundle.borrow_mut().solo_ops.pop_front() {
                 Some(id) => {
                     let null_tag = Tag::Null(Null { ..Default::default() });
                     return Ok(Async::Ready(Some((id, (null_tag, vec![])))));

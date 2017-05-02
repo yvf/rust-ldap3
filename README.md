@@ -89,8 +89,7 @@ fn main() {
 All basic operations are implemented, as well as the support for request
 and response controls. The driver should now be well equipped for the majority
 of uses, albeit lacking the automated handling of several common scenarios,
-such as referral chasing and paged results. Those two are high on the list
-of development priorities.
+such as referral chasing and paged results.
 
 TLS support exists for the case of immediate negotiation (aka __ldaps://__).
 Caveat: certificate and hostname checking __can't be turned off__.
@@ -109,11 +108,13 @@ In order of appearance in the RFC:
 - [x] Delete
 - [x] ModifyDN
 - [x] Compare
-- [x] Abandon (incomplete)
+- [x] Abandon [2]
 - [x] Extended
 
 [1] Unbind doesn't close our side of the connection, since the underlying
 TCP stream is inaccessible in the present implementation.
+
+[2] Abandon accepts only request ids of active search operations.
 
 ## License
 
