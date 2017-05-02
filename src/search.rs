@@ -49,7 +49,7 @@ pub enum SearchItem {
     Done(RequestId, LdapResult, Vec<Control>),
 }
 
-/// __async__ A stream of search results.
+/// Stream of search results. __⁎__
 pub struct SearchStream {
     id: RequestId,
     bundle: Rc<RefCell<ProtoBundle>>,
@@ -95,7 +95,7 @@ impl Stream for SearchStream {
     }
 }
 
-/// A parsed search result entry.
+/// Parsed search result entry.
 #[derive(Debug)]
 pub struct SearchEntry {
     /// Entry DN.

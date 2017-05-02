@@ -51,7 +51,7 @@ impl LdapWrapper {
     }
 }
 
-/// A handle for obtaining a stream of search results.
+/// Handle for obtaining a stream of search results.
 pub struct EntryStream {
     core: Rc<RefCell<Core>>,
     strm: Option<SearchStream>,
@@ -79,7 +79,7 @@ impl EntryStream {
     }
 }
 
-/// A handle for LDAP operations. __Entry point for the synchronous interface__.
+/// Handle for LDAP operations. __Entry point for the synchronous interface__.
 ///
 /// A connection is opened by calling [`new()`](#method.new). If successful, this returns
 /// a handle which is used for all subsequent operations on that connection.
@@ -181,7 +181,7 @@ impl LdapConn {
     }
 }
 
-/// __async__ A handle for LDAP operations. Asynchronous analogue of `LdapConn`.
+/// Asynchronous handle for LDAP operations; analogue of `LdapConn`. __⁎__
 #[derive(Clone)]
 pub struct LdapConnAsync {
     in_progress: Shared<Box<Future<Item=LdapWrapper, Error=io::Error>>>,

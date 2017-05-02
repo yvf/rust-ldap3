@@ -1,3 +1,29 @@
+//! A pure-Rust LDAPv3 library using the Tokio stack.
+//!
+//! ## Usage
+//!
+//! In `Cargo.toml`:
+//!
+//! ```
+//! [dependencies.ldap3]
+//! version = "0.4.0"
+//! ```
+//!
+//! In the crate root:
+//!
+//! ```
+//! extern crate ldap3;
+//! ```
+//! ## Summary
+//!
+//! Although the library provides both synchronous and asynchronous interfaces,
+//! presently the synchronous one is less likely to undergo breaking changes,
+//! and is the preferred way to use the library. The [`LdapConn`](#struct.LdapConn.html)
+//! structure is the starting point for all synchronous operations.
+//!
+//! In the [struct list](#structs), asynchronous structs have an asterisk (__⁎__) after
+//! the short description.
+
 extern crate asnom;
 
 extern crate bytes;
