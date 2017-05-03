@@ -2,9 +2,11 @@
 authors = ["Gregor Reitzenstein <dean4devil@paranoidlabs.org>", "Ivan Nejgebauer <inejge@gmail.com>"]
 categories = ["encoding", "parsing"]
 description = "An ASN.1/BER parser/encoder based on nom"
-keywords = ["ASN.1", "BER", "nom"]
+keywords = ["ASN1", "BER", "nom"]
 license = "MIT"
 name = "lber"
+repository = "https://github.com/inejge/ldap3"
+documentation = "https://docs.rs/ldap3"
 version = "0.1.2"
 
 [dependencies]
