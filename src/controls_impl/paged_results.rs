@@ -3,13 +3,13 @@ use super::construct_control;
 
 use bytes::BytesMut;
 
-use asnom::common::TagClass;
-use asnom::IResult;
-use asnom::parse::{parse_uint, parse_tag};
-use asnom::structure::StructureTag;
-use asnom::structures::{ASNTag, Integer, OctetString, Sequence, Tag};
-use asnom::universal::Types;
-use asnom::write;
+use lber::common::TagClass;
+use lber::IResult;
+use lber::parse::{parse_uint, parse_tag};
+use lber::structure::StructureTag;
+use lber::structures::{ASNTag, Integer, OctetString, Sequence, Tag};
+use lber::universal::Types;
+use lber::write;
 
 #[derive(Clone, Debug)]
 pub struct PagedResults {

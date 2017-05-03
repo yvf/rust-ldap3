@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use asnom::structure::{PL, StructureTag};
-use asnom::structures::{ASNTag, Boolean, OctetString, Sequence, Tag};
-use asnom::universal::Types;
+use lber::structure::{PL, StructureTag};
+use lber::structures::{ASNTag, Boolean, OctetString, Sequence, Tag};
+use lber::universal::Types;
 
 pub mod types {
     pub type ControlType = self::inner::_ControlType;

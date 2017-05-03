@@ -1,5 +1,5 @@
-use asnom::common::TagClass;
-use asnom::structures::{OctetString, Tag};
+use lber::common::TagClass;
+use lber::structures::{OctetString, Tag};
 
 mod whoami;
 pub use self::whoami::{WhoAmI, WhoAmIResp};

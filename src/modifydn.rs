@@ -1,7 +1,7 @@
 use std::io;
 
-use asnom::structures::{Boolean, OctetString, Sequence, Tag};
-use asnom::common::TagClass;
+use lber::structures::{Boolean, OctetString, Sequence, Tag};
+use lber::common::TagClass;
 
 use futures::Future;
 use tokio_service::Service;

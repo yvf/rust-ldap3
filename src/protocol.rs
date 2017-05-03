@@ -12,14 +12,14 @@ use tokio_io::codec::{Decoder, Encoder, Framed};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_proto::multiplex::{ClientProto, RequestId};
 
-use asnom::common::TagClass;
-use asnom::{Consumer, ConsumerState, Input, IResult, Move};
-use asnom::structure::{PL, StructureTag};
-use asnom::structures::{ASNTag, Integer, Null, Sequence, Tag};
-use asnom::parse::parse_uint;
-use asnom::parse::Parser;
-use asnom::universal::Types;
-use asnom::write;
+use lber::common::TagClass;
+use lber::{Consumer, ConsumerState, Input, IResult, Move};
+use lber::structure::{PL, StructureTag};
+use lber::structures::{ASNTag, Integer, Null, Sequence, Tag};
+use lber::parse::parse_uint;
+use lber::parse::Parser;
+use lber::universal::Types;
+use lber::write;
 
 use controls::Control;
 use controls_impl::parse_controls;

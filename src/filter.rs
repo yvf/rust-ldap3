@@ -4,8 +4,8 @@ use std::str;
 use nom::IResult;
 use nom::{be_u8, digit, is_alphabetic, is_alphanumeric, is_hex_digit};
 
-use asnom::common::TagClass;
-use asnom::structures::{Boolean, ExplicitTag, OctetString, Sequence, Tag};
+use lber::common::TagClass;
+use lber::structures::{Boolean, ExplicitTag, OctetString, Sequence, Tag};
 
 pub fn parse(input: &str) -> Result<Tag, ()> {
     match filtexpr(input.as_bytes()) {

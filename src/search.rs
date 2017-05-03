@@ -4,9 +4,9 @@ use std::convert::AsRef;
 use std::io;
 use std::rc::Rc;
 
-use asnom::structure::StructureTag;
-use asnom::structures::{Boolean, Enumerated, Integer, OctetString, Sequence, Tag};
-use asnom::common::TagClass::*;
+use lber::structure::StructureTag;
+use lber::structures::{Boolean, Enumerated, Integer, OctetString, Sequence, Tag};
+use lber::common::TagClass::*;
 
 use futures::{Async, Future, Poll, Stream};
 use futures::sync::{mpsc, oneshot};

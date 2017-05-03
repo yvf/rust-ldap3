@@ -23,9 +23,9 @@ tokio-proto = "0.1"
 tokio-service = "0.1"
 url = "1.4.0"
 
-[dependencies.asnom]
-path = "asnom"
-version = "0.1.1"
+[dependencies.lber]
+path = "lber"
+version = "0.1.2"
 
 [dependencies.tokio-tls]
 features = ["tokio-proto"]
@@ -34,3 +34,6 @@ version = "0.1.2"
 [dev-dependencies]
 env_logger = "0.4.2"
 maplit = "0.1.4"
+
+[workspace]
+members = [".", "lber"]

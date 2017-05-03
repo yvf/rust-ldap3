@@ -1,7 +1,7 @@
 use std::io;
 
-use asnom::structures::{Tag, Integer};
-use asnom::common::TagClass;
+use lber::structures::{Tag, Integer};
+use lber::common::TagClass;
 
 use futures::{future, Future};
 use tokio_proto::multiplex::RequestId;

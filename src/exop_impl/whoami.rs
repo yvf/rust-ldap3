@@ -2,7 +2,7 @@ use std::str;
 
 use super::{Exop, ExopParser};
 
-use asnom::structures::Tag;
+use lber::structures::Tag;
 
 pub const WHOAMI_OID: &'static str = "1.3.6.1.4.1.4203.1.11.3";
 

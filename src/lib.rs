@@ -24,14 +24,13 @@
 //! In the [struct list](#structs), asynchronous structs have an asterisk (__⁎__) after
 //! the short description.
 
-extern crate asnom;
-
 extern crate bytes;
 extern crate byteorder;
 #[macro_use]
 extern crate futures;
 #[macro_use]
 extern crate lazy_static;
+extern crate lber;
 #[macro_use]
 extern crate log;
 extern crate native_tls;
@@ -80,9 +79,9 @@ pub use search::{DerefAliases, Scope, SearchEntry, SearchOptions, SearchStream};
 
 pub mod asn1 {
     //! ASN.1 structure construction and parsing.
-    pub use asnom::IResult;
-    pub use asnom::common::TagClass;
-    pub use asnom::structure::{PL, StructureTag};
-    pub use asnom::structures::{ASNTag, Boolean, Enumerated, ExplicitTag, Integer, Null, OctetString, Sequence, Set, Tag};
-    pub use asnom::parse::{parse_tag, parse_uint};
+    pub use lber::IResult;
+    pub use lber::common::TagClass;
+    pub use lber::structure::{PL, StructureTag};
+    pub use lber::structures::{ASNTag, Boolean, Enumerated, ExplicitTag, Integer, Null, OctetString, Sequence, Set, Tag};
+    pub use lber::parse::{parse_tag, parse_uint};
 }

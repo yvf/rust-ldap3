@@ -1,8 +1,8 @@
 use std::convert::AsRef;
 use std::io;
 
-use asnom::structures::{Tag, OctetString, Sequence};
-use asnom::common::TagClass;
+use lber::structures::{Tag, OctetString, Sequence};
+use lber::common::TagClass;
 
 use futures::Future;
 use tokio_service::Service;

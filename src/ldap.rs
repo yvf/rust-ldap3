@@ -3,8 +3,8 @@ use std::{io, mem};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::rc::Rc;
 
-use asnom::structure::StructureTag;
-use asnom::structures::Tag;
+use lber::structure::StructureTag;
+use lber::structures::Tag;
 use futures::{future, Future};
 use futures::sync::mpsc;
 use native_tls::TlsConnector;

@@ -3,8 +3,8 @@ use std::convert::AsRef;
 use std::hash::Hash;
 use std::io;
 
-use asnom::structures::{Tag, Sequence, Set, OctetString};
-use asnom::common::TagClass;
+use lber::structures::{Tag, Sequence, Set, OctetString};
+use lber::common::TagClass;
 
 use futures::{future, Future};
 use tokio_service::Service;

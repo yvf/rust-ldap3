@@ -13,8 +13,8 @@ use tokio_core::reactor::{Core, Handle};
 use tokio_proto::multiplex::RequestId;
 use url::{Host, Url};
 
-use asnom::structure::StructureTag;
-use asnom::structures::Tag;
+use lber::structure::StructureTag;
+use lber::structures::Tag;
 use controls::Control;
 use exop::Exop;
 use ldap::Ldap;

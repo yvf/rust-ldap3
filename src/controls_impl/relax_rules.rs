@@ -1,7 +1,7 @@
 use super::{MakeCritical, Oid};
 use super::construct_control;
 
-use asnom::structure::StructureTag;
+use lber::structure::StructureTag;
 
 pub struct RelaxRules;
 
