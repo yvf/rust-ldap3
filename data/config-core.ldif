@@ -1,0 +1,25 @@
+dn: cn=config
+objectClass: olcGlobal
+cn: config
+olcPidFile: db/run/db.pid
+olcArgsFile: db/run/db.args
+
+dn: olcDatabase=config,cn=config
+objectClass: olcDatabaseConfig
+olcDatabase: config
+olcRootPw: secret
+
+dn: cn=schema,cn=config
+objectClass: olcSchemaConfig
+cn: schema
+
+dn: cn=module,cn=config
+objectClass: olcModuleList
+cn: module
+olcModulePath: /usr/lib/ldap
+olcModuleLoad: back_mdb
+
+dn: olcBackend=mdb,cn=config
+objectClass: olcBackendConfig
+olcBackend: mdb
+
