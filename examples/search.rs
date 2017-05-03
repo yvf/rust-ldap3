@@ -1,23 +1,17 @@
-extern crate ldap;
+extern crate ldap3;
 
-use ldap::LdapSync;
+use ldap3::{LdapConn, Scope, SearchEntry};
 
-pub fn main() {
-    let addr = "127.0.0.1:389".parse().unwrap();
-
-    let mut ldap = LdapSync::connect(&addr).unwrap();
-
-    let res = ldap.simple_bind("cn=root,dc=plabs".to_string(), "asdf".to_string()).unwrap();
-
-    if res {
-        println!("Bind succeeded!");
-        let res2 = ldap.search("dc=plabs".to_string(),
-                               ldap::Scope::Subtree,
-                               ldap::DerefAliases::Never,
-                               false,
-                               "(objectClass=*)".to_string());
-        println!("Search result: {:?}", res2);
-    } else {
-        println!("Bind failed! :(");
+fn main() {
+    let ldap = LdapConn::new("ldap://localhost:2389").expect("ldap handle");
+    let (rs, res, _ctrls) = ldap.search(
+        "ou=Places,dc=example,dc=org",
+        Scope::Subtree,
+        "(&(objectClass=locality)(l=ma*))",
+        vec!["l"]
+    ).expect("search result");
+    println!("Result: {:?}", res);
+    for entry in rs {
+        println!("{:?}", SearchEntry::construct(entry));
     }
 }
