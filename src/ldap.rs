@@ -75,7 +75,7 @@ impl Ldap {
         if addr.parse::<SocketAddr>().ok().is_some() {
             return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "SSL connection must be by hostname")));
         }
-        let sockaddr = addr.to_socket_addrs().unwrap_or(vec![].into_iter()).next();
+        let sockaddr = addr.to_socket_addrs().unwrap_or_else(|_| vec![].into_iter()).next();
         if sockaddr.is_none() {
             return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "no addresses found")));
         }

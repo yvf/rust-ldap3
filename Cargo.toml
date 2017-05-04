@@ -31,6 +31,13 @@ version = "0.1.2"
 features = ["tokio-proto"]
 version = "0.1.2"
 
+[dependencies.clippy]
+version = "0.0.129"
+optional = true
+
+[features]
+default = []
+
 [dev-dependencies]
 env_logger = "0.4.2"
 maplit = "0.1.4"

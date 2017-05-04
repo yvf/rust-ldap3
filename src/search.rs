@@ -67,7 +67,7 @@ impl SearchStream {
     fn update_maps(&mut self) {
         let mut bundle = self.bundle.borrow_mut();
         let msgid = match bundle.search_helpers.get(&self.id) {
-            Some(ref helper) => helper.msgid,
+            Some(helper) => helper.msgid,
             None => return,
         };
         bundle.search_helpers.remove(&self.id);
@@ -162,6 +162,8 @@ pub struct SearchOptions {
 
 impl SearchOptions {
     /// Create an instance of the structure with default values.
+    // Constructing SearchOptions through Default::default() seems very unlikely
+    #[cfg_attr(feature="clippy", allow(new_without_default))]
     pub fn new() -> Self {
         SearchOptions {
             deref: DerefAliases::Never,
@@ -197,6 +199,9 @@ impl SearchOptions {
 }
 
 impl Ldap {
+    // Clippy warns about the Future's Item; maybe we're going to pack controls into LdapResult,
+    // but it's a breaking change
+    #[cfg_attr(feature="clippy", allow(type_complexity))]
     pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) ->
             Box<Future<Item=(SearchStream, oneshot::Receiver<(LdapResult, Vec<Control>)>), Error=io::Error>> {
         let opts = match next_search_options(self) {
@@ -245,7 +250,7 @@ impl Ldap {
         let bundle = bundle(self);
         let fut = self.call(LdapOp::Multi(req, tx_i.clone(), next_req_controls(self))).and_then(move |res| {
             let id = match res {
-                (Tag::Integer(Integer { id: _, class: _, inner }), _) => inner,
+                (Tag::Integer(Integer { inner, .. }), _) => inner,
                 _ => unimplemented!(),
             };
             Ok((SearchStream {

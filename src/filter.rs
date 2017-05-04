@@ -161,7 +161,7 @@ named!(eq<Tag>, do_parse!(
     initial: unescaped >>
     mid_final: map_res!(many0!(preceded!(tag!("*"), unescaped)), |v: Vec<Vec<u8>>| -> Result<Vec<Vec<u8>>, ()> {
         // an empty element may exist only at the very end; otherwise, we have two adjacent asterisks
-        if v.iter().enumerate().fold(false, |acc, (n, ref ve)| acc || ve.is_empty() && n + 1 != v.len()) {
+        if v.iter().enumerate().fold(false, |acc, (n, ve)| acc || ve.is_empty() && n + 1 != v.len()) {
             Err(())
         } else {
             Ok(v)

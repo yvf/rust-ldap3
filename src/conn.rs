@@ -60,6 +60,11 @@ pub struct EntryStream {
 }
 
 impl EntryStream {
+    // next() is quite fitting here, but we can't implement Iterator directly on this structure;
+    // it mustn't be possible to move it out through into_iter(), as we need it to retrieve LdapResult
+    // after iteration. Implementing Iterator on a helper is an option, but the semantics of termination
+    // in case of Err(_) should be explored first
+    #[cfg_attr(feature="clippy", allow(should_implement_trait))]
     pub fn next(&mut self) -> io::Result<Option<StructureTag>> {
         let strm = self.strm.take();
         if strm.is_none() {
@@ -232,8 +237,8 @@ impl LdapConnAsync {
         };
         Ok(LdapConnAsync {
             in_progress: match scheme {
-                "ldap" => LdapWrapper::connect(&addr.expect("addr"), &handle).shared(),
-                "ldaps" => LdapWrapper::connect_ssl(&host_port, &handle).shared(),
+                "ldap" => LdapWrapper::connect(&addr.expect("addr"), handle).shared(),
+                "ldaps" => LdapWrapper::connect_ssl(&host_port, handle).shared(),
                 _ => unimplemented!(),
             },
         })
@@ -248,10 +253,10 @@ impl Future for LdapConnAsync {
         match self.in_progress.poll() {
             Ok(Async::Ready(ref wrapper)) => {
                 let ldap = wrapper.ldap();
-                return Ok(Async::Ready(ldap));
+                Ok(Async::Ready(ldap))
             },
-            Ok(Async::NotReady) => return Ok(Async::NotReady),
-            Err(ref e) => return Err(io::Error::new(e.kind(), format!("{:?}", e))),
+            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Err(ref e) => Err(io::Error::new(e.kind(), format!("{:?}", e))),
         }
     }
 }

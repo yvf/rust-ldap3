@@ -14,7 +14,7 @@ impl Ldap {
             Box<Future<Item=(), Error=io::Error>> {
         let bundle = bundle(self);
         let msgid = match bundle.borrow().search_helpers.get(&id) {
-            Some(ref helper) => helper.msgid,
+            Some(helper) => helper.msgid,
             None => return Box::new(future::err(io::Error::new(io::ErrorKind::Other, format!("id {} not a search operation", id)))),
         };
         bundle.borrow_mut().abandoned.insert(id);

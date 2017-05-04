@@ -117,11 +117,11 @@ pub fn parse_controls(t: StructureTag) -> Vec<Control> {
         let (crit, maybe_val) = match next {
             None => (false, None),
             Some(c) => match c {
-                StructureTag { id, class: _, ref payload } if id == Types::Boolean as u64 => match *payload {
+                StructureTag { id, ref payload, .. } if id == Types::Boolean as u64 => match *payload {
                     PL::P(ref v) => (v[0] != 0, components.next()),
                     PL::C(_) => panic!("decoding error"),
                 },
-                StructureTag { id, class: _, payload: _ } if id == Types::OctetString as u64 => (false, Some(c.clone())),
+                StructureTag { id, .. } if id == Types::OctetString as u64 => (false, Some(c.clone())),
                 _ => panic!("decoding error"),
             },
         };

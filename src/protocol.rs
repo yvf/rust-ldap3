@@ -267,9 +267,8 @@ impl Encoder for LdapCodec {
                 assert_ne!(next_ldap_id, prev_ldap_id, "LDAP message id wraparound with no free slots");
             }
             bundle.inc_next_id();
-            match bundle.search_helpers.get_mut(&id) {
-                Some(ref mut helper) => helper.msgid = next_ldap_id,
-                None => (),
+            if let Some(ref mut helper) = bundle.search_helpers.get_mut(&id) {
+                helper.msgid = next_ldap_id;
             }
             let mut msg = vec![
                 Tag::Integer(Integer {
@@ -332,12 +331,9 @@ impl<T> Stream for ResponseFilter<T>
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
-            match self.bundle.borrow_mut().solo_ops.pop_front() {
-                Some(id) => {
-                    let null_tag = Tag::Null(Null { ..Default::default() });
-                    return Ok(Async::Ready(Some((id, (null_tag, vec![])))));
-                },
-                None => (),
+            if let Some(id) = self.bundle.borrow_mut().solo_ops.pop_front() {
+                let null_tag = Tag::Null(Null { ..Default::default() });
+                return Ok(Async::Ready(Some((id, (null_tag, vec![])))));
             }
             match try_ready!(self.upstream.poll()) {
                 Some((id, _)) if id == u64::MAX => continue,

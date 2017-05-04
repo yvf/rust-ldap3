@@ -1,3 +1,7 @@
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
+
+#![cfg_attr(feature="clippy", allow(doc_markdown))]
 //! A pure-Rust LDAPv3 library using the Tokio stack.
 //!
 //! ## Usage
