@@ -163,7 +163,7 @@ pub struct SearchOptions {
 impl SearchOptions {
     /// Create an instance of the structure with default values.
     // Constructing SearchOptions through Default::default() seems very unlikely
-    #[cfg_attr(feature="clippy", allow(new_without_default))]
+    #[cfg_attr(feature="cargo-clippy", allow(new_without_default))]
     pub fn new() -> Self {
         SearchOptions {
             deref: DerefAliases::Never,
@@ -201,7 +201,7 @@ impl SearchOptions {
 impl Ldap {
     // Clippy warns about the Future's Item; maybe we're going to pack controls into LdapResult,
     // but it's a breaking change
-    #[cfg_attr(feature="clippy", allow(type_complexity))]
+    #[cfg_attr(feature="cargo-clippy", allow(type_complexity))]
     pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) ->
             Box<Future<Item=(SearchStream, oneshot::Receiver<(LdapResult, Vec<Control>)>), Error=io::Error>> {
         let opts = match next_search_options(self) {

@@ -64,7 +64,7 @@ impl EntryStream {
     // it mustn't be possible to move it out through into_iter(), as we need it to retrieve LdapResult
     // after iteration. Implementing Iterator on a helper is an option, but the semantics of termination
     // in case of Err(_) should be explored first
-    #[cfg_attr(feature="clippy", allow(should_implement_trait))]
+    #[cfg_attr(feature="cargo-clippy", allow(should_implement_trait))]
     pub fn next(&mut self) -> io::Result<Option<StructureTag>> {
         let strm = self.strm.take();
         if strm.is_none() {

@@ -25,18 +25,14 @@ fn main() {
         continue_search = false;
         if res.rc == 0 {
             for ctrl in ctrls {
-                match ctrl {
-                    Control(Some(types::PagedResults), ref raw) => match raw.val {
-                        Some(ref v) => {
-                            let pr: PagedResults = parse_control(v);
-                            if !pr.cookie.is_empty() {
-                                cookie = pr.cookie.clone();
-                                continue_search = true;
-                            }
+                if let Control(Some(types::PagedResults), ref raw) = ctrl {
+                    if let Some(ref v) = raw.val {
+                        let pr: PagedResults = parse_control(v);
+                        if !pr.cookie.is_empty() {
+                            cookie = pr.cookie.clone();
+                            continue_search = true;
                         }
-                        None => (),
-                    },
-                    _ => (),
+                    }
                 }
             }
         }
