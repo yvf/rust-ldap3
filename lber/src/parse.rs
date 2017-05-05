@@ -72,13 +72,7 @@ named!(pub parse_length<u64>,
 
 
 pub fn parse_uint(i: &[u8]) -> nom::IResult<&[u8], u64> {
-    match i.len() {
-        1 => nom::be_u8(i).map(|x| x as u64),
-        2 => nom::be_u16(i).map(|x| x as u64),
-        3 => nom::be_u32(i).map(|x| x as u64),
-        8 => nom::be_u64(i),
-        _ => unimplemented!()
-    }
+    nom::IResult::Done(i, i.iter().fold(0, |res, &byte| (res << 8) | byte as u64))
 }
 
 pub fn parse_tag(i: &[u8]) -> nom::IResult<&[u8], StructureTag> {
