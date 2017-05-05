@@ -146,11 +146,10 @@ impl SearchEntry {
             let values = part_attr.next().expect("element").expect_constructed().expect("values").into_iter()
                 .map(|t| t.expect_primitive().expect("octet string"))
                 .filter_map(|s| {
-                    match str::from_utf8(s.as_ref()) {
-                        Ok(s) => return Some(s.to_owned()),
-                        Err(_) => (),
+                    if let Ok(s) = str::from_utf8(s.as_ref()) {
+                        return Some(s.to_owned());
                     }
-                    bin_attr_vals.entry(a_type.clone()).or_insert(vec![]).push(s);
+                    bin_attr_vals.entry(a_type.clone()).or_insert_with(|| vec![]).push(s);
                     any_binary = true;
                     None
                 })

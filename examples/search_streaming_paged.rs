@@ -1,3 +1,4 @@
+
 extern crate ldap3;
 
 use ldap3::{LdapConn, Scope};
@@ -25,14 +26,22 @@ fn main() {
         continue_search = false;
         if res.rc == 0 {
             for ctrl in ctrls {
-                if let Control(Some(types::PagedResults), ref raw) = ctrl {
-                    if let Some(ref v) = raw.val {
-                        let pr: PagedResults = parse_control(v);
-                        if !pr.cookie.is_empty() {
-                            cookie = pr.cookie.clone();
-                            continue_search = true;
+                // Ok clippy, I'm trying to illustrate multiple control matching
+                #[cfg_attr(feature="cargo-clippy", allow(single_match))]
+                match ctrl {
+                    // This match can never be exhaustive, i.e., it must have the
+                    // '_' variant, in order to make the set of control types
+                    // extensible without breaking existing code
+                    Control(Some(types::PagedResults), ref raw) => {
+                        if let Some(ref v) = raw.val {
+                            let pr: PagedResults = parse_control(v);
+                            if !pr.cookie.is_empty() {
+                                cookie = pr.cookie.clone();
+                                continue_search = true;
+                            }
                         }
-                    }
+                    },
+                    _ => (),
                 }
             }
         }
