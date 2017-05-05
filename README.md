@@ -14,7 +14,7 @@ First, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies.ldap3]
-version = "0.4.0"
+version = "0.4"
 ```
 
 Next, add this to your crate root (`src/lib.rs` or `src/main.rs`):
@@ -57,7 +57,7 @@ extern crate tokio_core;
 use std::io;
 
 use futures::{Future, Stream};
-use ldap::{LdapConnAsync, Scope, SearchEntry};
+use ldap3::{LdapConnAsync, Scope, SearchEntry};
 use tokio_core::reactor::Core;
 
 fn main() {
@@ -88,35 +88,22 @@ fn main() {
 
 ## Status
 
-All basic operations are implemented, as well as the support for request
-and response controls. The driver should now be well equipped for the majority
-of uses, although it lacks automated handling of several common scenarios,
-such as referral chasing and paged results.
+All LDAP protocol operations are implemented, as well as the support for request
+and response controls. The driver still lacks automated handling of several common
+scenarios, such as referral chasing and paged results.
 
 TLS support exists for the case of immediate negotiation (aka __ldaps://__).
-Caveat: certificate and hostname checking __can't be turned off__.
+StartTLS will probably be supported in the medium term.
 
-StartTLS will probably be supported in the medium term. Patches are welcome.
+Caveats:
 
-### Implemented operations
+* Certificate and hostname checking __can't be turned off__.
 
-In order of appearance in the RFC:
+* Unbind doesn't close our side of the connection, since the underlying
+  TCP stream is inaccessible in the present implementation.
 
-- [x] Bind (simple)
-- [x] Unbind [1]
-- [x] Search
-- [x] Modify
-- [x] Add
-- [x] Delete
-- [x] ModifyDN
-- [x] Compare
-- [x] Abandon [2]
-- [x] Extended
+* Abandon accepts only request ids of active searches.
 
-[1] Unbind doesn't close our side of the connection, since the underlying
-TCP stream is inaccessible in the present implementation.
-
-[2] Abandon accepts only request ids of active searches.
 
 ## License
 
