@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::AsRef;
 use std::io;
 use std::rc::Rc;
+use std::str;
 
 use lber::structure::StructureTag;
 use lber::structures::{Boolean, Enumerated, Integer, OctetString, Sequence, Tag};
@@ -125,6 +126,8 @@ pub struct SearchEntry {
     pub dn: String,
     /// Attributes.
     pub attrs: HashMap<String, Vec<String>>,
+    /// Binary-valued attributes.
+    pub bin_attrs: HashMap<String, Vec<Vec<u8>>>,
 }
 
 impl SearchEntry {
@@ -133,21 +136,37 @@ impl SearchEntry {
         let dn = String::from_utf8(tags.next().expect("element").expect_primitive().expect("octet string"))
             .expect("dn");
         let mut attr_vals = HashMap::new();
+        let mut bin_attr_vals = HashMap::new();
         let attrs = tags.next().expect("element").expect_constructed().expect("attrs").into_iter();
         for a_v in attrs {
             let mut part_attr = a_v.expect_constructed().expect("partial attribute").into_iter();
             let a_type = String::from_utf8(part_attr.next().expect("element").expect_primitive().expect("octet string"))
                 .expect("attribute type");
+            let mut any_binary = false;
             let values = part_attr.next().expect("element").expect_constructed().expect("values").into_iter()
                 .map(|t| t.expect_primitive().expect("octet string"))
-                .map(String::from_utf8)
-                .map(|s| s.expect("value"))
-                .collect();
-            attr_vals.insert(a_type, values);
+                .filter_map(|s| {
+                    match str::from_utf8(s.as_ref()) {
+                        Ok(s) => return Some(s.to_owned()),
+                        Err(_) => (),
+                    }
+                    bin_attr_vals.entry(a_type.clone()).or_insert(vec![]).push(s);
+                    any_binary = true;
+                    None
+                })
+                .collect::<Vec<String>>();
+            if any_binary {
+                bin_attr_vals.get_mut(&a_type).expect("bin vector").extend(
+                    values.into_iter().map(String::into_bytes).collect::<Vec<Vec<u8>>>()
+                );
+            } else {
+                attr_vals.insert(a_type, values);
+            }
         }
         SearchEntry {
             dn: dn,
             attrs: attr_vals,
+            bin_attrs: bin_attr_vals,
         }
     }
 }
