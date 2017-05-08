@@ -97,7 +97,7 @@ StartTLS will probably be supported in the medium term.
 
 Caveats:
 
-* Certificate and hostname checking __can't be turned off__.
+* Certificate and hostname checking __can't be turned off__ for TLS connections.
 
 * Unbind doesn't close our side of the connection, since the underlying
   TCP stream is inaccessible in the present implementation.
