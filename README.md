@@ -1,4 +1,4 @@
-# LDAPv3 client library
+# LDAP client library
 
 A pure-Rust LDAP library using the Tokio stack.
 
@@ -104,6 +104,9 @@ Caveats:
 
 * Abandon accepts only request ids of active searches.
 
+* Only version 3 of LDAP is supported.
+
+* CLDAP (LDAP over UDP) is not supported.
 
 ## License
 

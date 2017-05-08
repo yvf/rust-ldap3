@@ -11,6 +11,7 @@ use ldap::{Ldap, LdapOp, next_req_controls};
 use protocol::LdapResult;
 
 impl Ldap {
+    /// See [`LdapConn::modifydn()`](struct.LdapConn.html#method.modifydn).
     pub fn modifydn(&self, dn: &str, rdn: &str, delete_old: bool, new_sup: Option<&str>) ->
             Box<Future<Item=(LdapResult, Vec<Control>), Error=io::Error>> {
         let mut params = vec![

@@ -12,6 +12,7 @@ use ldap::{Ldap, LdapOp, next_req_controls};
 use protocol::LdapResult;
 
 impl Ldap {
+    /// See [`LdapConn::compare()`](struct.LdapConn.html#method.compare).
     pub fn compare<B: AsRef<[u8]>>(&self, dn: &str, attr: &str, val: B) ->
             Box<Future<Item=(LdapResult, Vec<Control>), Error=io::Error>> {
         let req = Tag::Sequence(Sequence {

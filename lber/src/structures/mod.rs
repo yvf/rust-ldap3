@@ -17,7 +17,7 @@ pub use self::explicit::ExplicitTag;
 
 pub trait ASNTag {
     /// Encode yourself into a generic Tag format.
-    /// 
+    ///
     /// The only thing that changes between types is how to encode the value they wrap into bytes,
     /// however the encoding of the class and id does not change. By first converting the tag into
     /// a more generic tag (with already encoded payload), we don't have to reimplement the

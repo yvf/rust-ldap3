@@ -10,6 +10,7 @@ use tokio_service::Service;
 use ldap::{bundle, Ldap, LdapOp, next_req_controls};
 
 impl Ldap {
+    /// See [`LdapConn::abandon()`](struct.LdapConn.html#method.abandon).
     pub fn abandon(&self, id: RequestId) ->
             Box<Future<Item=(), Error=io::Error>> {
         let bundle = bundle(self);

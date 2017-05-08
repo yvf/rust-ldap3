@@ -26,7 +26,21 @@ enum ClientMap {
 }
 
 #[derive(Clone)]
-/// LDAP connection. __⁎__
+/// LDAP connection. __*__
+///
+/// This is a low-level structure representing an LDAP connection, which
+/// provides methods returning futures of various LDAP operations. Inherent
+/// methods for opening a connection themselves return futures which,
+/// if successfully resolved, yield the structure instance. That instance
+/// can be `clone()`d if the connection should be reused for multiple
+/// operations.
+///
+/// All methods on an instance of this structure, except `with_*`, return
+/// a future which must be polled inside some futures chain to obtain the
+/// appropriate result. The synchronous interface provides methods with
+/// exactly the same name and parameters, and identical semantics. Differences
+/// in expected use are noted where they exist, such as the [`search()`]
+/// (#method.search) method.
 pub struct Ldap {
     inner: ClientMap,
     bundle: Rc<RefCell<ProtoBundle>>,
@@ -53,6 +67,8 @@ pub enum LdapOp {
 }
 
 impl Ldap {
+    /// Connect to an LDAP server without using TLS, using an IP address/port number
+    /// in `addr`, and an event loop handle in `handle`.
     pub fn connect(addr: &SocketAddr, handle: &Handle) ->
             Box<Future<Item=Ldap, Error=io::Error>> {
         let proto = LdapProto::new(handle.clone());
@@ -70,6 +86,10 @@ impl Ldap {
         Box::new(ret)
     }
 
+    /// Connect to an LDAP server with an attempt to negotiate TLS immediately after
+    /// establishing the TCP connection, using the host name and port number in `addr`,
+    /// and an event loop handle in `handle`. The connection _must_ be by host name for
+    /// TLS hostname check to work.
     pub fn connect_ssl(addr: &str, handle: &Handle) ->
             Box<Future<Item=Ldap, Error=io::Error>> {
         if addr.parse::<SocketAddr>().ok().is_some() {
@@ -97,11 +117,13 @@ impl Ldap {
         Box::new(ret)
     }
 
+    /// See [`LdapConn::with_search_options()`](struct.LdapConn.html#method.with_search_options).
     pub fn with_search_options(&self, opts: SearchOptions) -> &Self {
         mem::replace(&mut *self.next_search_options.borrow_mut(), Some(opts));
         self
     }
 
+    /// See [`LdapConn::with_controls()`](struct.LdapConn.html#method.with_controls).
     pub fn with_controls(&self, ctrls: Vec<StructureTag>) -> &Self {
         mem::replace(&mut *self.next_req_controls.borrow_mut(), Some(ctrls));
         self

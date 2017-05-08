@@ -14,6 +14,7 @@ use ldap::{Ldap, LdapOp, next_req_controls};
 use protocol::LdapResult;
 
 impl Ldap {
+    /// See [`LdapConn::add()`](struct.LdapConn.html#method.add).
     pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: &str, attrs: Vec<(S, HashSet<S>)>) ->
             Box<Future<Item=(LdapResult, Vec<Control>), Error=io::Error>> {
         let mut any_empty = false;

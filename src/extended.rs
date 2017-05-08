@@ -12,6 +12,7 @@ use exop::Exop;
 use protocol::{LdapResult, LdapResultExt};
 
 impl Ldap {
+    /// See [`LdapConn::extended()`](struct.LdapConn.html#method.extended).
     pub fn extended<E>(&self, exop: E) ->
         Box<Future<Item=(LdapResult, Exop, Vec<Control>), Error=io::Error>>
         where Vec<Tag>: From<E>

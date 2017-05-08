@@ -11,6 +11,7 @@ use ldap::{Ldap, LdapOp, next_req_controls};
 use protocol::LdapResult;
 
 impl Ldap {
+    /// See [`LdapConn::simple_bind()`](struct.LdapConn.html#method.simple_bind).
     pub fn simple_bind(&self, bind_dn: &str, bind_pw: &str) ->
             Box<Future<Item=(LdapResult, Vec<Control>), Error=io::Error>> {
         let req = Tag::Sequence(Sequence {

@@ -50,7 +50,12 @@ pub enum SearchItem {
     Done(RequestId, LdapResult, Vec<Control>),
 }
 
-/// Stream of search results. __⁎__
+/// Stream of search results. __*__
+///
+/// The stream will yield search result entries. It must be polled until
+/// it returns `None`, when the final result will become available through
+/// a separately returned oneshot future. Abandoning the search doesn't
+/// change this contract.
 pub struct SearchStream {
     id: RequestId,
     bundle: Rc<RefCell<ProtoBundle>>,
@@ -61,6 +66,10 @@ pub struct SearchStream {
 }
 
 impl SearchStream {
+    /// Return the internal id of the search, which can be used to abandon it.
+    ///
+    /// __Note__: this method will probably be deprecated or removed in 0.5.x
+    /// in favor of directly calling `abandon()` on the stream.
     pub fn id(&self) -> RequestId {
         self.id
     }
@@ -120,6 +129,23 @@ impl Stream for SearchStream {
 }
 
 /// Parsed search result entry.
+///
+/// While LDAP attributes can have a variety of syntaxes, they're all returned in
+/// search results as octet strings, without any associated type information. A
+/// general-purpose result parser could leave all values in that format, but then
+/// retrieving them from user code would be cumbersome and tedious.
+///
+/// For that reason, the parser tries to convert every value into a `String`. If an
+/// attribute can contain unconstrained binary strings, the conversion can fail. In that case,
+/// the attribute and all its values will be in the `bin_attrs` hashmap. Since it's
+/// possible that a particular set of values for a binary attribute _could_ be
+/// converted into UTF-8 `String`s, the presence of of such attribute in the result
+/// entry should be checked for both in `attrs` and `bin_atrrs`.
+///
+/// In the future versions of the library, this parsing interface will be
+/// de-emphasized in favor of custom Serde deserialization of search results directly
+/// into a user-supplied struct, which is expected to be a better fit for the
+/// majority of uses.
 #[derive(Debug)]
 pub struct SearchEntry {
     /// Entry DN.
@@ -131,6 +157,11 @@ pub struct SearchEntry {
 }
 
 impl SearchEntry {
+    /// Parse raw BER data and convert it into attribute map(s).
+    ///
+    /// __Note__: this function has a wrong return type; it should be
+    /// `Result<SearchEntry>`. Error handling for the whole library is going to be
+    /// overhauled, probably for 0.6.x.
     pub fn construct(tag: StructureTag) -> SearchEntry {
         let mut tags = tag.match_id(4).and_then(|t| t.expect_constructed()).expect("entry").into_iter();
         let dn = String::from_utf8(tags.next().expect("element").expect_primitive().expect("octet string"))
@@ -204,6 +235,9 @@ impl SearchOptions {
     }
 
     /// Set the time limit, in seconds, for the whole search operation.
+    ///
+    /// This is a server-side limit of the elapsed time for performing the operation, _not_ a
+    /// network timeout for retrieving result entries or the result of the whole operation.
     pub fn timelimit(mut self, timelimit: i32) -> Self {
         self.timelimit = timelimit;
         self
@@ -217,6 +251,15 @@ impl SearchOptions {
 }
 
 impl Ldap {
+    /// See [`LdapConn::search()`](struct.LdapConn.html#method.search).
+    ///
+    /// The returned future resolves to a pair consisting of a [`SearchStream`](struct.SearchStream.html),
+    /// which should be iterated through to obtain results, and a receiver future which will yield the
+    /// overall result of the search after the stream is drained. They should be polled concurrently
+    /// with `Future::join()`.
+    ///
+    /// The true synchronous counterpart of this method is not the identically named `LdapConn::search()`,
+    /// but rather [`LdapConn::streaming_search()`](struct.LdapConn.html#method.streaming_search).
     // Clippy warns about the Future's Item; maybe we're going to pack controls into LdapResult,
     // but it's a breaking change
     #[cfg_attr(feature="cargo-clippy", allow(type_complexity))]

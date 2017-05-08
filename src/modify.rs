@@ -25,6 +25,7 @@ pub enum Mod<S: AsRef<str> + Eq + Hash> {
 }
 
 impl Ldap {
+    /// See [`LdapConn::modify()`](struct.LdapConn.html#method.modify).
     pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: &str, mods: Vec<Mod<S>>) ->
             Box<Future<Item=(LdapResult, Vec<Control>), Error=io::Error>> {
         let mut any_add_empty = false;

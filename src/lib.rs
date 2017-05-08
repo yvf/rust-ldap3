@@ -1,5 +1,4 @@
-#![cfg_attr(feature="cargo-clippy", allow(doc_markdown))]
-//! A pure-Rust LDAPv3 library using the Tokio stack.
+//! A pure-Rust LDAP library using the Tokio stack.
 //!
 //! ## Usage
 //!
@@ -7,7 +6,7 @@
 //!
 //! ```
 //! [dependencies.ldap3]
-//! version = "0.4.0"
+//! version = "0.4"
 //! ```
 //!
 //! In the crate root:
@@ -19,11 +18,22 @@
 //!
 //! Although the library provides both synchronous and asynchronous interfaces,
 //! presently the synchronous one is less likely to undergo breaking changes,
-//! and is the preferred way to use the library. The [`LdapConn`](#struct.LdapConn.html)
-//! structure is the starting point for all synchronous operations.
+//! and is the preferred way to use the library. The [`LdapConn`](struct.LdapConn.html)
+//! structure is the starting point for all synchronous operations. [`LdapConnAsync`]
+//! (struct.LdapConnAsync) is its asynchronous analogue, and [`Ldap`](struct.Ldap) is
+//! the low-level asynchronous connection handle used by both.
 //!
-//! In the [struct list](#structs), asynchronous structs have an asterisk (__⁎__) after
+//! In the [struct list](#structs), async-related structs have an asterisk (__*__) after
 //! the short description.
+//!
+//! Since the library is still in development, none of the interfaces should be considered
+//! stable. If a breaking change of some component is planned, it will be noted in the
+//! documentation with a bolded __Note__, with a link to the GitHub issue discussing the
+//! change, if applicable. General, crate-level issues with the documentation can be
+//! discussed [here](https://github.com/inejge/ldap3/issues/3).
+//!
+//! The documentation is written for readers familiar with LDAP concepts and terminology,
+//! which it won't attempt to explain.
 
 extern crate bytes;
 extern crate byteorder;
