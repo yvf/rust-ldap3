@@ -57,6 +57,7 @@ pub fn next_search_options(ldap: &Ldap) -> Option<SearchOptions> {
 }
 
 pub fn next_req_controls(ldap: &Ldap) -> Option<Vec<StructureTag>> {
+    ldap.next_search_options.borrow_mut().take();
     ldap.next_req_controls.borrow_mut().take()
 }
 
