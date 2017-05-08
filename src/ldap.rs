@@ -1,6 +1,8 @@
 use std::cell::RefCell;
 use std::{io, mem};
 use std::net::{SocketAddr, ToSocketAddrs};
+#[cfg(unix)]
+use std::path::Path;
 use std::rc::Rc;
 
 use lber::structure::StructureTag;
@@ -14,6 +16,10 @@ use tokio_proto::TcpClient;
 use tokio_proto::multiplex::ClientService;
 use tokio_service::Service;
 use tokio_tls::proto::Client as TlsClient;
+#[cfg(unix)]
+use tokio_uds::UnixStream;
+#[cfg(unix)]
+use tokio_uds_proto::UnixClient;
 
 use controls::Control;
 use protocol::{LdapProto, ProtoBundle};
@@ -23,6 +29,8 @@ use search::{SearchItem, SearchOptions};
 enum ClientMap {
     Plain(ClientService<TcpStream, LdapProto>),
     Tls(ClientService<TcpStream, TlsClient<LdapProto>>),
+    #[cfg(unix)]
+    Unix(ClientService<UnixStream, LdapProto>),
 }
 
 #[derive(Clone)]
@@ -118,6 +126,29 @@ impl Ldap {
         Box::new(ret)
     }
 
+    /// Connect to an LDAP server through a Unix domain socket, using the path
+    /// in `path`, and an event loop handle in `handle`.
+    #[cfg(unix)]
+    pub fn connect_unix<P: AsRef<Path>>(path: P, handle: &Handle) ->
+            Box<Future<Item=Ldap, Error=io::Error>> {
+        let proto = LdapProto::new(handle.clone());
+        let bundle = proto.bundle();
+        let client = UnixClient::new(proto)
+            .connect(path, handle)
+            .map(|client_proxy| {
+                Ldap {
+                    inner: ClientMap::Unix(client_proxy),
+                    bundle: bundle,
+                    next_search_options: Rc::new(RefCell::new(None)),
+                    next_req_controls: Rc::new(RefCell::new(None)),
+                }
+            });
+        Box::new(match client {
+            Ok(ldap) => future::ok(ldap),
+            Err(e) => future::err(e),
+        })
+    }
+
     /// See [`LdapConn::with_search_options()`](struct.LdapConn.html#method.with_search_options).
     pub fn with_search_options(&self, opts: SearchOptions) -> &Self {
         mem::replace(&mut *self.next_search_options.borrow_mut(), Some(opts));
@@ -152,6 +183,8 @@ impl Service for ClientMap {
         match *self {
             ClientMap::Plain(ref p) => Box::new(p.call(req)),
             ClientMap::Tls(ref t) => Box::new(t.call(req)),
+            #[cfg(unix)]
+            ClientMap::Unix(ref u) => Box::new(u.call(req)),
         }
     }
 }

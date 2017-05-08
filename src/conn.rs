@@ -1,3 +1,5 @@
+#[cfg(unix)]
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::convert::AsRef;
@@ -12,6 +14,8 @@ use futures::sync::oneshot;
 use tokio_core::reactor::{Core, Handle};
 use tokio_proto::multiplex::RequestId;
 use url::{Host, Url};
+#[cfg(unix)]
+use url::percent_encoding::percent_decode;
 
 use lber::structure::StructureTag;
 use lber::structures::Tag;
@@ -43,6 +47,16 @@ impl LdapWrapper {
 
     fn connect_ssl(addr: &str, handle: &Handle) -> Box<Future<Item=LdapWrapper, Error=io::Error>> {
         let lw = Ldap::connect_ssl(addr, handle)
+            .map(|ldap| {
+                LdapWrapper {
+                    inner: ldap,
+                }
+            });
+        Box::new(lw)
+    }
+
+    fn connect_unix(path: &str, handle: &Handle) -> Box<Future<Item=LdapWrapper, Error=io::Error>> {
+        let lw = Ldap::connect_unix(path, handle)
             .map(|ldap| {
                 LdapWrapper {
                     inner: ldap,
@@ -161,8 +175,9 @@ pub struct LdapConn {
 }
 
 impl LdapConn {
-    /// Open a connection to an LDAP server specified by `url`. This is an LDAP URL, from
-    /// which the scheme (__ldap__ or __ldaps__), host, and port are used.
+    /// Open a connection to an LDAP server specified by `url`. For the
+    /// details of supported URL formats, see
+    /// [`LdapConnAsync::new()`](struct.LdapConnAsync.html#method.new)
     pub fn new(url: &str) -> io::Result<Self> {
         let mut core = Core::new()?;
         let conn = LdapConnAsync::new(url, &core.handle())?;
@@ -333,9 +348,39 @@ pub struct LdapConnAsync {
 }
 
 impl LdapConnAsync {
+    #[cfg(not(unix))]
     /// Open a connection to an LDAP server specified by `url`. This is an LDAP URL, from
     /// which the scheme (__ldap__ or __ldaps__), host, and port are used.
     pub fn new(url: &str, handle: &Handle) -> io::Result<Self> {
+        LdapConnAsync::new_tcp(url, handle)
+    }
+
+    #[cfg(unix)]
+    /// Open a connection to an LDAP server specified by `url`. This is an LDAP URL, from
+    /// which the scheme (__ldap__, __ldaps__, or __ldapi__), host, and port are used. If
+    /// the scheme is __ldapi__, the host portion of the url must be a percent-encoded path
+    /// to the Unix domain socket, and the port must be empty.
+    pub fn new(url: &str, handle: &Handle) -> io::Result<Self> {
+        if !url.starts_with("ldapi://") {
+            return LdapConnAsync::new_tcp(url, handle);
+        }
+        let mut url_iter = url.split('/');
+        url_iter.next().unwrap();               // "ldapi:"
+        url_iter.next().unwrap();               // ""
+        let path = url_iter.next().unwrap();
+        if path.is_empty() {
+            return Err(io::Error::new(io::ErrorKind::Other, "empty Unix domain socket path"));
+        }
+        if path.contains(':') {
+            return Err(io::Error::new(io::ErrorKind::Other, "the port must be empty in the ldapi scheme"));
+        }
+        let dec_path = percent_decode(path.as_bytes()).decode_utf8_lossy();
+        Ok(LdapConnAsync {
+            in_progress: LdapWrapper::connect_unix(dec_path.borrow(), handle).shared(),
+        })
+    }
+
+    fn new_tcp(url: &str, handle: &Handle) -> io::Result<Self> {
         let url = Url::parse(url).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))?;
         let mut port = 389;
         let scheme = match url.scheme() {

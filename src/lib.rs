@@ -52,6 +52,10 @@ extern crate tokio_io;
 extern crate tokio_proto;
 extern crate tokio_service;
 extern crate tokio_tls;
+#[cfg(unix)]
+extern crate tokio_uds;
+#[cfg(unix)]
+extern crate tokio_uds_proto;
 extern crate url;
 
 mod abandon;
