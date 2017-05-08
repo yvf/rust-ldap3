@@ -193,6 +193,14 @@ impl LdapConn {
         Ok(self.core.borrow_mut().run(self.inner.clone().simple_bind(bind_dn, bind_pw))?)
     }
 
+    #[cfg(unix)]
+    /// Do a SASL EXTERNAL bind on the connection. Presently, it only makes sense
+    /// on Unix domain socket connections. The bind is made with the hardcoded
+    /// empty authzId value.
+    pub fn sasl_external_bind(&self) -> io::Result<(LdapResult, Vec<Control>)> {
+        Ok(self.core.borrow_mut().run(self.inner.clone().sasl_external_bind())?)
+    }
+
     /// Use the provided `SearchOptions` with the next Search operation, which can
     /// be invoked directly on the result of this method. If this method is used in
     /// combination with a non-Search operation, the provided options will be silently

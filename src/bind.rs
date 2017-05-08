@@ -39,4 +39,43 @@ impl Ldap {
 
         Box::new(fut)
     }
+
+    #[cfg(unix)]
+    /// See [`LdapConn::sasl_external_bind()`](struct.LdapConn.html#method.sasl_external_bind).
+    pub fn sasl_external_bind(&self) ->
+            Box<Future<Item=(LdapResult, Vec<Control>), Error=io::Error>> {
+        let req = Tag::Sequence(Sequence {
+            id: 0,
+            class: TagClass::Application,
+            inner: vec![
+                Tag::Integer(Integer {
+                    inner: 3,
+                    .. Default::default()
+                }),
+                Tag::OctetString(OctetString {
+                    inner: Vec::new(),
+                    .. Default::default()
+                }),
+                Tag::Sequence(Sequence {
+                    id: 3,
+                    class: TagClass::Context,
+                    inner: vec![
+                        Tag::OctetString(OctetString {
+                            inner: Vec::from("EXTERNAL"),
+                            .. Default::default()
+                        }),
+                        Tag::OctetString(OctetString {
+                            inner: Vec::new(),
+                            .. Default::default()
+                        }),
+                    ]
+                })
+            ],
+        });
+
+        let fut = self.call(LdapOp::Single(req, next_req_controls(self)))
+            .and_then(|(result, controls)| Ok((result.into(), controls)));
+
+        Box::new(fut)
+    }
 }
