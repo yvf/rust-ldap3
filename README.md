@@ -93,7 +93,9 @@ and response controls. The driver still lacks automated handling of several comm
 scenarios, such as referral chasing and paged results.
 
 TLS support exists for the case of immediate negotiation (aka __ldaps://__).
-StartTLS will probably be supported in the medium term.
+StartTLS will probably be supported in the medium term. On Unix-like systems,
+connecting through a Unix domain socket with the __ldapi://__ scheme is
+supported.
 
 Caveats:
 

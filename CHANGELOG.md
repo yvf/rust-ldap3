@@ -1,3 +1,13 @@
+## v0.4.2, 2017-05-08
+
+* Documentation update.
+
+* Support for Unix domain sockets on Unix-like systems.
+
+* Support for SASL EXTERNAL binds, also limited to Unix-like systems
+  for the time being, since they can only work on Unix domain socket
+  connections (we can't use TLS client certs yet.)
+
 ## v0.4.1, 2017-05-06
 
 * Fix integer parsing ([#1](https://github.com/inejge/ldap3/issues/1)).

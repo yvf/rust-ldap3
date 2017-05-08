@@ -141,8 +141,9 @@ impl EntryStream {
 ///
 /// A connection is opened by calling [`new()`](#method.new). If successful, this returns
 /// a handle which is used for all subsequent operations on that connection. Authenticating
-/// the user can be done with [`simple_bind()`](#method.simple_bind); no SASL authentication
-/// methods are currently supported.
+/// the user can be done with [`simple_bind()`](#method.simple_bind) or [`sasl_external_bind()`]
+/// (#method.sasl_external_bind); the latter is available on Unix-like systems, and can only
+/// work on Unix domain socket connections.
 ///
 /// All LDAP operations allow attaching a series of request controls, which augment or modify
 /// the operation. Controls are attached by calling [`with_controls()`](#method.with_controls)

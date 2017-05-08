@@ -28,7 +28,7 @@
 //!
 //! Since the library is still in development, none of the interfaces should be considered
 //! stable. If a breaking change of some component is planned, it will be noted in the
-//! documentation with a bolded __Note__, with a link to the GitHub issue discussing the
+//! documentation with a bolded __Note__, and a link to the GitHub issue discussing the
 //! change, if applicable. General, crate-level issues with the documentation can be
 //! discussed [here](https://github.com/inejge/ldap3/issues/3).
 //!
