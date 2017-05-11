@@ -3,6 +3,7 @@ objectClass: olcGlobal
 cn: config
 olcPidFile: db/run/db.pid
 olcArgsFile: db/run/db.args
+olcAuthzPolicy: to
 
 dn: olcDatabase=config,cn=config
 objectClass: olcDatabaseConfig

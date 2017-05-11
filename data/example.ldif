@@ -7,6 +7,13 @@ dn: ou=People,dc=example,dc=org
 objectClass: organizationalUnit
 ou: People
 
+dn: cn=proxy,dc=example,dc=org
+objectClass: organizationalRole
+objectClass: simpleSecurityObject
+cn: proxy
+authzTo: {0}dn:cn=proxieduser,dc=example,dc=org
+userPassword: topsecret
+
 dn: uid=inejge,ou=People,dc=example,dc=org
 objectClass: account
 objectClass: simpleSecurityObject
