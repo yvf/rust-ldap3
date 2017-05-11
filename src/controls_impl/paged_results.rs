@@ -11,9 +11,16 @@ use lber::structures::{ASNTag, Integer, OctetString, Sequence, Tag};
 use lber::universal::Types;
 use lber::write;
 
+/// Paged Results control ([RFC 2696](https://tools.ietf.org/html/rfc2696)).
+///
+/// This struct can be used both for requests and responses, although `size`
+/// means different things in each case.
 #[derive(Clone, Debug)]
 pub struct PagedResults {
+    /// For requests, desired page size. For responses, a server's estimate
+    /// of the result set size, if non-zero.
     pub size: i32,
+    /// Paging cookie.
     pub cookie: Vec<u8>,
 }
 

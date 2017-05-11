@@ -65,9 +65,39 @@ mod compare;
 mod conn;
 pub mod controls {
     //! Control construction and parsing.
+    //!
+    //! A control can be associated with a request or a response. Several common
+    //! controls, such as [`PagedResults`](struct.PagedResults.html), are implemented
+    //! directly by this library. If an implemented control has the same form for
+    //! the request and the response, there will be a single structure for both uses.
+    //! (This is the case for `PagedResults`.) If the response control is different,
+    //! its name will consist of the request control name with the `Resp` suffix.
+    //!
+    //! A request control can be created by instantiating its structure and converting
+    //! it to ASN.1 with `into()` when constructing the request control vector in the
+    //! call to [`with_controls()`](../struct.LdapConn.html#method.with_controls).
+    //! Independently implemented controls must construct an instance of [`RawControl`]
+    //! (struct.RawControl.html), a general form of control, and call `into()` on that
+    //! instance.
+    //!
+    //! `RawControl`, together with an optional instance of [`ControlType`]
+    //! (types/index.html), forms the type [`Control`](struct.Control.html); a vector
+    //! of `Control`s is part of the result of all LDAP operation which return one.
+    //!
+    //! The first element of `Control` will have a value if the parser recognizes
+    //! the control's OID as one that is implemented by the library itself. Since the
+    //! list of implemented controls is expected to grow, matching those values must
+    //! be done through reexported types in the [`types`](types/index.html) module,
+    //! and cannot be exhaustive.
+    //!
+    //! A recognized response control can be parsed by [`parse_control()`](fn.parse_control.html).
+    //! __Note__: this method will be removed in 0.5.x.
+    // future text:
+    // A recognized response control can be parsed by calling [`parse()`](struct.RawControl.html#method.parse)
+    // on the instance of `RawControl` representing it.
     pub use controls_impl::{Control, MakeCritical, PagedResults, RawControl, RelaxRules};
     pub use controls_impl::parse_control;
-    pub use controls_impl::types::{self, ControlType};
+    pub use controls_impl::types;
 }
 mod controls_impl;
 mod delete;

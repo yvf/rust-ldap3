@@ -3,6 +3,10 @@ use super::construct_control;
 
 use lber::structure::StructureTag;
 
+/// Relax Rules control ([draft specification](https://tools.ietf.org/html/draft-zeilenga-ldap-relax-03)).
+///
+/// This control can only be used for requests; there is no corresponding
+/// result control.
 pub struct RelaxRules;
 
 pub const RELAX_RULES_OID: &'static str = "1.3.6.1.4.1.4203.666.5.12";
