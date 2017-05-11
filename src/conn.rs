@@ -178,7 +178,7 @@ pub struct LdapConn {
 impl LdapConn {
     /// Open a connection to an LDAP server specified by `url`. For the
     /// details of supported URL formats, see
-    /// [`LdapConnAsync::new()`](struct.LdapConnAsync.html#method.new)
+    /// [`LdapConnAsync::new()`](struct.LdapConnAsync.html#method.new).
     pub fn new(url: &str) -> io::Result<Self> {
         let mut core = Core::new()?;
         let conn = LdapConnAsync::new(url, &core.handle())?;
@@ -367,16 +367,13 @@ impl LdapConnAsync {
     #[cfg(unix)]
     /// Open a connection to an LDAP server specified by `url`. This is an LDAP URL, from
     /// which the scheme (__ldap__, __ldaps__, or __ldapi__), host, and port are used. If
-    /// the scheme is __ldapi__, the host portion of the url must be a percent-encoded path
-    /// to the Unix domain socket, and the port must be empty.
+    /// the scheme is __ldapi__, only the host portion of the url is allowed, and it must
+    /// be a percent-encoded path of a Unix domain socket.
     pub fn new(url: &str, handle: &Handle) -> io::Result<Self> {
         if !url.starts_with("ldapi://") {
             return LdapConnAsync::new_tcp(url, handle);
         }
-        let mut url_iter = url.split('/');
-        url_iter.next().unwrap();               // "ldapi:"
-        url_iter.next().unwrap();               // ""
-        let path = url_iter.next().unwrap();
+        let path = url.split('/').skip(2).next().unwrap();
         if path.is_empty() {
             return Err(io::Error::new(io::ErrorKind::Other, "empty Unix domain socket path"));
         }
