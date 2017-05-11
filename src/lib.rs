@@ -105,6 +105,13 @@ mod extended;
 mod exop_impl;
 pub mod exop {
     //! Extended operation construction and parsing.
+    //!
+    //! A generic exop is represented by [`Exop`](struct.Exop.html). If a particular
+    //! exop is implemented by this library, it may have one or two associated structs;
+    //! one for constructing requests, and another for parsing responses. If request and
+    //! response are the same, there is only the request struct; if they are different,
+    //! the response struct's name will consist of the request struct name with the
+    //! `Resp` suffix.
     pub use exop_impl::{Exop, WhoAmI, WhoAmIResp};
     pub use exop_impl::parse_exop;
 }
