@@ -1,4 +1,3 @@
-
 extern crate ldap3;
 
 use ldap3::{LdapConn, Scope};
