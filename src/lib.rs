@@ -95,7 +95,7 @@ pub mod controls {
     // future text:
     // A recognized response control can be parsed by calling [`parse()`](struct.RawControl.html#method.parse)
     // on the instance of `RawControl` representing it.
-    pub use controls_impl::{Control, MakeCritical, PagedResults, RawControl, RelaxRules};
+    pub use controls_impl::{Control, MakeCritical, PagedResults, ProxyAuth, RawControl, RelaxRules};
     pub use controls_impl::parse_control;
     pub use controls_impl::types;
 }

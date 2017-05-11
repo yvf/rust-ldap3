@@ -29,6 +29,9 @@ use self::types::ControlType;
 mod paged_results;
 pub use self::paged_results::PagedResults;
 
+mod proxy_auth;
+pub use self::proxy_auth::ProxyAuth;
+
 mod relax_rules;
 pub use self::relax_rules::RelaxRules;
 
@@ -42,8 +45,9 @@ lazy_static! {
 
 /// Mark a control as critical.
 ///
-/// Every control provided by this library implements this trait. All controls
-/// are instantiated as non-critical by default.
+/// Most controls provided by this library implements this trait. All controls
+/// are instantiated as non-critical by default, unless dictated otherwise by
+/// their specification.
 ///
 /// __Note__: a way to implement this trait for third-party controls will be
 /// provided in 0.5.x.
