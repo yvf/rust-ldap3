@@ -131,6 +131,11 @@ pub use search::{DerefAliases, Scope, SearchEntry, SearchOptions, SearchStream};
 
 pub mod asn1 {
     //! ASN.1 structure construction and parsing.
+    //!
+    //! This section is deliberately under-documented; it's expected that the ASN.1 subsystem will
+    //! be extensively overhauled in the future. If you need examples of using the present interface
+    //! for, e.g., implementing a new extended operation or a control, consult the source of existing
+    //! exops/controls.
     pub use lber::IResult;
     pub use lber::common::TagClass;
     pub use lber::structure::{PL, StructureTag};

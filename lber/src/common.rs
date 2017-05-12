@@ -14,6 +14,7 @@ impl TagStructure {
     }
 }
 
+/// Possible classes for a tag.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TagClass {
     Universal = 0,

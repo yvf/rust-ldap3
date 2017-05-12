@@ -5,6 +5,7 @@ use structure;
 use super::{ASNTag, Tag};
 use common::TagClass;
 
+/// Sequence of values.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Sequence {
     pub id: u64,
@@ -32,6 +33,7 @@ impl default::Default for Sequence {
     }
 }
 
+/// Set of values; doesn't allow duplicates.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Set {
     pub id: u64,

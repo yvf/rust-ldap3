@@ -5,6 +5,7 @@ use structure;
 use super::ASNTag;
 use common::TagClass;
 
+/// Boolean value.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Boolean {
     pub id: u64,
@@ -21,7 +22,6 @@ impl ASNTag for Boolean {
         }
     }
 }
-
 
 impl default::Default for Boolean {
     fn default() -> Self {

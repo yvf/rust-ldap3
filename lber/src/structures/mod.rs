@@ -15,27 +15,37 @@ pub use self::boolean::Boolean;
 pub use self::null::Null;
 pub use self::explicit::ExplicitTag;
 
+/// Conversion of a tag into a serializable form.
 pub trait ASNTag {
     /// Encode yourself into a generic Tag format.
     ///
-    /// The only thing that changes between types is how to encode the value they wrap into bytes,
-    /// however the encoding of the class and id does not change. By first converting the tag into
+    /// The only thing that changes between types is how to encode the wrapped value into bytes;
+    /// the encoding of the class and id does not change. By first converting the tag into
     /// a more generic tag (with already encoded payload), we don't have to reimplement the
-    /// encoding step for class & id every time.
+    /// encoding step for class/id every time.
     fn into_structure(self) -> structure::StructureTag;
 }
 
 #[derive(Clone, Debug, PartialEq)]
-/// This enum does not cover all ASN.1 Types but only the types needed for LDAPv3.
+/// Set of basic ASN.1 types used by LDAP.
 pub enum Tag {
+    /// Integer value.
     Integer(integer::Integer),
+    /// Integer with a different tag.
     Enumerated(integer::Enumerated),
+    /// Sequence of values.
     Sequence(sequence::Sequence),
+    /// Set of values; doesn't allow duplicates.
     Set(sequence::Set),
+    /// String of bytes.
     OctetString(octetstring::OctetString),
+    /// Boolean value.
     Boolean(boolean::Boolean),
+    /// Null value.
     Null(null::Null),
+    /// Explicitly tagged value. LDAP uses implicit tagging, but external structures might not.
     ExplicitTag(explicit::ExplicitTag),
+    /// Serializable value.
     StructureTag(structure::StructureTag),
 }
 

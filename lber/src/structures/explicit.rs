@@ -3,7 +3,8 @@ use structure;
 use super::{ASNTag, Tag};
 use common::TagClass;
 
-// Explitic tags don't implement Default because that just wouldn't make sense.
+/// Explicitly tagged value. LDAP uses implicit tagging, but external structures might not.
+// Explicit tags don't implement Default because that just wouldn't make sense.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExplicitTag {
     pub id: u64,

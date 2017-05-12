@@ -5,6 +5,7 @@ use structure;
 use super::ASNTag;
 use common::TagClass;
 
+/// String of bytes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct OctetString {
     pub id: u64,

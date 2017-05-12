@@ -7,6 +7,7 @@ use std::default;
 
 use byteorder::{BigEndian, WriteBytesExt};
 
+/// Integer value.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Integer {
     pub id: u64,
@@ -14,6 +15,7 @@ pub struct Integer {
     pub inner: i64,
 }
 
+/// Integer with a different tag.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Enumerated {
     pub id: u64,

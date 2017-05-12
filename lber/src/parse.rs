@@ -69,12 +69,12 @@ named!(pub parse_length<u64>,
     )
 );
 
-
-
+/// Extract an unsigned integer value from BER data.
 pub fn parse_uint(i: &[u8]) -> nom::IResult<&[u8], u64> {
     nom::IResult::Done(i, i.iter().fold(0, |res, &byte| (res << 8) | byte as u64))
 }
 
+/// Parse raw BER data into a serializable structure.
 pub fn parse_tag(i: &[u8]) -> nom::IResult<&[u8], StructureTag> {
     let (mut i, ((class, structure, id),len)) = try_parse!(i, do_parse!(
         hdr: parse_type_header >>

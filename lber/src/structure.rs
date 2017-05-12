@@ -1,5 +1,6 @@
 use common::TagClass;
 
+/// ASN.1 structure prepared for serialization.
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub struct StructureTag {
     pub class: TagClass,
@@ -7,9 +8,12 @@ pub struct StructureTag {
     pub payload: PL
 }
 
+/// Tagged value payload.
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub enum PL {
+    /// Primitive value.
     P(Vec<u8>),
+    /// Constructed value.
     C(Vec<StructureTag>),
 }
 
