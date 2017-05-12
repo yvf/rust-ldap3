@@ -1,3 +1,11 @@
+## v0.4.3, 2017-05-12
+
+* Documentation for controls and extended operations.
+
+* Minimal documentation for the ASN.1 subsystem.
+
+* Proxy Authorization control has been implemented.
+
 ## v0.4.2, 2017-05-08
 
 * Documentation update.
