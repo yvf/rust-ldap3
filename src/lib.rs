@@ -91,7 +91,7 @@ pub mod controls {
     //! and cannot be exhaustive.
     //!
     //! A recognized response control can be parsed by [`parse_control()`](fn.parse_control.html).
-    //! __Note__: this method will be removed in 0.5.x.
+    //! __Note__: this function will be removed in 0.5.x.
     // future text:
     // A recognized response control can be parsed by calling [`parse()`](struct.RawControl.html#method.parse)
     // on the instance of `RawControl` representing it.

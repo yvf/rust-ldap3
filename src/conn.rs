@@ -306,7 +306,7 @@ impl LdapConn {
     /// [`exop`](exop.html) module. See the module-level documentation for the list of extended
     /// operations supported by this library and procedures for defining custom exops.
     ///
-    /// __Note__: The order of return values for this method is wrong, and will change in
+    /// __Note__: the order of return values for this method is wrong, and will change in
     /// version 0.5.x. So will the type of `exop`.
     pub fn extended<E>(&self, exop: E) -> io::Result<(LdapResult, Exop, Vec<Control>)>
         where Vec<Tag>: From<E>

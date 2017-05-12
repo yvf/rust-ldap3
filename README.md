@@ -101,6 +101,9 @@ Caveats:
 
 * Certificate and hostname checking __can't be turned off__ for TLS connections.
 
+* Hostname resolution is synchronous. The library doesn't initiate any
+  connections by itself, so this should be manageable in most scenarios.
+
 * Unbind doesn't close our side of the connection, since the underlying
   TCP stream is inaccessible in the present implementation.
 
@@ -109,6 +112,27 @@ Caveats:
 * Only version 3 of LDAP is supported.
 
 * CLDAP (LDAP over UDP) is not supported.
+
+## Upcoming changes
+
+Version 0.4.3 will be the last one in the 0.4 series, barring significant bugs.
+
+Version 0.5 of the library will have a number of breaking changes.
+
+* Response control vector will be incorporated into `LdapResult`, which will
+  itself be renamed to `LdapOpResult`, freeing `LdapResult` for use as a type
+  alias for `std::result::Result`, planned for later.
+
+* Control and exop construction and parsing will expose all traits and structs
+  necessary to enable third-party implementations with the same interface as the in-library
+  ones. Notably, parsing will be moved from free functions to methods on
+  control/exop structs.
+
+* The Abandon operation won't be directly accessible anymore; it will only be possible
+  to invoke it on a streaming Search.
+
+Tentative plans for version 0.6 include internal parsing and error handling overhaul,
+and the introduction of timeouts for all operations, if specified.
 
 ## License
 

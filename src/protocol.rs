@@ -78,9 +78,9 @@ impl SearchHelper {
 ///
 /// A series of helper methods to provide idiomatic error handling is planned.
 ///
-/// __Note__: This structure will probably be extended with the vector of
+/// __Note__: this structure will probably be extended with the vector of
 /// response controls in version 0.5.x, since controls are always part of the
-/// response message.
+/// response message. It will also be renamed to `LdapOpResult`.
 #[derive(Clone, Debug)]
 pub struct LdapResult {
     /// Result code.
