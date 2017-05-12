@@ -9,7 +9,7 @@ pub mod types {
     //!
     //! Variants are individually reexported from the private submodule
     //! to inhibit exhaustive matching.
-    pub use self::inner::_ControlType::{PagedResults, RelaxRules};
+    pub use self::inner::_ControlType::{PagedResults};  // there will be more
 
     /// Recognized control types. Variants can't be named in the namespace
     /// of this type; they must be used through module-level reexports.
@@ -18,7 +18,6 @@ pub mod types {
         #[derive(Clone, Copy, Debug)]
         pub enum _ControlType {
             PagedResults,
-            RelaxRules,
             #[doc(hidden)]
             _Nonexhaustive,
         }
