@@ -373,7 +373,7 @@ impl LdapConnAsync {
         if !url.starts_with("ldapi://") {
             return LdapConnAsync::new_tcp(url, handle);
         }
-        let path = url.split('/').skip(2).next().unwrap();
+        let path = url.split('/').nth(2).unwrap();
         if path.is_empty() {
             return Err(io::Error::new(io::ErrorKind::Other, "empty Unix domain socket path"));
         }
