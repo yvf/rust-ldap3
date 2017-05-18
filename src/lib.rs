@@ -44,6 +44,7 @@ extern crate lazy_static;
 extern crate lber;
 #[macro_use]
 extern crate log;
+#[cfg(feature = "tls")]
 extern crate native_tls;
 #[macro_use]
 extern crate nom;
@@ -51,6 +52,7 @@ extern crate tokio_core;
 extern crate tokio_io;
 extern crate tokio_proto;
 extern crate tokio_service;
+#[cfg(feature = "tls")]
 extern crate tokio_tls;
 #[cfg(unix)]
 extern crate tokio_uds;

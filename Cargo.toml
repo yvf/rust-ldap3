@@ -15,7 +15,7 @@ bytes = "0.4.1"
 futures = "0.1"
 lazy_static = "0.2.4"
 log = "0.3.6"
-native-tls = "0.1.1"
+native-tls = { version = "0.1.1", optional = true }
 nom = "2.0"
 tokio-core = "0.1"
 tokio-io = "0.1.1"
@@ -34,13 +34,15 @@ version = "0.1.4"
 [dependencies.tokio-tls]
 features = ["tokio-proto"]
 version = "0.1.2"
+optional = true
 
 [dependencies.clippy]
 version = "0.0.129"
 optional = true
 
 [features]
-default = []
+default = ["tls"]
+tls = ["native-tls", "tokio-tls"]
 
 [dev-dependencies]
 env_logger = "0.4.2"

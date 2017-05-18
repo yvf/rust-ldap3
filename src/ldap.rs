@@ -1,6 +1,8 @@
 use std::cell::RefCell;
 use std::{io, mem};
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::SocketAddr;
+#[cfg(feature = "tls")]
+use std::net::ToSocketAddrs;
 #[cfg(unix)]
 use std::path::Path;
 use std::rc::Rc;
@@ -9,12 +11,14 @@ use lber::structure::StructureTag;
 use lber::structures::Tag;
 use futures::{future, Future};
 use futures::sync::mpsc;
+#[cfg(feature = "tls")]
 use native_tls::TlsConnector;
 use tokio_core::net::TcpStream;
 use tokio_core::reactor::Handle;
 use tokio_proto::TcpClient;
 use tokio_proto::multiplex::ClientService;
 use tokio_service::Service;
+#[cfg(feature = "tls")]
 use tokio_tls::proto::Client as TlsClient;
 #[cfg(unix)]
 use tokio_uds::UnixStream;
@@ -28,6 +32,7 @@ use search::{SearchItem, SearchOptions};
 #[derive(Clone)]
 enum ClientMap {
     Plain(ClientService<TcpStream, LdapProto>),
+    #[cfg(feature = "tls")]
     Tls(ClientService<TcpStream, TlsClient<LdapProto>>),
     #[cfg(unix)]
     Unix(ClientService<UnixStream, LdapProto>),
@@ -99,6 +104,7 @@ impl Ldap {
     /// establishing the TCP connection, using the host name and port number in `addr`,
     /// and an event loop handle in `handle`. The connection _must_ be by host name for
     /// TLS hostname check to work.
+    #[cfg(feature = "tls")]
     pub fn connect_ssl(addr: &str, handle: &Handle) ->
             Box<Future<Item=Ldap, Error=io::Error>> {
         if addr.parse::<SocketAddr>().ok().is_some() {
@@ -182,6 +188,7 @@ impl Service for ClientMap {
     fn call(&self, req: Self::Request) -> Self::Future {
         match *self {
             ClientMap::Plain(ref p) => Box::new(p.call(req)),
+            #[cfg(feature = "tls")]
             ClientMap::Tls(ref t) => Box::new(t.call(req)),
             #[cfg(unix)]
             ClientMap::Unix(ref u) => Box::new(u.call(req)),

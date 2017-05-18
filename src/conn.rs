@@ -45,6 +45,7 @@ impl LdapWrapper {
         Box::new(lw)
     }
 
+    #[cfg(feature = "tls")]
     fn connect_ssl(addr: &str, handle: &Handle) -> Box<Future<Item=LdapWrapper, Error=io::Error>> {
         let lw = Ldap::connect_ssl(addr, handle)
             .map(|ldap| {
@@ -418,6 +419,7 @@ impl LdapConnAsync {
         Ok(LdapConnAsync {
             in_progress: match scheme {
                 "ldap" => LdapWrapper::connect(&addr.expect("addr"), handle).shared(),
+                #[cfg(feature = "tls")]
                 "ldaps" => LdapWrapper::connect_ssl(&host_port, handle).shared(),
                 _ => unimplemented!(),
             },
