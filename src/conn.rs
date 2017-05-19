@@ -392,6 +392,7 @@ impl LdapConnAsync {
         let mut port = 389;
         let scheme = match url.scheme() {
             s @ "ldap" => s,
+            #[cfg(feature = "tls")]
             s @ "ldaps" => { port = 636; s },
             s => return Err(io::Error::new(io::ErrorKind::Other, format!("unimplemented LDAP URL scheme: {}", s))),
         };
