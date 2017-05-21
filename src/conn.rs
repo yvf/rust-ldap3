@@ -45,6 +45,7 @@ impl LdapWrapper {
         Box::new(lw)
     }
 
+    #[cfg(feature = "tls")]
     fn connect_ssl(addr: &str, handle: &Handle) -> Box<Future<Item=LdapWrapper, Error=io::Error>> {
         let lw = Ldap::connect_ssl(addr, handle)
             .map(|ldap| {
@@ -391,6 +392,7 @@ impl LdapConnAsync {
         let mut port = 389;
         let scheme = match url.scheme() {
             s @ "ldap" => s,
+            #[cfg(feature = "tls")]
             s @ "ldaps" => { port = 636; s },
             s => return Err(io::Error::new(io::ErrorKind::Other, format!("unimplemented LDAP URL scheme: {}", s))),
         };
@@ -418,6 +420,7 @@ impl LdapConnAsync {
         Ok(LdapConnAsync {
             in_progress: match scheme {
                 "ldap" => LdapWrapper::connect(&addr.expect("addr"), handle).shared(),
+                #[cfg(feature = "tls")]
                 "ldaps" => LdapWrapper::connect_ssl(&host_port, handle).shared(),
                 _ => unimplemented!(),
             },
