@@ -3,13 +3,15 @@ use std::{io, mem};
 use std::net::SocketAddr;
 #[cfg(feature = "tls")]
 use std::net::ToSocketAddrs;
-#[cfg(unix)]
+#[cfg(all(unix, not(feature = "minimal")))]
 use std::path::Path;
 use std::rc::Rc;
 
 use lber::structure::StructureTag;
 use lber::structures::Tag;
-use futures::{future, Future};
+#[cfg(not(feature = "minimal"))]
+use futures::future;
+use futures::Future;
 use futures::sync::mpsc;
 #[cfg(feature = "tls")]
 use native_tls::TlsConnector;
@@ -20,9 +22,9 @@ use tokio_proto::multiplex::ClientService;
 use tokio_service::Service;
 #[cfg(feature = "tls")]
 use tokio_tls::proto::Client as TlsClient;
-#[cfg(unix)]
+#[cfg(all(unix, not(feature = "minimal")))]
 use tokio_uds::UnixStream;
-#[cfg(unix)]
+#[cfg(all(unix, not(feature = "minimal")))]
 use tokio_uds_proto::UnixClient;
 
 use controls::Control;
@@ -34,7 +36,7 @@ enum ClientMap {
     Plain(ClientService<TcpStream, LdapProto>),
     #[cfg(feature = "tls")]
     Tls(ClientService<TcpStream, TlsClient<LdapProto>>),
-    #[cfg(unix)]
+    #[cfg(all(unix, not(feature = "minimal")))]
     Unix(ClientService<UnixStream, LdapProto>),
 }
 
@@ -134,7 +136,7 @@ impl Ldap {
 
     /// Connect to an LDAP server through a Unix domain socket, using the path
     /// in `path`, and an event loop handle in `handle`.
-    #[cfg(unix)]
+    #[cfg(all(unix, not(feature = "minimal")))]
     pub fn connect_unix<P: AsRef<Path>>(path: P, handle: &Handle) ->
             Box<Future<Item=Ldap, Error=io::Error>> {
         let proto = LdapProto::new(handle.clone());
@@ -190,7 +192,7 @@ impl Service for ClientMap {
             ClientMap::Plain(ref p) => Box::new(p.call(req)),
             #[cfg(feature = "tls")]
             ClientMap::Tls(ref t) => Box::new(t.call(req)),
-            #[cfg(unix)]
+            #[cfg(all(unix, not(feature = "minimal")))]
             ClientMap::Unix(ref u) => Box::new(u.call(req)),
         }
     }

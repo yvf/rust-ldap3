@@ -54,9 +54,9 @@ extern crate tokio_proto;
 extern crate tokio_service;
 #[cfg(feature = "tls")]
 extern crate tokio_tls;
-#[cfg(unix)]
+#[cfg(all(unix, not(feature = "minimal")))]
 extern crate tokio_uds;
-#[cfg(unix)]
+#[cfg(all(unix, not(feature = "minimal")))]
 extern crate tokio_uds_proto;
 extern crate url;
 

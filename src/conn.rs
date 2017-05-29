@@ -1,4 +1,4 @@
-#[cfg(unix)]
+#[cfg(all(unix, not(feature = "minimal")))]
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -14,7 +14,7 @@ use futures::sync::oneshot;
 use tokio_core::reactor::{Core, Handle};
 use tokio_proto::multiplex::RequestId;
 use url::{Host, Url};
-#[cfg(unix)]
+#[cfg(all(unix, not(feature = "minimal")))]
 use url::percent_encoding::percent_decode;
 
 use lber::structure::StructureTag;
@@ -56,7 +56,7 @@ impl LdapWrapper {
         Box::new(lw)
     }
 
-    #[cfg(unix)]
+    #[cfg(all(unix, not(feature = "minimal")))]
     fn connect_unix(path: &str, handle: &Handle) -> Box<Future<Item=LdapWrapper, Error=io::Error>> {
         let lw = Ldap::connect_unix(path, handle)
             .map(|ldap| {
@@ -196,7 +196,7 @@ impl LdapConn {
         Ok(self.core.borrow_mut().run(self.inner.clone().simple_bind(bind_dn, bind_pw))?)
     }
 
-    #[cfg(unix)]
+    #[cfg(all(unix, not(feature = "minimal")))]
     /// Do a SASL EXTERNAL bind on the connection. Presently, it only makes sense
     /// on Unix domain socket connections. The bind is made with the hardcoded
     /// empty authzId value.
@@ -359,18 +359,26 @@ pub struct LdapConnAsync {
 }
 
 impl LdapConnAsync {
-    #[cfg(not(unix))]
+    #[cfg(any(not(unix), feature = "minimal"))]
     /// Open a connection to an LDAP server specified by `url`. This is an LDAP URL, from
     /// which the scheme (__ldap__ or __ldaps__), host, and port are used.
+    ///
+    /// The __ldaps__ scheme will be available if the library is compiled with the __tls__
+    /// feature, which is activated by default. Compiling without __tls__ or with the
+    /// __minimal__ feature will omit TLS support.
     pub fn new(url: &str, handle: &Handle) -> io::Result<Self> {
         LdapConnAsync::new_tcp(url, handle)
     }
 
-    #[cfg(unix)]
+    #[cfg(all(unix, not(feature = "minimal")))]
     /// Open a connection to an LDAP server specified by `url`. This is an LDAP URL, from
     /// which the scheme (__ldap__, __ldaps__, or __ldapi__), host, and port are used. If
     /// the scheme is __ldapi__, only the host portion of the url is allowed, and it must
     /// be a percent-encoded path of a Unix domain socket.
+    ///
+    /// The __ldaps__ scheme will be available if the library is compiled with the __tls__
+    /// feature, which is activated by default. Compiling without __tls__ or with the
+    /// __minimal__ feature will omit TLS support.
     pub fn new(url: &str, handle: &Handle) -> io::Result<Self> {
         if !url.starts_with("ldapi://") {
             return LdapConnAsync::new_tcp(url, handle);
