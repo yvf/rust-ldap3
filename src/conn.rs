@@ -56,6 +56,7 @@ impl LdapWrapper {
         Box::new(lw)
     }
 
+    #[cfg(unix)]
     fn connect_unix(path: &str, handle: &Handle) -> Box<Future<Item=LdapWrapper, Error=io::Error>> {
         let lw = Ldap::connect_unix(path, handle)
             .map(|ldap| {
