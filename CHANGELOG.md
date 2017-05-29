@@ -1,3 +1,12 @@
+## v0.4.4, 2017-05-29
+
+* Fix Windows build ([#7](https://github.com/inejge/ldap3/pull/7)).
+
+* Make TLS support optional ([#6](https://github.com/inejge/ldap3/pull/6)).
+
+* Reorganize build-time features: "tls" includes TLS support, and is on
+  by default, while "minimal" excludes both TLS and Unix domain sockets.
+
 ## v0.4.3, 2017-05-12
 
 * Documentation for controls and extended operations.
