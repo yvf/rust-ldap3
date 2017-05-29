@@ -119,9 +119,7 @@ Version 0.4.3 will be the last one in the 0.4 series, barring significant bugs.
 
 Version 0.5 of the library will have a number of breaking changes.
 
-* Response control vector will be incorporated into `LdapResult`, which will
-  itself be renamed to `LdapOpResult`, freeing `LdapResult` for use as a type
-  alias for `std::result::Result`, planned for later.
+* Response control vector will be incorporated into `LdapResult`.
 
 * Control and exop construction and parsing will expose all traits and structs
   necessary to enable third-party implementations with the same interface as the in-library

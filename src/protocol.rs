@@ -80,7 +80,7 @@ impl SearchHelper {
 ///
 /// __Note__: this structure will probably be extended with the vector of
 /// response controls in version 0.5.x, since controls are always part of the
-/// response message. It will also be renamed to `LdapOpResult`.
+/// response message.
 #[derive(Clone, Debug)]
 pub struct LdapResult {
     /// Result code.
