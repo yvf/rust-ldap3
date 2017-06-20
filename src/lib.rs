@@ -124,12 +124,14 @@ mod modifydn;
 mod protocol;
 mod search;
 mod unbind;
+mod util;
 
 pub use conn::{EntryStream, LdapConn, LdapConnAsync};
 pub use ldap::Ldap;
 pub use modify::Mod;
 pub use protocol::LdapResult;
 pub use search::{DerefAliases, Scope, SearchEntry, SearchOptions, SearchStream};
+pub use util::ldap_escape;
 
 pub mod asn1 {
     //! ASN.1 structure construction and parsing.
