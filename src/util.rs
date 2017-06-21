@@ -21,22 +21,22 @@ pub fn ldap_escape<'a, S: Into<Cow<'a, str>>>(lit: S) -> Cow<'a, str> {
     }
 
     let lit = lit.into();
-    let mut vec_push = false;
-    let mut output = Vec::with_capacity(lit.len() + 12); // guess: 4 escaped chars
+    let mut output = None;
     for (i, &c) in lit.as_bytes().iter().enumerate() {
         if needs_escape(c) {
-            if !vec_push {
-                output.extend(lit[..i].as_bytes());
-                vec_push = true;
+            if output.is_none() {
+                output = Some(Vec::with_capacity(lit.len() + 12)); // guess: up to 4 escaped chars
+                output.as_mut().unwrap().extend(lit[..i].as_bytes());
             }
+            let output = output.as_mut().unwrap();
             output.push(b'\\');
             output.push(xdigit(c >> 4));
             output.push(xdigit(c & 0xF));
-        } else if vec_push {
+        } else if let Some(ref mut output) = output {
             output.push(c);
         }
     }
-    if vec_push {
+    if let Some(output) = output {
         Cow::Owned(unsafe { String::from_utf8_unchecked(output) })
     } else {
         lit.into()
