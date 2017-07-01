@@ -5,11 +5,13 @@ use std::collections::HashSet;
 use std::convert::AsRef;
 use std::hash::Hash;
 use std::io;
+use std::marker::PhantomData;
+use std::mem;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::rc::Rc;
+use std::time::Duration;
 
 use futures::{Async, Future, Poll, Stream};
-use futures::future::Shared;
 use futures::sync::oneshot;
 use tokio_core::reactor::{Core, Handle};
 use tokio_proto::multiplex::RequestId;
@@ -35,8 +37,10 @@ impl LdapWrapper {
         self.inner.clone()
     }
 
-    fn connect(addr: &SocketAddr, handle: &Handle) -> Box<Future<Item=LdapWrapper, Error=io::Error>> {
-        let lw = Ldap::connect(addr, handle)
+    fn connect(addr: &SocketAddr, handle: &Handle, timeout: Option<Duration>)
+        -> Box<Future<Item=LdapWrapper, Error=io::Error>>
+    {
+        let lw = Ldap::connect(addr, handle, timeout)
             .map(|ldap| {
                 LdapWrapper {
                     inner: ldap,
@@ -46,8 +50,10 @@ impl LdapWrapper {
     }
 
     #[cfg(feature = "tls")]
-    fn connect_ssl(addr: &str, handle: &Handle) -> Box<Future<Item=LdapWrapper, Error=io::Error>> {
-        let lw = Ldap::connect_ssl(addr, handle)
+    fn connect_ssl(addr: &str, handle: &Handle, timeout: Option<Duration>)
+        -> Box<Future<Item=LdapWrapper, Error=io::Error>>
+    {
+        let lw = Ldap::connect_ssl(addr, handle, timeout)
             .map(|ldap| {
                 LdapWrapper {
                     inner: ldap,
@@ -119,7 +125,7 @@ impl EntryStream {
             return Err(io::Error::new(io::ErrorKind::Other, "cannot return result from an invalid stream"));
         }
         let rx_r = self.rx_r.take().expect("oneshot rx");
-        let res = self.core.borrow_mut().run(rx_r).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))?;
+        let res = self.core.borrow_mut().run(rx_r).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         Ok(res)
     }
 
@@ -139,7 +145,7 @@ impl EntryStream {
     }
 }
 
-/// Handle for LDAP operations. __Entry point for the synchronous interface__.
+/// Handle for LDAP operations.
 ///
 /// A connection is opened by calling [`new()`](#method.new). If successful, this returns
 /// a handle which is used for all subsequent operations on that connection. Authenticating
@@ -147,14 +153,22 @@ impl EntryStream {
 /// (#method.sasl_external_bind); the latter is available on Unix-like systems, and can only
 /// work on Unix domain socket connections.
 ///
+/// Some connections need additional parameters, and providing separate functions to initialize
+/// them, singly or in combination, would result in a confusing and cumbersome interface.
+/// Instead, connection initialization is optimized for the expected most frequent usage,
+/// and additional customization is delegated to [`LdapConnBuilder`](struct.LdapConnBuilder.html).
+///
 /// All LDAP operations allow attaching a series of request controls, which augment or modify
 /// the operation. Controls are attached by calling [`with_controls()`](#method.with_controls)
 /// on the handle, and using the result to call another modifier or the operation itself.
+/// A timeout can be imposed on an operation by calling [`with_timeout()`](#method.with_timeout)
+/// on the handle before invoking the operation.
 ///
 /// The Search operation has many parameters, most of which are infrequently used. Those
 /// parameters can be specified by constructing a [`SearchOptions`](struct.SearchOptions.html)
 /// structure and passing it to [`with_search_options()`](#method.with_serach_options)
-/// called on the handle. This method can be combined with `with_controls()`, described above.
+/// called on the handle. This method can be combined with `with_controls()` and `with_timeout()`,
+/// described above.
 ///
 /// There are two ways to invoke a search. The first, using [`search()`](#method.search),
 /// returns all result entries in a single vector, which works best if it's known that the
@@ -182,8 +196,12 @@ impl LdapConn {
     /// details of supported URL formats, see
     /// [`LdapConnAsync::new()`](struct.LdapConnAsync.html#method.new).
     pub fn new(url: &str) -> io::Result<Self> {
+        LdapConn::with_conn_timeout(None, url)
+    }
+
+    fn with_conn_timeout(timeout: Option<Duration>, url: &str) -> io::Result<Self> {
         let mut core = Core::new()?;
-        let conn = LdapConnAsync::new(url, &core.handle())?;
+        let conn = LdapConnAsync::with_conn_timeout(timeout, url, &core.handle())?;
         let ldap = core.run(conn)?;
         Ok(LdapConn {
             core: Rc::new(RefCell::new(core)),
@@ -208,6 +226,8 @@ impl LdapConn {
     /// be invoked directly on the result of this method. If this method is used in
     /// combination with a non-Search operation, the provided options will be silently
     /// discarded when the operation is invoked.
+    ///
+    /// The Search operation can be invoked on the result of this method.
     pub fn with_search_options(&self, opts: SearchOptions) -> &Self {
         self.inner.with_search_options(opts);
         self
@@ -223,6 +243,22 @@ impl LdapConn {
     /// The desired operation can be invoked on the result of this method.
     pub fn with_controls(&self, ctrls: Vec<StructureTag>) -> &Self {
         self.inner.with_controls(ctrls);
+        self
+    }
+
+    /// Perform the next operation with the timeout specified in `duration`.
+    /// See the [`tokio-core`](https://docs.rs/tokio-core/) documentation
+    /// for the `Timeout` struct for timer limitations. The LDAP Search
+    /// operation consists of an indeterminate number of Entry/Referral
+    /// replies; the timer is reset for each reply.
+    ///
+    /// If the timeout occurs, the operation will return a `LdapResult`
+    /// with the status code set to 85 decimal. The connection remains
+    /// usable for subsequent operations.
+    ///
+    /// The desired operation can be invoked on the result of this method.
+    pub fn with_timeout(&self, duration: Duration) -> &Self {
+        self.inner.with_timeout(duration);
         self
     }
 
@@ -245,7 +281,7 @@ impl LdapConn {
     pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<(Vec<StructureTag>, LdapResult, Vec<Control>)> {
         let srch = self.inner.clone().search(base, scope, filter, attrs)
             .and_then(|(strm, rx_r)| {
-                rx_r.map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))
+                rx_r.map_err(|e| io::Error::new(io::ErrorKind::Other, e))
                     .join(strm.collect())
             });
         let ((result, controls), result_set) = self.core.borrow_mut().run(srch)?;
@@ -340,7 +376,7 @@ impl LdapConn {
 /// ### Example
 ///
 /// ```rust,no_run
-/// use std::io;
+/// # use std::io;
 /// use ldap3::LdapConnAsync;
 ///
 /// # fn _x() -> io::Result<()> {
@@ -355,7 +391,8 @@ impl LdapConn {
 /// ```
 #[derive(Clone)]
 pub struct LdapConnAsync {
-    in_progress: Shared<Box<Future<Item=LdapWrapper, Error=io::Error>>>,
+    in_progress: Rc<RefCell<Box<Future<Item=LdapWrapper, Error=io::Error>>>>,
+    wrapper: Rc<RefCell<Option<LdapWrapper>>>,
 }
 
 impl LdapConnAsync {
@@ -367,7 +404,12 @@ impl LdapConnAsync {
     /// feature, which is activated by default. Compiling without __tls__ or with the
     /// __minimal__ feature will omit TLS support.
     pub fn new(url: &str, handle: &Handle) -> io::Result<Self> {
-        LdapConnAsync::new_tcp(url, handle)
+        LdapConnAsync::new_tcp(url, handle, None)
+    }
+
+    #[cfg(any(not(unix), feature = "minimal"))]
+    fn with_conn_timeout(timeout: Option<Duration>, url: &str, handle: &Handle) -> io::Result<Self> {
+        LdapConnAsync::new_tcp(url, handle, timeout)
     }
 
     #[cfg(all(unix, not(feature = "minimal")))]
@@ -381,8 +423,23 @@ impl LdapConnAsync {
     /// __minimal__ feature will omit TLS support.
     pub fn new(url: &str, handle: &Handle) -> io::Result<Self> {
         if !url.starts_with("ldapi://") {
-            return LdapConnAsync::new_tcp(url, handle);
+            LdapConnAsync::new_tcp(url, handle, None)
+        } else {
+            LdapConnAsync::new_unix(url, handle)
         }
+    }
+
+    #[cfg(all(unix, not(feature = "minimal")))]
+    fn with_conn_timeout(timeout: Option<Duration>, url: &str, handle: &Handle) -> io::Result<Self> {
+        if !url.starts_with("ldapi://") {
+            LdapConnAsync::new_tcp(url, handle, timeout)
+        } else {
+            LdapConnAsync::new_unix(url, handle)
+        }
+    }
+
+    #[cfg(all(unix, not(feature = "minimal")))]
+    fn new_unix(url: &str, handle: &Handle) -> io::Result<Self> {
         let path = url.split('/').nth(2).unwrap();
         if path.is_empty() {
             return Err(io::Error::new(io::ErrorKind::Other, "empty Unix domain socket path"));
@@ -392,12 +449,13 @@ impl LdapConnAsync {
         }
         let dec_path = percent_decode(path.as_bytes()).decode_utf8_lossy();
         Ok(LdapConnAsync {
-            in_progress: LdapWrapper::connect_unix(dec_path.borrow(), handle).shared(),
+            in_progress: Rc::new(RefCell::new(LdapWrapper::connect_unix(dec_path.borrow(), handle))),
+            wrapper: Rc::new(RefCell::new(None)),
         })
     }
 
-    fn new_tcp(url: &str, handle: &Handle) -> io::Result<Self> {
-        let url = Url::parse(url).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))?;
+    fn new_tcp(url: &str, handle: &Handle, timeout: Option<Duration>) -> io::Result<Self> {
+        let url = Url::parse(url).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         let mut port = 389;
         let scheme = match url.scheme() {
             s @ "ldap" => s,
@@ -428,11 +486,12 @@ impl LdapConnAsync {
         };
         Ok(LdapConnAsync {
             in_progress: match scheme {
-                "ldap" => LdapWrapper::connect(&addr.expect("addr"), handle).shared(),
+                "ldap" => Rc::new(RefCell::new(LdapWrapper::connect(&addr.expect("addr"), handle, timeout))),
                 #[cfg(feature = "tls")]
-                "ldaps" => LdapWrapper::connect_ssl(&host_port, handle).shared(),
+                "ldaps" => Rc::new(RefCell::new(LdapWrapper::connect_ssl(&host_port, handle, timeout))),
                 _ => unimplemented!(),
             },
+            wrapper: Rc::new(RefCell::new(None)),
         })
     }
 }
@@ -442,13 +501,82 @@ impl Future for LdapConnAsync {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.in_progress.poll() {
-            Ok(Async::Ready(ref wrapper)) => {
+        if let Some(ref wrapper) = *RefCell::borrow(&self.wrapper) {
+            return Ok(Async::Ready(wrapper.ldap()));
+        }
+        match self.in_progress.borrow_mut().poll() {
+            Ok(Async::Ready(wrapper)) => {
                 let ldap = wrapper.ldap();
+                mem::replace(&mut *self.wrapper.borrow_mut(), Some(wrapper));
                 Ok(Async::Ready(ldap))
             },
             Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(ref e) => Err(io::Error::new(e.kind(), format!("{:?}", e))),
+            Err(e) => Err(e),
         }
+    }
+}
+
+/// Helper for creating a customized LDAP connection.
+///
+/// This struct must be instantiated by explicitly specifying the
+/// marker type, which is one of [`LdapConn`](struct.LdapConn.html)
+/// and [`LdapConnAsync`](struct.LdapConnAsync.html).
+///
+/// ### Example
+///
+/// ```rust,no_run
+/// # use std::io;
+/// use std::time::Duration;
+/// use ldap3::LdapConnBuilder;
+///
+/// # fn _x() -> io::Result<()> {
+/// let ldap = LdapConnBuilder::<LdapConn>::new()
+///     .with_conn_timeout(Duration::from_secs(10))
+///     .connect("ldap://localhost:2389")?;
+/// # }
+/// ```
+pub struct LdapConnBuilder<T> {
+    timeout: Option<Duration>,
+    _marker: PhantomData<T>,
+}
+
+impl<T> LdapConnBuilder<T> {
+    /// Set the network timeout for this connection. This parameter
+    /// will be ignored for Unix domain socket connections.
+    pub fn with_conn_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = Some(timeout);
+        self
+    }
+}
+
+impl LdapConnBuilder<LdapConn> {
+    /// Create a helper instance which will eventually
+    /// produce a synchronous LDAP connection.
+    pub fn new() -> LdapConnBuilder<LdapConn> {
+        LdapConnBuilder {
+            timeout: None,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Create a synchronous LDAP connection from this helper.
+    pub fn connect(self, url: &str) -> io::Result<LdapConn> {
+        LdapConn::with_conn_timeout(self.timeout, url)
+    }
+}
+
+impl LdapConnBuilder<LdapConnAsync> {
+    /// Create a helper instance which will eventually
+    /// produce an asynchronous LDAP connection.
+    pub fn new() -> LdapConnBuilder<LdapConnAsync> {
+        LdapConnBuilder {
+            timeout: None,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Create an asynchronous LDAP connection from this helper.
+    pub fn connect(self, url: &str, handle: &Handle) -> io::Result<LdapConnAsync> {
+        LdapConnAsync::with_conn_timeout(self.timeout, url, handle)
     }
 }

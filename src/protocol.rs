@@ -64,7 +64,7 @@ pub struct SearchHelper {
 
 impl SearchHelper {
     fn send_item(&mut self, item: SearchItem) -> io::Result<()> {
-        self.tx.send(item).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))
+        self.tx.send(item).map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
 }
 
@@ -225,7 +225,11 @@ impl Decoder for LdapCodec {
         };
         let id = match self.bundle.borrow().id_map.get(&msgid) {
             Some(&id) => id,
-            None => return Err(io::Error::new(io::ErrorKind::Other, format!("no id found for message id: {}", msgid))),
+            None => {
+                warn!("discarding frame with unmatched msgid: {}", msgid);
+                let null_tag = Tag::Null(Null { ..Default::default() });
+                return Ok(Some((u64::MAX, (null_tag, vec![]))));
+            },
         };
         match protoop.id {
             op_id @ 4 | op_id @ 5 | op_id @ 19 => {
@@ -265,8 +269,9 @@ impl Encoder for LdapCodec {
         let (id, op) = msg;
         let (tag, controls) = match op {
             LdapOp::Single(tag, controls) => (tag, controls),
-            LdapOp::Multi(tag, tx, controls) => {
+            LdapOp::Multi(tag, tx, controls, set_id_in_op) => {
                 self.bundle.borrow_mut().create_search_helper(id, tx);
+                set_id_in_op(id);
                 (tag, controls)
             },
             LdapOp::Solo(tag, controls) => {

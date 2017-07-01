@@ -18,8 +18,8 @@
 //!
 //! Although the library provides both synchronous and asynchronous interfaces,
 //! presently the synchronous one is less likely to undergo breaking changes,
-//! and is the preferred way to use the library. The [`LdapConn`](struct.LdapConn.html)
-//! structure is the starting point for all synchronous operations. [`LdapConnAsync`]
+//! and is the preferred way to use the library. __The [`LdapConn`](struct.LdapConn.html)
+//! structure is the starting point for all synchronous operations.__ [`LdapConnAsync`]
 //! (struct.LdapConnAsync) is its asynchronous analogue, and [`Ldap`](struct.Ldap) is
 //! the low-level asynchronous connection handle used by both.
 //!
@@ -126,7 +126,7 @@ mod search;
 mod unbind;
 mod util;
 
-pub use conn::{EntryStream, LdapConn, LdapConnAsync};
+pub use conn::{EntryStream, LdapConn, LdapConnAsync, LdapConnBuilder};
 pub use ldap::Ldap;
 pub use modify::Mod;
 pub use protocol::LdapResult;

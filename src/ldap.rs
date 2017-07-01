@@ -6,17 +6,15 @@ use std::net::ToSocketAddrs;
 #[cfg(all(unix, not(feature = "minimal")))]
 use std::path::Path;
 use std::rc::Rc;
+use std::time::Duration;
 
-use lber::structure::StructureTag;
-use lber::structures::Tag;
-#[cfg(not(feature = "minimal"))]
-use futures::future;
-use futures::Future;
+use futures::future::{self, Either};
+use futures::{Future, IntoFuture};
 use futures::sync::mpsc;
 #[cfg(feature = "tls")]
 use native_tls::TlsConnector;
 use tokio_core::net::TcpStream;
-use tokio_core::reactor::Handle;
+use tokio_core::reactor::{Handle, Timeout};
 use tokio_proto::TcpClient;
 use tokio_proto::multiplex::ClientService;
 use tokio_service::Service;
@@ -30,6 +28,9 @@ use tokio_uds_proto::UnixClient;
 use controls::Control;
 use protocol::{LdapProto, ProtoBundle};
 use search::{SearchItem, SearchOptions};
+
+use lber::structure::StructureTag;
+use lber::structures::{ASNTag, Enumerated, Null, OctetString, Sequence, Tag};
 
 #[derive(Clone)]
 enum ClientMap {
@@ -61,6 +62,7 @@ pub struct Ldap {
     bundle: Rc<RefCell<ProtoBundle>>,
     next_search_options: Rc<RefCell<Option<SearchOptions>>>,
     next_req_controls: Rc<RefCell<Option<Vec<StructureTag>>>>,
+    next_timeout: Rc<RefCell<Option<Duration>>>,
 }
 
 pub fn bundle(ldap: &Ldap) -> Rc<RefCell<ProtoBundle>> {
@@ -76,16 +78,44 @@ pub fn next_req_controls(ldap: &Ldap) -> Option<Vec<StructureTag>> {
     ldap.next_req_controls.borrow_mut().take()
 }
 
+pub fn next_timeout(ldap: &Ldap) -> Option<Duration> {
+    ldap.next_timeout.borrow_mut().take()
+}
+
 pub enum LdapOp {
     Single(Tag, Option<Vec<StructureTag>>),
-    Multi(Tag, mpsc::UnboundedSender<SearchItem>, Option<Vec<StructureTag>>),
+    Multi(Tag, mpsc::UnboundedSender<SearchItem>, Option<Vec<StructureTag>>, Box<Fn(u64)>),
     Solo(Tag, Option<Vec<StructureTag>>),
+}
+
+fn connect_with_timeout(timeout: Option<Duration>, fut: Box<Future<Item=Ldap, Error=io::Error>>, handle: &Handle)
+    -> Box<Future<Item=Ldap, Error=io::Error>>
+{
+    if let Some(timeout) = timeout {
+        let timeout = Timeout::new(timeout, handle)
+            .into_future()
+            .flatten()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
+        let result = fut.select2(timeout).then(|res| {
+            match res {
+                Ok(Either::A((resp, _))) => future::ok(resp),
+                Ok(Either::B((_, _))) => future::err(io::Error::new(io::ErrorKind::Other, "timeout")),
+                Err(Either::A((e, _))) => future::err(e),
+                Err(Either::B((e, _))) => future::err(e),
+            }
+        });
+        Box::new(result)
+    } else {
+        fut
+    }
 }
 
 impl Ldap {
     /// Connect to an LDAP server without using TLS, using an IP address/port number
-    /// in `addr`, and an event loop handle in `handle`.
-    pub fn connect(addr: &SocketAddr, handle: &Handle) ->
+    /// in `addr`, and an event loop handle in `handle`. If `timeout` is not `None`,
+    /// it specifies how long the connection attempt will take before returning an
+    /// error.
+    pub fn connect(addr: &SocketAddr, handle: &Handle, timeout: Option<Duration>) ->
             Box<Future<Item=Ldap, Error=io::Error>> {
         let proto = LdapProto::new(handle.clone());
         let bundle = proto.bundle();
@@ -97,17 +127,20 @@ impl Ldap {
                     bundle: bundle,
                     next_search_options: Rc::new(RefCell::new(None)),
                     next_req_controls: Rc::new(RefCell::new(None)),
+                    next_timeout: Rc::new(RefCell::new(None)),
                 }
             });
-        Box::new(ret)
+        connect_with_timeout(timeout, Box::new(ret), handle)
     }
 
     /// Connect to an LDAP server with an attempt to negotiate TLS immediately after
     /// establishing the TCP connection, using the host name and port number in `addr`,
-    /// and an event loop handle in `handle`. The connection _must_ be by host name for
-    /// TLS hostname check to work.
+    /// and an event loop handle in `handle`. If `timeout` is not `None`, it specifies
+    /// how long the connection attempt will take before returning an error.
+    ///
+    /// The connection _must_ be by host name for TLS hostname check to work.
     #[cfg(feature = "tls")]
-    pub fn connect_ssl(addr: &str, handle: &Handle) ->
+    pub fn connect_ssl(addr: &str, handle: &Handle, timeout: Option<Duration>) ->
             Box<Future<Item=Ldap, Error=io::Error>> {
         if addr.parse::<SocketAddr>().ok().is_some() {
             return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "SSL connection must be by hostname")));
@@ -129,9 +162,10 @@ impl Ldap {
                     bundle: bundle,
                     next_search_options: Rc::new(RefCell::new(None)),
                     next_req_controls: Rc::new(RefCell::new(None)),
+                    next_timeout: Rc::new(RefCell::new(None)),
                 }
             });
-        Box::new(ret)
+        connect_with_timeout(timeout, Box::new(ret), handle)
     }
 
     /// Connect to an LDAP server through a Unix domain socket, using the path
@@ -149,6 +183,7 @@ impl Ldap {
                     bundle: bundle,
                     next_search_options: Rc::new(RefCell::new(None)),
                     next_req_controls: Rc::new(RefCell::new(None)),
+                    next_timeout: Rc::new(RefCell::new(None)),
                 }
             });
         Box::new(match client {
@@ -168,6 +203,12 @@ impl Ldap {
         mem::replace(&mut *self.next_req_controls.borrow_mut(), Some(ctrls));
         self
     }
+
+    /// See [`LdapConn::with_timeout()`](struct.LdapConn.html#method.with_timeout).
+    pub fn with_timeout(&self, duration: Duration) -> &Self {
+        mem::replace(&mut *self.next_timeout.borrow_mut(), Some(duration));
+        self
+    }
 }
 
 impl Service for Ldap {
@@ -177,7 +218,51 @@ impl Service for Ldap {
     type Future = Box<Future<Item=Self::Response, Error=io::Error>>;
 
     fn call(&self, req: Self::Request) -> Self::Future {
-        self.inner.call(req)
+        if let Some(timeout) = next_timeout(self) {
+            let timeout = Timeout::new(timeout, &self.bundle.borrow().handle)
+                .into_future()
+                .flatten()
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
+            let is_search = match req {
+                LdapOp::Multi(_, _, _, _) => true,
+                _ => false,
+            };
+            let result = self.inner.call(req).select2(timeout).then(move |res| {
+                match res {
+                    Ok(Either::A((resp, _))) => future::ok(resp),
+                    Ok(Either::B((_, _))) => {
+                        let result = Tag::Sequence(Sequence {
+                            inner: vec![
+                                Tag::Enumerated(Enumerated {
+                                    inner: 85,
+                                    ..Default::default()
+                                }),
+                                Tag::OctetString(OctetString {
+                                    inner: Vec::new(),
+                                    ..Default::default()
+                                }),
+                                Tag::OctetString(OctetString {
+                                    inner: Vec::from("timeout"),
+                                    ..Default::default()
+                                }),
+                            ],
+                            ..Default::default()
+                        }).into_structure();
+                        let final_tag = if is_search {
+                            Tag::Null(Null { ..Default::default() })
+                        } else {
+                            Tag::StructureTag(result)
+                        };
+                        future::ok((final_tag, Vec::new()))
+                    },
+                    Err(Either::A((e, _))) => future::err(e),
+                    Err(Either::B((e, _))) => future::err(e),
+                }
+            });
+            Box::new(result)
+        } else {
+            self.inner.call(req)
+        }
     }
 }
 
