@@ -270,16 +270,16 @@ impl Encoder for LdapCodec {
 
     fn encode(&mut self, msg: Self::Item, into: &mut BytesMut) -> io::Result<()> {
         let (id, op) = msg;
-        let (tag, controls) = match op {
-            LdapOp::Single(tag, controls) => (tag, controls),
+        let (tag, controls, is_solo) = match op {
+            LdapOp::Single(tag, controls) => (tag, controls, false),
             LdapOp::Multi(tag, tx, controls, set_id_in_op) => {
                 self.bundle.borrow_mut().create_search_helper(id, tx);
                 set_id_in_op(id);
-                (tag, controls)
+                (tag, controls, false)
             },
             LdapOp::Solo(tag, controls) => {
                 self.bundle.borrow_mut().solo_ops.push_back(id);
-                (tag, controls)
+                (tag, controls, true)
             },
         };
         let outstruct = {
@@ -296,6 +296,9 @@ impl Encoder for LdapCodec {
             bundle.inc_next_id();
             if let Some(ref mut helper) = bundle.search_helpers.get_mut(&id) {
                 helper.msgid = next_ldap_id;
+            }
+            if is_solo {
+                bundle.id_map.remove(&next_ldap_id);
             }
             let mut msg = vec![
                 Tag::Integer(Integer {
