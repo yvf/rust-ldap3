@@ -256,7 +256,10 @@ impl Decoder for LdapCodec {
                     Ok(Some((id, (id_tag, vec![]))))
                 }
             },
-            _ => Ok(Some((id, (Tag::StructureTag(protoop), controls)))),
+            _ => {
+                self.bundle.borrow_mut().id_map.remove(&msgid);
+                Ok(Some((id, (Tag::StructureTag(protoop), controls))))
+            },
         }
     }
 }
