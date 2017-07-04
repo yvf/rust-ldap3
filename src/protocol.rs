@@ -358,14 +358,11 @@ impl<T> Stream for ResponseFilter<T>
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
-            {
-                let mut bundle = self.bundle.borrow_mut();
-                if let Some(msgid) = bundle.solo_ops.pop_front() {
-                    if let Some(id) = bundle.id_map.remove(&msgid) {
-                        let null_tag = Tag::Null(Null { ..Default::default() });
-                        return Ok(Async::Ready(Some((id, (null_tag, vec![])))));
-                    }
-                }
+            let maybe_msgid = self.bundle.borrow_mut().solo_ops.pop_front();
+            if let Some(msgid) = maybe_msgid {
+                let id = self.bundle.borrow_mut().id_map.remove(&msgid).expect("id from id_map");
+                let null_tag = Tag::Null(Null { ..Default::default() });
+                return Ok(Async::Ready(Some((id, (null_tag, vec![])))));
             }
             match try_ready!(self.upstream.poll()) {
                 Some((id, _)) if id == u64::MAX => continue,

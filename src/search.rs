@@ -106,34 +106,23 @@ impl Stream for SearchStream {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        fn early_end(me: &mut SearchStream, cause: EndCause) -> Poll<Option<StructureTag>, io::Error> {
-            if let Some(tx_r) = me.tx_r.take() {
-                let result = LdapResult {
-                    rc: match cause {
-                        EndCause::InitialTimeout | EndCause::SubsequentTimeout => 85,
-                        EndCause::Abandoned => 88,
-                        _ => unimplemented!(),
-                    },
-                    matched: "".to_owned(),
-                    text: match cause {
-                        EndCause::InitialTimeout | EndCause::SubsequentTimeout => "timeout",
-                        EndCause::Abandoned => "search abandoned",
-                        _ => unimplemented!(),
-                    }.to_owned(),
-                    refs: vec![]
-                };
-                me.update_maps(cause);
-                tx_r.send((result, vec![])).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
-            }
-            Ok(Async::Ready(None))
-        }
-
         loop {
             if self.initial_timeout {
-                return early_end(self, EndCause::InitialTimeout);
+                self.update_maps(EndCause::InitialTimeout);
+                return Err(io::Error::new(io::ErrorKind::Other, "timeout"));
             }
             if self.bundle.borrow().abandoned.contains(&self.id) {
-                return early_end(self, EndCause::Abandoned);
+                if let Some(tx_r) = self.tx_r.take() {
+                    let result = LdapResult {
+                        rc: 88,
+                        matched: "".to_owned(),
+                        text: "search abandoned".to_owned(),
+                        refs: vec![]
+                    };
+                    self.update_maps(EndCause::Abandoned);
+                    tx_r.send((result, vec![])).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
+                }
+                return Ok(Async::Ready(None))
             }
             if let Some(ref timeout) = self.timeout {
                 if self.entry_timeout.is_none() {
@@ -150,7 +139,8 @@ impl Stream for SearchStream {
                 false
             };
             if timeout_fired {
-                return early_end(self, EndCause::SubsequentTimeout);
+                self.update_maps(EndCause::SubsequentTimeout);
+                return Err(io::Error::new(io::ErrorKind::Other, "timeout"));
             }
             let item = try_ready!(self.rx_i.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "poll search stream")));
             match item {

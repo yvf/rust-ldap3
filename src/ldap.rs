@@ -30,7 +30,7 @@ use protocol::{LdapProto, ProtoBundle};
 use search::{SearchItem, SearchOptions};
 
 use lber::structure::StructureTag;
-use lber::structures::{ASNTag, Enumerated, OctetString, Sequence, Tag};
+use lber::structures::{Enumerated, Tag};
 
 #[derive(Clone)]
 enum ClientMap {
@@ -223,9 +223,10 @@ impl Service for Ldap {
                 .into_future()
                 .flatten()
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
-            let is_search = match req {
-                LdapOp::Multi(_, _, _) => true,
-                _ => false,
+            let (is_search, is_solo) = match req {
+                LdapOp::Multi(_, _, _) => (true, false),
+                LdapOp::Solo(_, _,) => (false, true),
+                _ => (false, false),
             };
             let assigned_msgid = Rc::new(RefCell::new(0));
             let closure_assigned_msgid = assigned_msgid.clone();
@@ -234,34 +235,20 @@ impl Service for Ldap {
                 match res {
                     Ok(Either::A((resp, _))) => future::ok(resp),
                     Ok(Either::B((_, _))) => {
-                        let final_tag = if is_search {
-                            Tag::Enumerated(Enumerated {
-                                inner: *bundle.borrow().id_map.get(&*assigned_msgid.borrow()).expect("id form id_map") as i64,
+                        if is_search {
+                            let tag = Tag::Enumerated(Enumerated {
+                                inner: *bundle.borrow().id_map.get(&*assigned_msgid.borrow()).expect("id from id_map") as i64,
                                 ..Default::default()
-                            })
+                            });
+                            future::ok((tag, Vec::new()))
                         } else {
                             // we piggyback on solo_ops because timed-out ops are handled in the same way
-                            bundle.borrow_mut().solo_ops.push_back(*assigned_msgid.borrow());
-                            let result = Tag::Sequence(Sequence {
-                                inner: vec![
-                                    Tag::Enumerated(Enumerated {
-                                        inner: 85,
-                                        ..Default::default()
-                                    }),
-                                    Tag::OctetString(OctetString {
-                                        inner: Vec::new(),
-                                        ..Default::default()
-                                    }),
-                                    Tag::OctetString(OctetString {
-                                        inner: Vec::from("timeout"),
-                                        ..Default::default()
-                                    }),
-                                ],
-                                ..Default::default()
-                            }).into_structure();
-                            Tag::StructureTag(result)
-                        };
-                        future::ok((final_tag, Vec::new()))
+                            // (unless the request was solo to begin with)
+                            if !is_solo {
+                                bundle.borrow_mut().solo_ops.push_back(*assigned_msgid.borrow());
+                            }
+                            future::err(io::Error::new(io::ErrorKind::Other, "timeout"))
+                        }
                     },
                     Err(Either::A((e, _))) => future::err(e),
                     Err(Either::B((e, _))) => future::err(e),
