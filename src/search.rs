@@ -61,7 +61,7 @@ pub enum SearchItem {
 /// change this contract.
 pub struct SearchStream {
     id: RequestId,
-    timed_out: bool,
+    initial_timeout: bool,
     bundle: Rc<RefCell<ProtoBundle>>,
     _tx_i: mpsc::UnboundedSender<SearchItem>,
     rx_i: mpsc::UnboundedReceiver<SearchItem>,
@@ -80,15 +80,25 @@ impl SearchStream {
         self.id
     }
 
-    fn update_maps(&mut self) {
+    fn update_maps(&mut self, cause: EndCause) {
         let mut bundle = self.bundle.borrow_mut();
-        let msgid = match bundle.search_helpers.get(&self.id) {
-            Some(helper) => helper.msgid,
-            None => return,
-        };
-        bundle.search_helpers.remove(&self.id);
-        bundle.id_map.remove(&msgid);
+        bundle.abandoned.remove(&self.id);
+        if let Some(helper) = bundle.search_helpers.remove(&self.id) {
+            if cause == EndCause::InitialTimeout {
+                bundle.solo_ops.push_back(helper.msgid);
+            } else {
+                bundle.id_map.remove(&helper.msgid);
+            }
+        }
     }
+}
+
+#[derive(PartialEq, Eq)]
+enum EndCause {
+    Regular,
+    InitialTimeout,
+    SubsequentTimeout,
+    Abandoned,
 }
 
 impl Stream for SearchStream {
@@ -96,47 +106,57 @@ impl Stream for SearchStream {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        fn early_end(me: &mut SearchStream, rc: u8, text: &str) -> Poll<Option<StructureTag>, io::Error> {
+        fn early_end(me: &mut SearchStream, cause: EndCause) -> Poll<Option<StructureTag>, io::Error> {
             if let Some(tx_r) = me.tx_r.take() {
                 let result = LdapResult {
-                    rc: rc,
+                    rc: match cause {
+                        EndCause::InitialTimeout | EndCause::SubsequentTimeout => 85,
+                        EndCause::Abandoned => 88,
+                        _ => unimplemented!(),
+                    },
                     matched: "".to_owned(),
-                    text: text.to_owned(),
+                    text: match cause {
+                        EndCause::InitialTimeout | EndCause::SubsequentTimeout => "timeout",
+                        EndCause::Abandoned => "search abandoned",
+                        _ => unimplemented!(),
+                    }.to_owned(),
                     refs: vec![]
                 };
-                me.update_maps();
+                me.update_maps(cause);
                 tx_r.send((result, vec![])).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
             }
             Ok(Async::Ready(None))
         }
 
         loop {
-            if self.timed_out {
-                return early_end(self, 85, "timeout");
+            if self.initial_timeout {
+                return early_end(self, EndCause::InitialTimeout);
             }
             if self.bundle.borrow().abandoned.contains(&self.id) {
-                return early_end(self, 88, "search abandoned");
+                return early_end(self, EndCause::Abandoned);
             }
             if let Some(ref timeout) = self.timeout {
                 if self.entry_timeout.is_none() {
                     self.entry_timeout = Some(Timeout::new(timeout.clone(), &self.bundle.borrow().handle)?);
                 }
             }
-            if let Some(ref mut timeout) = self.entry_timeout {
+            let timeout_fired = if let Some(ref mut timeout) = self.entry_timeout {
                 match timeout.poll() {
-                    Ok(Async::Ready(_)) => {
-                        self.timed_out = true;
-                        continue;
-                    },
-                    Ok(Async::NotReady) => (),
+                    Ok(Async::Ready(_)) => true,
+                    Ok(Async::NotReady) => false,
                     Err(e) => return Err(e),
                 }
+            } else {
+                false
+            };
+            if timeout_fired {
+                return early_end(self, EndCause::SubsequentTimeout);
             }
             let item = try_ready!(self.rx_i.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "poll search stream")));
             match item {
                 Some(SearchItem::Done(_id, mut result, controls)) => {
                     result.refs.extend(self.refs.drain(..));
-                    self.update_maps();
+                    self.update_maps(EndCause::Regular);
                     let tx_r = self.tx_r.take().expect("oneshot tx");
                     tx_r.send((result, controls)).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
                     return Ok(Async::Ready(None));
@@ -345,25 +365,15 @@ impl Ldap {
         if let Some(ref timeout) = timeout {
             self.with_timeout(timeout.clone());
         }
-        let assigned_id = Rc::new(RefCell::new(0));
-        let closure_assigned_id = assigned_id.clone();
-        let fut = self.call(
-            LdapOp::Multi(
-                req,
-                tx_i.clone(),
-                next_req_controls(self),
-                Box::new(move |id| *closure_assigned_id.borrow_mut() = id)
-            )
-        ).and_then(move |res| {
-            let id_from_first_result = match res {
-                (Tag::Integer(Integer { inner, .. }), _) => inner as u64,
-                (Tag::Null(_), _) => u64::MAX,
+        let fut = self.call(LdapOp::Multi(req, tx_i.clone(), next_req_controls(self))).and_then(move |res| {
+            let (id, initial_timeout) = match res {
+                (Tag::Integer(Integer { inner, .. }), _) => (inner as u64, false),
+                (Tag::Enumerated(Enumerated { inner, .. }), _) => (inner as u64, true),
                 _ => unimplemented!(),
             };
-            let assigned_id = *assigned_id.borrow();
             Ok((SearchStream {
-                id: assigned_id,
-                timed_out: id_from_first_result == u64::MAX,
+                id: id,
+                initial_timeout: initial_timeout,
                 bundle: bundle,
                 _tx_i: tx_i,
                 rx_i: rx_i,

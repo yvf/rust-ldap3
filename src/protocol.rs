@@ -35,7 +35,7 @@ pub struct ProtoBundle {
     pub id_map: HashMap<LdapRequestId, RequestId>,
     pub next_id: LdapRequestId,
     pub handle: Handle,
-    pub solo_ops: VecDeque<RequestId>,
+    pub solo_ops: VecDeque<LdapRequestId>,
 }
 
 impl ProtoBundle {
@@ -265,21 +265,17 @@ impl Decoder for LdapCodec {
 }
 
 impl Encoder for LdapCodec {
-    type Item = (RequestId, LdapOp);
+    type Item = (RequestId, (LdapOp, Box<Fn(i32)>));
     type Error = io::Error;
 
     fn encode(&mut self, msg: Self::Item, into: &mut BytesMut) -> io::Result<()> {
-        let (id, op) = msg;
+        let (id, (op, set_msgid_in_op)) = msg;
         let (tag, controls, is_solo) = match op {
+            LdapOp::Solo(tag, controls) => (tag, controls, true),
             LdapOp::Single(tag, controls) => (tag, controls, false),
-            LdapOp::Multi(tag, tx, controls, set_id_in_op) => {
+            LdapOp::Multi(tag, tx, controls) => {
                 self.bundle.borrow_mut().create_search_helper(id, tx);
-                set_id_in_op(id);
                 (tag, controls, false)
-            },
-            LdapOp::Solo(tag, controls) => {
-                self.bundle.borrow_mut().solo_ops.push_back(id);
-                (tag, controls, true)
             },
         };
         let outstruct = {
@@ -294,11 +290,12 @@ impl Encoder for LdapCodec {
                 assert_ne!(next_ldap_id, prev_ldap_id, "LDAP message id wraparound with no free slots");
             }
             bundle.inc_next_id();
+            set_msgid_in_op(next_ldap_id);
+            if is_solo {
+                bundle.solo_ops.push_back(next_ldap_id);
+            }
             if let Some(ref mut helper) = bundle.search_helpers.get_mut(&id) {
                 helper.msgid = next_ldap_id;
-            }
-            if is_solo {
-                bundle.id_map.remove(&next_ldap_id);
             }
             let mut msg = vec![
                 Tag::Integer(Integer {
@@ -361,9 +358,14 @@ impl<T> Stream for ResponseFilter<T>
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
-            if let Some(id) = self.bundle.borrow_mut().solo_ops.pop_front() {
-                let null_tag = Tag::Null(Null { ..Default::default() });
-                return Ok(Async::Ready(Some((id, (null_tag, vec![])))));
+            {
+                let mut bundle = self.bundle.borrow_mut();
+                if let Some(msgid) = bundle.solo_ops.pop_front() {
+                    if let Some(id) = bundle.id_map.remove(&msgid) {
+                        let null_tag = Tag::Null(Null { ..Default::default() });
+                        return Ok(Async::Ready(Some((id, (null_tag, vec![])))));
+                    }
+                }
             }
             match try_ready!(self.upstream.poll()) {
                 Some((id, _)) if id == u64::MAX => continue,
@@ -374,9 +376,9 @@ impl<T> Stream for ResponseFilter<T>
 }
 
 impl<T> futures::Sink for ResponseFilter<T>
-    where T: futures::Sink<SinkItem=(RequestId, LdapOp), SinkError=io::Error>
+    where T: futures::Sink<SinkItem=(RequestId, (LdapOp, Box<Fn(i32)>)), SinkError=io::Error>
 {
-    type SinkItem = (RequestId, LdapOp);
+    type SinkItem = (RequestId, (LdapOp, Box<Fn(i32)>));
     type SinkError = io::Error;
 
     fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
@@ -389,7 +391,7 @@ impl<T> futures::Sink for ResponseFilter<T>
 }
 
 impl<T: AsyncRead + AsyncWrite + 'static> ClientProto<T> for LdapProto {
-    type Request = LdapOp;
+    type Request = (LdapOp, Box<Fn(i32)>);
     type Response = (Tag, Vec<Control>);
 
     type Transport = ResponseFilter<Framed<T, LdapCodec>>;

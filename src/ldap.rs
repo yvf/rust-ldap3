@@ -30,7 +30,7 @@ use protocol::{LdapProto, ProtoBundle};
 use search::{SearchItem, SearchOptions};
 
 use lber::structure::StructureTag;
-use lber::structures::{ASNTag, Enumerated, Null, OctetString, Sequence, Tag};
+use lber::structures::{ASNTag, Enumerated, OctetString, Sequence, Tag};
 
 #[derive(Clone)]
 enum ClientMap {
@@ -84,7 +84,7 @@ pub fn next_timeout(ldap: &Ldap) -> Option<Duration> {
 
 pub enum LdapOp {
     Single(Tag, Option<Vec<StructureTag>>),
-    Multi(Tag, mpsc::UnboundedSender<SearchItem>, Option<Vec<StructureTag>>, Box<Fn(u64)>),
+    Multi(Tag, mpsc::UnboundedSender<SearchItem>, Option<Vec<StructureTag>>),
     Solo(Tag, Option<Vec<StructureTag>>),
 }
 
@@ -224,33 +224,41 @@ impl Service for Ldap {
                 .flatten()
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
             let is_search = match req {
-                LdapOp::Multi(_, _, _, _) => true,
+                LdapOp::Multi(_, _, _) => true,
                 _ => false,
             };
-            let result = self.inner.call(req).select2(timeout).then(move |res| {
+            let assigned_msgid = Rc::new(RefCell::new(0));
+            let closure_assigned_msgid = assigned_msgid.clone();
+            let bundle = self.bundle.clone();
+            let result = self.inner.call((req, Box::new(move |msgid| *closure_assigned_msgid.borrow_mut() = msgid))).select2(timeout).then(move |res| {
                 match res {
                     Ok(Either::A((resp, _))) => future::ok(resp),
                     Ok(Either::B((_, _))) => {
-                        let result = Tag::Sequence(Sequence {
-                            inner: vec![
-                                Tag::Enumerated(Enumerated {
-                                    inner: 85,
-                                    ..Default::default()
-                                }),
-                                Tag::OctetString(OctetString {
-                                    inner: Vec::new(),
-                                    ..Default::default()
-                                }),
-                                Tag::OctetString(OctetString {
-                                    inner: Vec::from("timeout"),
-                                    ..Default::default()
-                                }),
-                            ],
-                            ..Default::default()
-                        }).into_structure();
                         let final_tag = if is_search {
-                            Tag::Null(Null { ..Default::default() })
+                            Tag::Enumerated(Enumerated {
+                                inner: *bundle.borrow().id_map.get(&*assigned_msgid.borrow()).expect("id form id_map") as i64,
+                                ..Default::default()
+                            })
                         } else {
+                            // we piggyback on solo_ops because timed-out ops are handled in the same way
+                            bundle.borrow_mut().solo_ops.push_back(*assigned_msgid.borrow());
+                            let result = Tag::Sequence(Sequence {
+                                inner: vec![
+                                    Tag::Enumerated(Enumerated {
+                                        inner: 85,
+                                        ..Default::default()
+                                    }),
+                                    Tag::OctetString(OctetString {
+                                        inner: Vec::new(),
+                                        ..Default::default()
+                                    }),
+                                    Tag::OctetString(OctetString {
+                                        inner: Vec::from("timeout"),
+                                        ..Default::default()
+                                    }),
+                                ],
+                                ..Default::default()
+                            }).into_structure();
                             Tag::StructureTag(result)
                         };
                         future::ok((final_tag, Vec::new()))
@@ -261,13 +269,13 @@ impl Service for Ldap {
             });
             Box::new(result)
         } else {
-            self.inner.call(req)
+            self.inner.call((req, Box::new(|_msgid| ())))
         }
     }
 }
 
 impl Service for ClientMap {
-    type Request = LdapOp;
+    type Request = (LdapOp, Box<Fn(i32)>);
     type Response = (Tag, Vec<Control>);
     type Error = io::Error;
     type Future = Box<Future<Item=Self::Response, Error=io::Error>>;
