@@ -1,3 +1,13 @@
+## v0.5.0, unreleased
+
+* [breaking-change] Ldap::connect() and Ldap::connect_ssl() have an additional
+  parameter, an optional connection timeout.
+
+* Timeout support, which can be used both synchronously and asynchronously.
+  Timeouts can be specified both for connection establishment and individual
+  LDAP operations. For the first case, a connection must be constructed
+  through LdapConnBuilder.
+
 ## v0.4.4, 2017-05-29
 
 * Fix Windows build ([#7](https://github.com/inejge/ldap3/pull/7)).
