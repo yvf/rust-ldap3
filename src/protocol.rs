@@ -88,7 +88,7 @@ pub struct LdapResult {
     /// Generally, the value of zero indicates successful completion, but there's
     /// a number of other non-error codes arising as a result of various operations.
     /// See [Section A.1 of RFC 4511](https://tools.ietf.org/html/rfc4511#appendix-A.1).
-    pub rc: u8,
+    pub rc: u32,
     /// Matched component DN, where applicable.
     pub matched: String,
     /// Additional diagnostic text.
@@ -115,7 +115,7 @@ impl From<Tag> for LdapResultExt {
                 .and_then(|t| t.match_id(Types::Enumerated as u64))
                 .and_then(|t| t.expect_primitive()).expect("result code")
                 .as_slice()) {
-            IResult::Done(_, rc) => rc as u8,
+            IResult::Done(_, rc) => rc as u32,
             _ => panic!("failed to parse result code"),
         };
         let matched = String::from_utf8(tags.next().expect("element").expect_primitive().expect("octet string"))

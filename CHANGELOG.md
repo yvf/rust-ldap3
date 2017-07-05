@@ -1,5 +1,7 @@
 ## v0.5.0, unreleased
 
+* [breaking-change] LdapResult.rc is now u32 (was: u8).
+
 * [breaking-change] Ldap::connect() and Ldap::connect_ssl() have an additional
   parameter, an optional connection timeout.
 
