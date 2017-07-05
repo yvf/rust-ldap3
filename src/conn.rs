@@ -252,9 +252,9 @@ impl LdapConn {
     /// operation consists of an indeterminate number of Entry/Referral
     /// replies; the timer is reset for each reply.
     ///
-    /// If the timeout occurs, the operation will return a `LdapResult`
-    /// with the status code set to 85 decimal. The connection remains
-    /// usable for subsequent operations.
+    /// If the timeout occurs, the operation will return an io::Error
+    /// wrapping the string "timeout". The connection remains usable for
+    /// subsequent operations.
     ///
     /// The desired operation can be invoked on the result of this method.
     pub fn with_timeout(&self, duration: Duration) -> &Self {
