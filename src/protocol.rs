@@ -31,7 +31,6 @@ pub type LdapRequestId = i32;
 
 pub struct ProtoBundle {
     pub search_helpers: HashMap<RequestId, SearchHelper>,
-    pub abandoned: HashSet<RequestId>,
     pub id_map: HashMap<LdapRequestId, RequestId>,
     pub next_id: LdapRequestId,
     pub handle: Handle,
@@ -331,7 +330,6 @@ impl LdapProto {
         LdapProto {
             bundle: Rc::new(RefCell::new(ProtoBundle {
                 search_helpers: HashMap::new(),
-                abandoned: HashSet::new(),
                 id_map: HashMap::new(),
                 next_id: 1,
                 handle: handle,

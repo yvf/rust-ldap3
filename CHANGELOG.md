@@ -1,5 +1,12 @@
 ## v0.5.0, unreleased
 
+* [breaking-change] Ldap::abandon() accepts the msgid, not id.
+  It's not meant to be called directly any more.
+
+* [breaking-change] SearchStream::id() has been removed.
+
+* [breaking-change] LdapConn::abandon() has been removed.
+
 * [breaking-change] LdapResult.rc is now u32 (was: u8).
 
 * [breaking-change] Ldap::connect() and Ldap::connect_ssl() have an additional

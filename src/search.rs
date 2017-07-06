@@ -11,7 +11,7 @@ use lber::structure::StructureTag;
 use lber::structures::{Boolean, Enumerated, Integer, OctetString, Sequence, Tag};
 use lber::common::TagClass::*;
 
-use futures::{Async, Future, Poll, Stream};
+use futures::{future, Async, Future, Poll, Stream};
 use futures::sync::{mpsc, oneshot};
 use tokio_core::reactor::Timeout;
 use tokio_proto::multiplex::RequestId;
@@ -53,6 +53,13 @@ pub enum SearchItem {
     Done(RequestId, LdapResult, Vec<Control>),
 }
 
+#[derive(PartialEq, Eq)]
+enum AbandonState {
+    Idle,
+    AwaitingCmd,
+    AwaitingOp,
+}
+
 /// Stream of search results. __*__
 ///
 /// The stream will yield search result entries. It must be polled until
@@ -62,6 +69,7 @@ pub enum SearchItem {
 pub struct SearchStream {
     id: RequestId,
     initial_timeout: bool,
+    ldap: Ldap,
     bundle: Rc<RefCell<ProtoBundle>>,
     _tx_i: mpsc::UnboundedSender<SearchItem>,
     rx_i: mpsc::UnboundedReceiver<SearchItem>,
@@ -69,20 +77,34 @@ pub struct SearchStream {
     refs: Vec<HashSet<String>>,
     timeout: Option<Duration>,
     entry_timeout: Option<Timeout>,
+    abandon_state: AbandonState,
+    rx_a: Option<mpsc::UnboundedReceiver<()>>,
 }
 
 impl SearchStream {
-    /// Return the internal id of the search, which can be used to abandon it.
+    /// Obtain a channel through which an active search stream can be
+    /// signalled to abandon the Search operation. The function returns an immediately
+    /// resolvable future of the actual channel object in order to make the use of this
+    /// feature easier in futures chains.
     ///
-    /// __Note__: this method will probably be deprecated or removed in 0.5.x
-    /// in favor of directly calling `abandon()` on the stream.
-    pub fn id(&self) -> RequestId {
-        self.id
+    /// Abandoning the Search is signalled by calling `send()` on the channel with
+    /// the unit value `()`. If the search has been invoked with a timeout, the same
+    /// timeout value will be used for the Abandon LDAP operation.
+    ///
+    /// The channel can be retrieved from a stream instance only once; calling
+    /// this function twice on the stream returns an error.
+    pub fn get_abandon_channel(&mut self) -> Box<Future<Item=mpsc::UnboundedSender<()>, Error=io::Error>> {
+        if self.abandon_state != AbandonState::Idle {
+            return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "bad abandon state")));
+        }
+        let (tx_a, rx_a) = mpsc::unbounded::<()>();
+        self.rx_a = Some(rx_a);
+        self.abandon_state = AbandonState::AwaitingCmd;
+        Box::new(future::ok(tx_a))
     }
 
     fn update_maps(&mut self, cause: EndCause) {
         let mut bundle = self.bundle.borrow_mut();
-        bundle.abandoned.remove(&self.id);
         if let Some(helper) = bundle.search_helpers.remove(&self.id) {
             if cause == EndCause::InitialTimeout {
                 bundle.solo_ops.push_back(helper.msgid);
@@ -111,18 +133,51 @@ impl Stream for SearchStream {
                 self.update_maps(EndCause::InitialTimeout);
                 return Err(io::Error::new(io::ErrorKind::Other, "timeout"));
             }
-            if self.bundle.borrow().abandoned.contains(&self.id) {
-                if let Some(tx_r) = self.tx_r.take() {
-                    let result = LdapResult {
-                        rc: 88,
-                        matched: "".to_owned(),
-                        text: "search abandoned".to_owned(),
-                        refs: vec![]
-                    };
-                    self.update_maps(EndCause::Abandoned);
-                    tx_r.send((result, vec![])).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
+            let (abandon_req, abandon_done) = if let Some(ref mut rx_a) = self.rx_a {
+                match rx_a.poll() {
+                    Ok(Async::Ready(_)) => match self.abandon_state {
+                        AbandonState::AwaitingCmd => (true, false),
+                        AbandonState::AwaitingOp => (false, true),
+                        _ => panic!("invalid abandon_state"),
+                    },
+                    Ok(Async::NotReady) => match self.abandon_state {
+                        AbandonState::AwaitingCmd => (false, false),
+                        AbandonState::AwaitingOp => return Ok(Async::NotReady),
+                        _ => panic!("invalid abandon_state"),
+                    },
+                    Err(_e) =>
+                        match self.abandon_state {
+                            AbandonState::AwaitingCmd => return Err(io::Error::new(io::ErrorKind::Other, "poll abandon channel")),
+                            AbandonState::AwaitingOp => (false, true),
+                            _ => panic!("invalid abandon_state"),
+                        }
                 }
-                return Ok(Async::Ready(None))
+            } else {
+                (false, false)
+            };
+            if abandon_done {
+                self.update_maps(EndCause::Abandoned);
+                return Err(io::Error::new(io::ErrorKind::Other, "abandoned"))
+            }
+            if abandon_req {
+                let (tx_a, rx_a) = mpsc::unbounded::<()>();
+                self.abandon_state = AbandonState::AwaitingOp;
+                self.rx_a = Some(rx_a);
+                let handle = self.bundle.borrow().handle.clone();
+                let ldap = self.ldap.clone();
+                let msgid = match self.bundle.borrow().search_helpers.get(&self.id) {
+                    Some(helper) => helper.msgid,
+                    None => return Err(io::Error::new(io::ErrorKind::Other, format!("helper not found for: {}", self.id))),
+                };
+                let abandon = if let Some(ref timeout) = self.timeout {
+                    ldap.with_timeout(timeout.clone()).abandon(_msgid)
+                } else {
+                    ldap.abandon(_msgid)
+                };
+                handle.spawn(abandon.then(move |_r| {
+                    tx_a.send(()).map_err(|_e| ())
+                }));
+                continue;
             }
             if let Some(ref timeout) = self.timeout {
                 if self.entry_timeout.is_none() {
@@ -355,6 +410,7 @@ impl Ldap {
         if let Some(ref timeout) = timeout {
             self.with_timeout(timeout.clone());
         }
+        let ldap = self.clone();
         let fut = self.call(LdapOp::Multi(req, tx_i.clone(), next_req_controls(self))).and_then(move |res| {
             let (id, initial_timeout) = match res {
                 (Tag::Integer(Integer { inner, .. }), _) => (inner as u64, false),
@@ -364,6 +420,7 @@ impl Ldap {
             Ok((SearchStream {
                 id: id,
                 initial_timeout: initial_timeout,
+                ldap: ldap,
                 bundle: bundle,
                 _tx_i: tx_i,
                 rx_i: rx_i,
@@ -371,6 +428,8 @@ impl Ldap {
                 refs: Vec::new(),
                 timeout: timeout,
                 entry_timeout: None,
+                abandon_state: AbandonState::Idle,
+                rx_a: None,
             }, rx_r))
         });
 

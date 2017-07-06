@@ -85,13 +85,11 @@ impl LdapWrapper {
 ///
 /// Once initiated, a streaming search must either be driven to the end by
 /// repeatedly calling [`next()`](#method.next) until it returns `Ok(None)`
-/// or an Error, or cancelled by calling [`abandon()`](struct.LdapConn.html#method.abandon)
-/// with the request id obtained by calling [`id()`](#method.id) on the
-/// stream handle.
+/// or an error. If the stream is cancelled by calling [`abandon()`](struct.EntryStream.html#method.abandon),
+/// `next()` will return an error.
 ///
-/// After regular termination or cancellation, the overall result of the
-/// search _must_ be retrieved by calling [`result()`](#method.result) on
-/// the stream handle.
+/// After regular termination, the overall result of the search _must_ be retrieved by
+/// calling [`result()`](#method.result) on the stream handle.
 pub struct EntryStream {
     core: Rc<RefCell<Core>>,
     strm: Option<SearchStream>,
@@ -141,6 +139,23 @@ impl EntryStream {
             Some(strm.id())
         } else {
             None
+        }
+    }
+
+    /// Abandon the search by signalling the underlying asynchronous stream to
+    /// send the Abandon operation to the server. If the operation is successfully sent,
+    /// the next invocation of `EntryStream::next()` should return an error indicating
+    /// that the search has been abandoned.
+    ///
+    /// This method can return an error if there is a problem with retrieving the
+    /// channel from the stream instance or sending the signal over the channel.
+    pub fn abandon(&mut self) -> io::Result<()> {
+        if let Some(mut strm) = self.strm.take() {
+            let channel = strm.get_abandon_channel().wait()?;
+            self.strm = Some(strm);
+            Ok(channel.send(()).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send on abandon channel"))?)
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "cannot abandon an invalid stream"))
         }
     }
 }
@@ -350,17 +365,6 @@ impl LdapConn {
         where Vec<Tag>: From<E>
     {
         Ok(self.core.borrow_mut().run(self.inner.clone().extended(exop))?)
-    }
-
-    /// Ask the server to terminate the operation, identified here by the library-internal
-    /// parameter `id`. Only active streaming searches can be abandoned by this
-    /// implementation.
-    ///
-    /// __Note__: this method will probably be deprecated or removed in
-    /// the 0.5.x version of the library, in favor of directly calling
-    /// `abandon()` on the search stream.
-    pub fn abandon(&self, id: RequestId) -> io::Result<()> {
-        Ok(self.core.borrow_mut().run(self.inner.clone().abandon(id))?)
     }
 }
 
