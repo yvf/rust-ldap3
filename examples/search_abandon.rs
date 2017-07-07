@@ -1,25 +1,34 @@
 extern crate ldap3;
 
-use ldap3::{LdapConn, Scope};
+use std::error::Error;
+use std::result::Result;
 
-const ENTRIES_BEFORE_ABANDON: usize = 20;
+use ldap3::{LdapConn, LdapResult, Scope};
+
+const ENTRIES_BEFORE_ABANDON: usize = 1;
 
 fn main() {
-    let ldap = LdapConn::new("ldap://localhost:2389").expect("ldap handle");
+    match do_abandon() {
+        Ok(r) => println!("{:?}", r),
+        Err(e) => println!("{:?}", e),
+    }
+}
+
+fn do_abandon() -> Result<LdapResult, Box<Error>> {
+    let ldap = LdapConn::new("ldap://localhost:2389")?;
     let mut count = 0;
     let mut strm = ldap.streaming_search(
         "ou=Places,dc=example,dc=org",
         Scope::Subtree,
         "objectClass=locality",
         vec!["l"]
-    ).expect("stream");
-    while let Ok(Some(_r)) = strm.next() {
-        count += 1;
+    )?;
+    while let Some(_r) = strm.next()? {
         if count == ENTRIES_BEFORE_ABANDON {
-            ldap.abandon(strm.id().expect("id")).expect("abandon");
-            continue;
+            strm.abandon()?;
+        } else {
+            count += 1;
         }
     }
-    let (res, _ctrls) = strm.result().expect("result");
-    println!("Result: {:?}", res);
+    Ok(strm.result()?.0)
 }
