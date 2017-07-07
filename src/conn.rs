@@ -14,7 +14,6 @@ use std::time::Duration;
 use futures::{Async, Future, Poll, Stream};
 use futures::sync::oneshot;
 use tokio_core::reactor::{Core, Handle};
-use tokio_proto::multiplex::RequestId;
 use url::{Host, Url};
 #[cfg(all(unix, not(feature = "minimal")))]
 use url::percent_encoding::percent_decode;
@@ -86,10 +85,10 @@ impl LdapWrapper {
 /// Once initiated, a streaming search must either be driven to the end by
 /// repeatedly calling [`next()`](#method.next) until it returns `Ok(None)`
 /// or an error. If the stream is cancelled by calling [`abandon()`](struct.EntryStream.html#method.abandon),
-/// `next()` will return an error.
+/// `next()` will return `Ok(None)`.
 ///
-/// After regular termination, the overall result of the search _must_ be retrieved by
-/// calling [`result()`](#method.result) on the stream handle.
+/// After regular termination or cancellation, the overall result of the search
+/// _must_ be retrieved by calling [`result()`](#method.result) on the stream handle.
 pub struct EntryStream {
     core: Rc<RefCell<Core>>,
     strm: Option<SearchStream>,
@@ -127,25 +126,11 @@ impl EntryStream {
         Ok(res)
     }
 
-    /// Get the internal `RequestId` of the search, which can be used to
-    /// abandon it. The method returns `None` if the stream is in the
-    /// errored state at the time of call.
-    ///
-    /// __Note__: this method will probably be deprecated or removed in
-    /// the 0.5.x version of the library, in favor of directly calling
-    /// `abandon()` on the stream.
-    pub fn id(&mut self) -> Option<RequestId> {
-        if let Some(ref strm) = self.strm {
-            Some(strm.id())
-        } else {
-            None
-        }
-    }
-
     /// Abandon the search by signalling the underlying asynchronous stream to
     /// send the Abandon operation to the server. If the operation is successfully sent,
-    /// the next invocation of `EntryStream::next()` should return an error indicating
-    /// that the search has been abandoned.
+    /// the next invocation of `EntryStream::next()` will return `Ok(None)`, indicating
+    /// the end of the stream. The overall result of the search will have an error code
+    /// indicating that the operation has been abandoned.
     ///
     /// This method can return an error if there is a problem with retrieving the
     /// channel from the stream instance or sending the signal over the channel.

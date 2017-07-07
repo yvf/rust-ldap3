@@ -156,8 +156,17 @@ impl Stream for SearchStream {
                 (false, false)
             };
             if abandon_done {
-                self.update_maps(EndCause::Abandoned);
-                return Err(io::Error::new(io::ErrorKind::Other, "abandoned"))
+		if let Some(tx_r) = self.tx_r.take() {
+                    let result = LdapResult {
+                        rc: 88,
+                        matched: "".to_owned(),
+                        text: "search abandoned".to_owned(),
+                        refs: vec![]
+                    };
+                    self.update_maps(EndCause::Abandoned);
+                    tx_r.send((result, vec![])).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
+                }
+                return Ok(Async::Ready(None))
             }
             if abandon_req {
                 let (tx_a, rx_a) = mpsc::unbounded::<()>();
@@ -170,9 +179,9 @@ impl Stream for SearchStream {
                     None => return Err(io::Error::new(io::ErrorKind::Other, format!("helper not found for: {}", self.id))),
                 };
                 let abandon = if let Some(ref timeout) = self.timeout {
-                    ldap.with_timeout(timeout.clone()).abandon(_msgid)
+                    ldap.with_timeout(timeout.clone()).abandon(msgid)
                 } else {
-                    ldap.abandon(_msgid)
+                    ldap.abandon(msgid)
                 };
                 handle.spawn(abandon.then(move |_r| {
                     tx_a.send(()).map_err(|_e| ())
