@@ -37,6 +37,9 @@ pub fn ldap_escape<'a, S: Into<Cow<'a, str>>>(lit: S) -> Cow<'a, str> {
         }
     }
     if let Some(output) = output {
+        // unchecked conversion is safe here: we receive a valid
+        // UTF-8 value, by definition, and only replace single ASCII
+        // bytes with ASCII byte sequences
         Cow::Owned(unsafe { String::from_utf8_unchecked(output) })
     } else {
         lit.into()
