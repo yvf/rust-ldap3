@@ -100,8 +100,7 @@ fn connect_with_timeout(timeout: Option<Duration>, fut: Box<Future<Item=Ldap, Er
             match res {
                 Ok(Either::A((resp, _))) => future::ok(resp),
                 Ok(Either::B((_, _))) => future::err(io::Error::new(io::ErrorKind::Other, "timeout")),
-                Err(Either::A((e, _))) => future::err(e),
-                Err(Either::B((e, _))) => future::err(e),
+                Err(Either::A((e, _))) | Err(Either::B((e, _))) => future::err(e),
             }
         });
         Box::new(result)
@@ -250,8 +249,7 @@ impl Service for Ldap {
                             future::err(io::Error::new(io::ErrorKind::Other, "timeout"))
                         }
                     },
-                    Err(Either::A((e, _))) => future::err(e),
-                    Err(Either::B((e, _))) => future::err(e),
+                    Err(Either::A((e, _))) | Err(Either::B((e, _))) => future::err(e),
                 }
             });
             Box::new(result)

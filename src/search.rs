@@ -179,7 +179,7 @@ impl Stream for SearchStream {
                     None => return Err(io::Error::new(io::ErrorKind::Other, format!("helper not found for: {}", self.id))),
                 };
                 let abandon = if let Some(ref timeout) = self.timeout {
-                    ldap.with_timeout(timeout.clone()).abandon(msgid)
+                    ldap.with_timeout(*timeout).abandon(msgid)
                 } else {
                     ldap.abandon(msgid)
                 };
@@ -190,7 +190,7 @@ impl Stream for SearchStream {
             }
             if let Some(ref timeout) = self.timeout {
                 if self.entry_timeout.is_none() {
-                    self.entry_timeout = Some(Timeout::new(timeout.clone(), &self.bundle.borrow().handle)?);
+                    self.entry_timeout = Some(Timeout::new(*timeout, &self.bundle.borrow().handle)?);
                 }
             }
             let timeout_fired = if let Some(ref mut timeout) = self.entry_timeout {
@@ -417,7 +417,7 @@ impl Ldap {
         let bundle = bundle(self);
         let timeout = next_timeout(self);
         if let Some(ref timeout) = timeout {
-            self.with_timeout(timeout.clone());
+            self.with_timeout(*timeout);
         }
         let ldap = self.clone();
         let fut = self.call(LdapOp::Multi(req, tx_i.clone(), next_req_controls(self))).and_then(move |res| {
