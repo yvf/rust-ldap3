@@ -97,6 +97,10 @@ pub struct LdapResult {
     /// In the current implementation, all referrals received during a Search
     /// operation will be accumulated in this vector.
     pub refs: Vec<HashSet<String>>,
+    /// Response controls.
+    ///
+    /// Missing and empty controls are both represented by an empty vector.
+    pub ctrls: Vec<Control>,
 }
 
 #[derive(Clone, Debug)]
@@ -155,6 +159,7 @@ impl From<Tag> for LdapResultExt {
                 matched: matched,
                 text: text,
                 refs: refs,
+                ctrls: vec![],
             },
             Exop {
                 name: exop_name,

@@ -73,7 +73,8 @@ pub struct SearchStream {
     bundle: Rc<RefCell<ProtoBundle>>,
     _tx_i: mpsc::UnboundedSender<SearchItem>,
     rx_i: mpsc::UnboundedReceiver<SearchItem>,
-    tx_r: Option<oneshot::Sender<(LdapResult, Vec<Control>)>>,
+    tx_r: Option<oneshot::Sender<LdapResult>>,
+    rx_r: Option<oneshot::Receiver<LdapResult>>,
     refs: Vec<HashSet<String>>,
     timeout: Option<Duration>,
     entry_timeout: Option<Timeout>,
@@ -101,6 +102,13 @@ impl SearchStream {
         self.rx_a = Some(rx_a);
         self.abandon_state = AbandonState::AwaitingCmd;
         Box::new(future::ok(tx_a))
+    }
+
+    /// Obtain the channel which will receive the result of the finished
+    /// search. It can be retrieved only once, and is wrapped in an `Option`
+    /// to avoid partially moving out of the parent structure.
+    pub fn get_result_rx(&mut self) -> Option<oneshot::Receiver<LdapResult>> {
+        self.rx_r.take()
     }
 
     fn update_maps(&mut self, cause: EndCause) {
@@ -161,10 +169,11 @@ impl Stream for SearchStream {
                         rc: 88,
                         matched: "".to_owned(),
                         text: "search abandoned".to_owned(),
-                        refs: vec![]
+                        refs: vec![],
+                        ctrls: vec![],
                     };
                     self.update_maps(EndCause::Abandoned);
-                    tx_r.send((result, vec![])).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
+                    tx_r.send(result).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
                 }
                 return Ok(Async::Ready(None))
             }
@@ -211,8 +220,9 @@ impl Stream for SearchStream {
                 Some(SearchItem::Done(_id, mut result, controls)) => {
                     result.refs.extend(self.refs.drain(..));
                     self.update_maps(EndCause::Regular);
+                    result.ctrls = controls;
                     let tx_r = self.tx_r.take().expect("oneshot tx");
-                    tx_r.send((result, controls)).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
+                    tx_r.send(result).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
                     return Ok(Async::Ready(None));
                 },
                 Some(SearchItem::Entry(tag)) => {
@@ -366,11 +376,9 @@ impl Ldap {
     ///
     /// The true synchronous counterpart of this method is not the identically named `LdapConn::search()`,
     /// but rather [`LdapConn::streaming_search()`](struct.LdapConn.html#method.streaming_search).
-    // Clippy warns about the Future's Item; maybe we're going to pack controls into LdapResult,
-    // but it's a breaking change
-    #[cfg_attr(feature="cargo-clippy", allow(type_complexity))]
     pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) ->
-            Box<Future<Item=(SearchStream, oneshot::Receiver<(LdapResult, Vec<Control>)>), Error=io::Error>> {
+        Box<Future<Item=SearchStream, Error=io::Error>>
+    {
         let opts = match next_search_options(self) {
             Some(opts) => opts,
             None => SearchOptions::new(),
@@ -413,7 +421,7 @@ impl Ldap {
         });
 
         let (tx_i, rx_i) = mpsc::unbounded::<SearchItem>();
-        let (tx_r, rx_r) = oneshot::channel::<(LdapResult, Vec<Control>)>();
+        let (tx_r, rx_r) = oneshot::channel::<LdapResult>();
         let bundle = bundle(self);
         let timeout = next_timeout(self);
         if let Some(ref timeout) = timeout {
@@ -426,7 +434,7 @@ impl Ldap {
                 (Tag::Enumerated(Enumerated { inner, .. }), _) => (inner as u64, true),
                 _ => unimplemented!(),
             };
-            Ok((SearchStream {
+            Ok(SearchStream {
                 id: id,
                 initial_timeout: initial_timeout,
                 ldap: ldap,
@@ -434,12 +442,13 @@ impl Ldap {
                 _tx_i: tx_i,
                 rx_i: rx_i,
                 tx_r: Some(tx_r),
+                rx_r: Some(rx_r),
                 refs: Vec::new(),
                 timeout: timeout,
                 entry_timeout: None,
                 abandon_state: AbandonState::Idle,
                 rx_a: None,
-            }, rx_r))
+            })
         });
 
         Box::new(fut)

@@ -92,7 +92,7 @@ impl LdapWrapper {
 pub struct EntryStream {
     core: Rc<RefCell<Core>>,
     strm: Option<SearchStream>,
-    rx_r: Option<oneshot::Receiver<(LdapResult, Vec<Control>)>>,
+    rx_r: Option<oneshot::Receiver<LdapResult>>,
 }
 
 impl EntryStream {
@@ -117,7 +117,7 @@ impl EntryStream {
     /// called _after_ the stream has terminated by returning `Ok(None)` or
     /// an error, although the latter case is guaranteed to also return an
     /// error. If this protocol is not followed, the method will hang.
-    pub fn result(&mut self) -> io::Result<(LdapResult, Vec<Control>)> {
+    pub fn result(&mut self) -> io::Result<LdapResult> {
         if self.strm.is_none() {
             return Err(io::Error::new(io::ErrorKind::Other, "cannot return result from an invalid stream"));
         }
@@ -278,14 +278,15 @@ impl LdapConn {
     ///
     /// The asynchronous method of the same name works differently: it returns a
     /// stream handle which must be iterated through to obtain result entries.
-    pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<(Vec<StructureTag>, LdapResult, Vec<Control>)> {
+    pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<(Vec<StructureTag>, LdapResult)> {
         let srch = self.inner.clone().search(base, scope, filter, attrs)
-            .and_then(|(strm, rx_r)| {
+            .and_then(|mut strm| {
+                let rx_r = strm.get_result_rx().expect("rx_r");
                 rx_r.map_err(|e| io::Error::new(io::ErrorKind::Other, e))
                     .join(strm.collect())
             });
-        let ((result, controls), result_set) = self.core.borrow_mut().run(srch)?;
-        Ok((result_set, result, controls))
+        let (result, result_set) = self.core.borrow_mut().run(srch)?;
+        Ok((result_set, result))
     }
 
     /// Perform a Search, but unlike [`search()`](#method.search) (q.v., also for
@@ -296,7 +297,8 @@ impl LdapConn {
     /// In the asynchronous interface, this method doesn't exist; there, _all_ searches
     /// are streaming.
     pub fn streaming_search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<EntryStream> {
-        let (strm, rx_r) = self.core.borrow_mut().run(self.inner.clone().search(base, scope, filter, attrs))?;
+        let mut strm = self.core.borrow_mut().run(self.inner.clone().search(base, scope, filter, attrs))?;
+        let rx_r = strm.get_result_rx().expect("rx_r");
         Ok(EntryStream { core: self.core.clone(), strm: Some(strm), rx_r: Some(rx_r) })
     }
 
