@@ -30,8 +30,9 @@ fn do_abandon() -> Result<LdapResult, io::Error> {
                 "objectClass=locality",
                 vec!["l"]
         )})
-        .and_then(|(mut strm, rx)| {
+        .and_then(|mut strm| {
             let mut count = 0;
+            let rx = strm.get_result_rx().expect("rx");
             let a_chan = strm.get_abandon_channel();
             a_chan.and_then(move |a_chan| {
                 rx.map_err(|_e| io::Error::from(io::ErrorKind::Other))
@@ -46,6 +47,6 @@ fn do_abandon() -> Result<LdapResult, io::Error> {
                     }))
             })
         })
-        .map(|((res, _), _)| res);
+        .map(|(res, _)| res);
     core.run(srch)
 }
