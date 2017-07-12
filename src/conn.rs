@@ -11,7 +11,7 @@ use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::rc::Rc;
 use std::time::Duration;
 
-use futures::{Async, Future, Poll, Stream};
+use futures::{Async, Future, IntoFuture, Poll, Stream};
 use futures::sync::oneshot;
 use tokio_core::reactor::{Core, Handle};
 use url::{Host, Url};
@@ -136,7 +136,7 @@ impl EntryStream {
     /// channel from the stream instance or sending the signal over the channel.
     pub fn abandon(&mut self) -> io::Result<()> {
         if let Some(mut strm) = self.strm.take() {
-            let channel = strm.get_abandon_channel().wait()?;
+            let channel = strm.get_abandon_channel()?;
             self.strm = Some(strm);
             Ok(channel.send(()).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send on abandon channel"))?)
         } else {
@@ -281,9 +281,11 @@ impl LdapConn {
     pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<(Vec<StructureTag>, LdapResult)> {
         let srch = self.inner.clone().search(base, scope, filter, attrs)
             .and_then(|mut strm| {
-                let rx_r = strm.get_result_rx().expect("rx_r");
-                rx_r.map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                let rx_r = strm.get_result_rx().into_future();
+                rx_r.and_then(|rx_r| rx_r
+                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
                     .join(strm.collect())
+                )
             });
         let (result, result_set) = self.core.borrow_mut().run(srch)?;
         Ok((result_set, result))
@@ -298,7 +300,7 @@ impl LdapConn {
     /// are streaming.
     pub fn streaming_search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<EntryStream> {
         let mut strm = self.core.borrow_mut().run(self.inner.clone().search(base, scope, filter, attrs))?;
-        let rx_r = strm.get_result_rx().expect("rx_r");
+        let rx_r = strm.get_result_rx()?;
         Ok(EntryStream { core: self.core.clone(), strm: Some(strm), rx_r: Some(rx_r) })
     }
 

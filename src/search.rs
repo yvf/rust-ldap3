@@ -11,7 +11,7 @@ use lber::structure::StructureTag;
 use lber::structures::{Boolean, Enumerated, Integer, OctetString, Sequence, Tag};
 use lber::common::TagClass::*;
 
-use futures::{future, Async, Future, Poll, Stream};
+use futures::{Async, Future, Poll, Stream};
 use futures::sync::{mpsc, oneshot};
 use tokio_core::reactor::Timeout;
 use tokio_proto::multiplex::RequestId;
@@ -83,32 +83,29 @@ pub struct SearchStream {
 }
 
 impl SearchStream {
-    /// Obtain a channel through which an active search stream can be
-    /// signalled to abandon the Search operation. The function returns an immediately
-    /// resolvable future of the actual channel object in order to make the use of this
-    /// feature easier in futures chains.
+    /// Obtain a channel through which an active search stream can be signalled
+    /// to abandon the Search operation. The channel can be retrieved from a stream
+    /// instance only once; calling this function twice on the same stream returns
+    /// an error.
     ///
     /// Abandoning the Search is signalled by calling `send()` on the channel with
     /// the unit value `()`. If the search has been invoked with a timeout, the same
     /// timeout value will be used for the Abandon LDAP operation.
-    ///
-    /// The channel can be retrieved from a stream instance only once; calling
-    /// this function twice on the stream returns an error.
-    pub fn get_abandon_channel(&mut self) -> Box<Future<Item=mpsc::UnboundedSender<()>, Error=io::Error>> {
+    pub fn get_abandon_channel(&mut self) -> io::Result<mpsc::UnboundedSender<()>> {
         if self.abandon_state != AbandonState::Idle {
-            return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "bad abandon state")));
+            return Err(io::Error::new(io::ErrorKind::Other, "bad abandon state"));
         }
         let (tx_a, rx_a) = mpsc::unbounded::<()>();
         self.rx_a = Some(rx_a);
         self.abandon_state = AbandonState::AwaitingCmd;
-        Box::new(future::ok(tx_a))
+        Ok(tx_a)
     }
 
     /// Obtain the channel which will receive the result of the finished
     /// search. It can be retrieved only once, and is wrapped in an `Option`
     /// to avoid partially moving out of the parent structure.
-    pub fn get_result_rx(&mut self) -> Option<oneshot::Receiver<LdapResult>> {
-        self.rx_r.take()
+    pub fn get_result_rx(&mut self) -> io::Result<oneshot::Receiver<LdapResult>> {
+        self.rx_r.take().ok_or_else(|| io::Error::new(io::ErrorKind::Other, "channel already retrieved"))
     }
 
     fn update_maps(&mut self, cause: EndCause) {
