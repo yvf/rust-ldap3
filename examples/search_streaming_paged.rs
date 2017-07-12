@@ -1,11 +1,21 @@
 extern crate ldap3;
 
+use std::error::Error;
+use std::result::Result;
+
 use ldap3::{LdapConn, Scope};
 use ldap3::controls::{Control, PagedResults};
 use ldap3::controls::{parse_control, types};
 
 fn main() {
-    let ldap = LdapConn::new("ldap://localhost:2389").expect("ldap handle");
+    match do_search() {
+        Ok(count) => println!("Entries: {}", count),
+        Err(e) => println!("{:?}", e),
+    }
+}
+
+fn do_search() -> Result<u32, Box<Error>> {
+    let ldap = LdapConn::new("ldap://localhost:2389")?;
     let mut cookie = Vec::new();
     let mut count = 0;
     let mut continue_search = true;
@@ -17,14 +27,14 @@ fn main() {
                 Scope::Subtree,
                 "objectClass=locality",
                 vec!["l"]
-            ).expect("stream");
-        while let Ok(Some(_r)) = strm.next() {
+            )?;
+        while let Some(_r) = strm.next()? {
             count += 1;
         }
-        let (res, ctrls) = strm.result().expect("result");
+        let res = strm.result()?;
         continue_search = false;
         if res.rc == 0 {
-            for ctrl in ctrls {
+            for ctrl in res.ctrls {
                 // Ok clippy, I'm trying to illustrate multiple control matching
                 #[cfg_attr(feature="cargo-clippy", allow(single_match))]
                 match ctrl {
@@ -45,5 +55,5 @@ fn main() {
             }
         }
     }
-    println!("Entries: {}", count);
+    Ok(count)
 }
