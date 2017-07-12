@@ -4,7 +4,7 @@ use ldap3::{LdapConn, Scope, SearchOptions, SearchEntry};
 
 fn main() {
     let ldap = LdapConn::new("ldap://localhost:2389").expect("ldap handle");
-    let (rs, res, _ctrls) = ldap
+    let (rs, res) = ldap
         .with_search_options(SearchOptions::new().sizelimit(1))
         .search(
             "ou=People,dc=example,dc=org",

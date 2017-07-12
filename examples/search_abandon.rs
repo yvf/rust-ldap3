@@ -30,5 +30,5 @@ fn do_abandon() -> Result<LdapResult, Box<Error>> {
             count += 1;
         }
     }
-    Ok(strm.result()?.0)
+    Ok(strm.result()?)
 }

@@ -8,7 +8,7 @@ fn main() {
         .with_conn_timeout(Duration::from_secs(5))
         .connect("ldap://localhost:2389")
         .expect("ldap handle");
-    let (rs, res, _ctrls) = ldap
+    let (rs, res) = ldap
         .with_timeout(Duration::from_secs(5))
         .search(
             "ou=Places,dc=example,dc=org",

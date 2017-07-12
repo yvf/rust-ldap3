@@ -4,7 +4,7 @@ use ldap3::{LdapConn, Scope, SearchEntry};
 
 fn main() {
     let ldap = LdapConn::new("ldap://localhost:2389").expect("ldap handle");
-    let (rs, res, _ctrls) = ldap.search(
+    let (rs, res) = ldap.search(
         "ou=Places,dc=example,dc=org",
         Scope::Subtree,
         "(&(objectClass=locality)(l=ma*))",
