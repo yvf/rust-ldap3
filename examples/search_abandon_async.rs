@@ -5,7 +5,7 @@ extern crate tokio_core;
 use std::io;
 use std::result::Result;
 
-use futures::{Future, Stream};
+use futures::{Future, IntoFuture, Stream};
 use ldap3::{LdapConnAsync, LdapResult, Scope};
 use tokio_core::reactor::Core;
 
@@ -32,11 +32,11 @@ fn do_abandon() -> Result<LdapResult, io::Error> {
         )})
         .and_then(|mut strm| {
             let mut count = 0;
-            let rx = strm.get_result_rx().expect("rx");
-            let a_chan = strm.get_abandon_channel();
-            a_chan.and_then(move |a_chan| {
-                rx.map_err(|_e| io::Error::from(io::ErrorKind::Other))
-                    .join(strm.for_each(move |_tag| {
+            let rx = strm.get_result_rx().into_future();
+            let a_chan = strm.get_abandon_channel().into_future();
+            a_chan.and_then(move |a_chan| rx.and_then(move |rx|
+                rx.map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                    .join(strm.for_each(move |_tag|
                         if count == ENTRIES_BEFORE_ABANDON {
                             a_chan.send(())
                                 .map_err(|_e| io::Error::new(io::ErrorKind::Other, "a_chan send"))
@@ -44,8 +44,8 @@ fn do_abandon() -> Result<LdapResult, io::Error> {
                             count += 1;
                             Ok(())
                         }
-                    }))
-            })
+                ))
+            ))
         })
         .map(|(res, _)| res);
     core.run(srch)
