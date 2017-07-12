@@ -1,15 +1,22 @@
 ## v0.5.0, unreleased
 
-* [breaking-change] Ldap::abandon() accepts the msgid, not id.
+* [breaking change] `Ldap::search()` returns a future of just a SearchStream,
+  instead of a tuple. The result receiver must be extracted from the stream
+  instance with `SearchStream::get_result_rx()`. The receiver is also simplified,
+  and now retrieves just the `LdapResult`.
+
+* [breaking change] `LdapResult` contains the response controls.
+
+* [breaking change] `Ldap::abandon()` accepts the msgid, not id.
   It's not meant to be called directly any more.
 
-* [breaking-change] SearchStream::id() has been removed.
+* [breaking change] `SearchStream::id()` has been removed.
 
-* [breaking-change] LdapConn::abandon() has been removed.
+* [breaking change] `LdapConn::abandon()` has been removed.
 
-* [breaking-change] LdapResult.rc is now u32 (was: u8).
+* [breaking change] `LdapResult.rc` is now `u32` (was: `u8`).
 
-* [breaking-change] Ldap::connect() and Ldap::connect_ssl() have an additional
+* [breaking change] `Ldap::connect()` and `Ldap::connect_ssl()` have an additional
   parameter, an optional connection timeout.
 
 * Timeout support, which can be used both synchronously and asynchronously.
