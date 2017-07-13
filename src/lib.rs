@@ -122,6 +122,7 @@ mod ldap;
 mod modify;
 mod modifydn;
 mod protocol;
+pub mod result;
 mod search;
 mod unbind;
 mod util;
@@ -129,7 +130,7 @@ mod util;
 pub use conn::{EntryStream, LdapConn, LdapConnAsync, LdapConnBuilder};
 pub use ldap::Ldap;
 pub use modify::Mod;
-pub use protocol::LdapResult;
+pub use result::LdapResult;
 pub use search::{DerefAliases, Scope, SearchEntry, SearchOptions, SearchStream};
 pub use util::ldap_escape;
 

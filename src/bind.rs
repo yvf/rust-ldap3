@@ -8,7 +8,7 @@ use tokio_service::Service;
 
 use controls::Control;
 use ldap::{Ldap, LdapOp, next_req_controls};
-use protocol::LdapResult;
+use result::LdapResult;
 
 impl Ldap {
     /// See [`LdapConn::simple_bind()`](struct.LdapConn.html#method.simple_bind).

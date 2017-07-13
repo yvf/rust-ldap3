@@ -24,7 +24,7 @@ use controls::Control;
 use exop::Exop;
 use ldap::Ldap;
 use modify::Mod;
-use protocol::LdapResult;
+use result::LdapResult;
 use search::{SearchOptions, SearchStream, Scope};
 
 struct LdapWrapper {

@@ -9,7 +9,8 @@ use tokio_service::Service;
 use controls::Control;
 use ldap::{Ldap, LdapOp, next_req_controls};
 use exop::Exop;
-use protocol::{LdapResult, LdapResultExt};
+use protocol::LdapResultExt;
+use result::LdapResult;
 
 impl Ldap {
     /// See [`LdapConn::extended()`](struct.LdapConn.html#method.extended).

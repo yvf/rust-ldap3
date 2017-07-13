@@ -21,7 +21,8 @@ use controls::Control;
 use filter::parse;
 use ldap::{bundle, next_search_options, next_req_controls, next_timeout};
 use ldap::{Ldap, LdapOp};
-use protocol::{LdapResult, ProtoBundle};
+use protocol::ProtoBundle;
+use result::LdapResult;
 
 /// Possible values for search scope.
 #[derive(Clone, Copy, Debug, PartialEq)]
