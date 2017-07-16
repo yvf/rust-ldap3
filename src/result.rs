@@ -7,6 +7,7 @@ use std::result::Result;
 use controls::Control;
 use protocol::LdapResultExt;
 
+use lber::structure::StructureTag;
 use lber::structures::Tag;
 
 /// Common components of an LDAP operation result.
@@ -128,6 +129,62 @@ impl LdapResult {
             Ok(self)
         } else {
             Err(io::Error::new(io::ErrorKind::Other, self))
+        }
+    }
+}
+
+/// Wrapper for results of a Search operation which returns all entries at once.
+///
+/// The wrapper exists so that methods [`success()`](#method.success) and
+/// [`non_error()`](#method.non_error) can be called on an instance. Those methods
+/// destructure the wrapper and return its components as elements of an anonymous
+/// tuple.
+#[derive(Clone, Debug)]
+pub struct SearchResult(pub Vec<StructureTag>, pub LdapResult);
+
+impl SearchResult {
+    /// If the result code is zero, return an anonymous tuple of component structs
+    /// wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
+    pub fn success(self) -> Result<(Vec<StructureTag>, LdapResult), io::Error> {
+        if self.1.rc == 0 {
+            Ok((self.0, self.1))
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, self.1))
+        }
+    }
+
+    /// If the result code is 0 or 10 (referral), return an anonymous tuple of component
+    /// structs wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
+    pub fn non_error(self) -> Result<(Vec<StructureTag>, LdapResult), io::Error> {
+        if self.1.rc == 0 || self.1.rc == 10 {
+            Ok((self.0, self.1))
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, self.1))
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CompareResult(pub LdapResult);
+
+impl CompareResult {
+    /// If the result code is 5 (compareFalse) or 6 (compareTrue), return the corresponding
+    /// boolean value wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
+    pub fn equal(self) -> Result<bool, io::Error> {
+        match self.0.rc {
+            5 => Ok(false),
+            6 => Ok(true),
+            _ => Err(io::Error::new(io::ErrorKind::Other, self.0))
+        }
+    }
+
+    /// If the result code is 5 (compareFalse), 6 (compareTrue),  or 10 (referral), return
+    /// the inner `LdapResult`, otherwise rewrap `LdapResult` in an `io::Error`.
+    pub fn non_error(self) -> Result<LdapResult, io::Error> {
+        if self.0.rc == 5 || self.0.rc == 6 || self.0.rc == 10 {
+            Ok(self.0)
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, self.0))
         }
     }
 }
