@@ -6,28 +6,30 @@ use lber::common::TagClass;
 use futures::Future;
 use tokio_service::Service;
 
-use controls::Control;
 use ldap::{Ldap, LdapOp, next_req_controls};
 use exop::Exop;
+use exop_impl::construct_exop;
 use protocol::LdapResultExt;
-use result::LdapResult;
+use result::ExopResult;
 
 impl Ldap {
     /// See [`LdapConn::extended()`](struct.LdapConn.html#method.extended).
     pub fn extended<E>(&self, exop: E) ->
-        Box<Future<Item=(LdapResult, Exop, Vec<Control>), Error=io::Error>>
-        where Vec<Tag>: From<E>
+        Box<Future<Item=ExopResult, Error=io::Error>>
+        where E: Into<Exop>
     {
         let req = Tag::Sequence(Sequence {
             id: 23,
             class: TagClass::Application,
-            inner: exop.into()
+            inner: construct_exop(exop.into())
         });
 
         let fut = self.call(LdapOp::Single(req, next_req_controls(self)))
             .and_then(|(result, controls)| {
-                let result_ext: LdapResultExt = result.into();
-                Ok((result_ext.0, result_ext.1, controls))
+                let ldap_ext: LdapResultExt = result.into();
+                let (mut result, exop) = (ldap_ext.0, ldap_ext.1);
+                result.ctrls = controls;
+                Ok(ExopResult(exop, result))
             });
 
         Box::new(fut)

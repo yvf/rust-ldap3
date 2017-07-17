@@ -19,12 +19,10 @@ use url::{Host, Url};
 use url::percent_encoding::percent_decode;
 
 use lber::structure::StructureTag;
-use lber::structures::Tag;
-use controls::Control;
 use exop::Exop;
 use ldap::Ldap;
 use modify::Mod;
-use result::{CompareResult, LdapResult, SearchResult};
+use result::{CompareResult, ExopResult, LdapResult, SearchResult};
 use search::{SearchOptions, SearchStream, Scope};
 
 struct LdapWrapper {
@@ -330,11 +328,8 @@ impl LdapConn {
     /// Perform an Extended operation given by `exop`. Extended operations are defined in the
     /// [`exop`](exop.html) module. See the module-level documentation for the list of extended
     /// operations supported by this library and procedures for defining custom exops.
-    ///
-    /// __Note__: the order of return values for this method is wrong, and will change in
-    /// version 0.5.x. So will the type of `exop`.
-    pub fn extended<E>(&self, exop: E) -> io::Result<(LdapResult, Exop, Vec<Control>)>
-        where Vec<Tag>: From<E>
+    pub fn extended<E>(&self, exop: E) -> io::Result<ExopResult>
+        where E: Into<Exop>
     {
         Ok(self.core.borrow_mut().run(self.inner.clone().extended(exop))?)
     }

@@ -12,6 +12,7 @@ use std::io;
 use std::result::Result;
 
 use controls::Control;
+use exop::Exop;
 use protocol::LdapResultExt;
 
 use lber::structure::StructureTag;
@@ -198,6 +199,36 @@ impl CompareResult {
             Ok(self.0)
         } else {
             Err(io::Error::new(io::ErrorKind::Other, self.0))
+        }
+    }
+}
+
+/// Wrapper for the result of an Extended operation.
+///
+/// Similarly to [`SearchResult`](#struct.SearchResult.html), methods [`success()`]
+/// (#method.success) and [`non_error()`](#method.non_error) can be called on an instance,
+/// and will destructure the wrapper into an anonymous tuple of its components.
+#[derive(Clone, Debug)]
+pub struct ExopResult(pub Exop, pub LdapResult);
+
+impl ExopResult {
+    /// If the result code is zero, return an anonymous tuple of component structs
+    /// wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
+    pub fn success(self) -> Result<(Exop, LdapResult), io::Error> {
+        if self.1.rc == 0 {
+            Ok((self.0, self.1))
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, self.1))
+        }
+    }
+
+    /// If the result code is 0 or 10 (referral), return an anonymous tuple of component
+    /// structs wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
+    pub fn non_error(self) -> Result<(Exop, LdapResult), io::Error> {
+        if self.1.rc == 0 || self.1.rc == 10 {
+            Ok((self.0, self.1))
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, self.1))
         }
     }
 }

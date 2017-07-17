@@ -114,8 +114,11 @@ pub mod exop {
     //! response are the same, there is only the request struct; if they are different,
     //! the response struct's name will consist of the request struct name with the
     //! `Resp` suffix.
-    pub use exop_impl::{Exop, WhoAmI, WhoAmIResp};
-    pub use exop_impl::parse_exop;
+    //!
+    //! A request struct must implement the `From` conversion of itself into `Exop`.
+    //! A response struct must implement the [`ExopParser`](trait.ExopParser.html)
+    //! trait.
+    pub use exop_impl::{Exop, ExopParser, WhoAmI, WhoAmIResp};
 }
 mod filter;
 mod ldap;

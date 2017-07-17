@@ -17,26 +17,10 @@ pub struct Exop {
     pub val: Option<Vec<u8>>,
 }
 
+/// Conversion trait for Extended response values.
 pub trait ExopParser {
-    fn parse(&[u8]) -> Self;
-}
-
-/// Parse the raw exop value.
-///
-/// Since the function is generic, the return type must be explicitly
-/// specified in the binding annotation of a __let__ statement or by
-/// using the turbofish.
-///
-/// __Note__: this function will be removed in 0.5.x, in favor of calling
-/// type-qualified `parse()` on `Exop`.
-pub fn parse_exop<T: ExopParser>(val: &[u8]) -> T {
-    T::parse(val)
-}
-
-impl From<Exop> for Vec<Tag> {
-    fn from(exop: Exop) -> Vec<Tag> {
-        construct_exop(exop)
-    }
+    /// Convert the raw BER value into an exop-specific struct.
+    fn parse<B: AsRef<[u8]>>(val: B) -> Self;
 }
 
 pub fn construct_exop(exop: Exop) -> Vec<Tag> {
