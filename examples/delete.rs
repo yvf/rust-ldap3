@@ -14,7 +14,7 @@ fn main() {
 fn do_delete() -> Result<(), Box<Error>> {
     let ldap = LdapConn::new("ldap://localhost:2389")?;
     ldap.simple_bind("cn=Manager,dc=example,dc=org", "secret")?.success()?;
-    let (res, _ctrls) = ldap.delete("uid=extra,ou=People,dc=example,dc=org")?;
+    let res = ldap.delete("uid=extra,ou=People,dc=example,dc=org")?.success()?;
     println!("{:?}", res);
     Ok(())
 }

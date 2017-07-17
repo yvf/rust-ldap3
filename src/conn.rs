@@ -295,7 +295,7 @@ impl LdapConn {
     }
 
     /// Delete an entry named by `dn`.
-    pub fn delete(&self, dn: &str) -> io::Result<(LdapResult, Vec<Control>)> {
+    pub fn delete(&self, dn: &str) -> io::Result<LdapResult> {
         Ok(self.core.borrow_mut().run(self.inner.clone().delete(dn))?)
     }
 
