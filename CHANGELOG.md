@@ -1,6 +1,23 @@
 ## v0.5.0, unreleased
 
-* [breaking change] `Ldap::search()` returns a future of just a SearchStream,
+* `LdapResult` implements `success()`, which returns the structure itself if
+   `rc` is zero, or and error if it's not. There's also `non_error()`, which
+   also considers the value 10 (referral) as successful.
+
+* [breaking change] Compare returns `CompareResult`, a newtype of `LdapResult`
+  which implements the `equals()` method, transforming compareFalse/compareTrue
+  rc values to a boolean.
+
+* [breaking change] Non-streaming search returns a wrapper type, `SearchResult`.
+  The `success()` method can be invoked on a value of this type, destructuring
+  it to an anonymous tuple of a entry vector and result struct, and propagating
+  error cases, as determined by `LdapResult.rc`, upward.
+
+* [breaking change] Async and sync search APIs are now aligned. `Ldap::search()`
+  returns a future of the result entry vector, which it internally collects; what
+  used to be `Ldap::search()` is now named `Ldap::streaming_search()`.
+
+* [breaking change] `Ldap::streaming_search()` returns a future of just a SearchStream,
   instead of a tuple. The result receiver must be extracted from the stream
   instance with `SearchStream::get_result_rx()`. The receiver is also simplified,
   and now retrieves just the `LdapResult`.
