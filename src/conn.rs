@@ -11,7 +11,7 @@ use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::rc::Rc;
 use std::time::Duration;
 
-use futures::{Async, Future, IntoFuture, Poll, Stream};
+use futures::{Async, Future, Poll, Stream};
 use futures::sync::oneshot;
 use tokio_core::reactor::{Core, Handle};
 use url::{Host, Url};
@@ -24,7 +24,7 @@ use controls::Control;
 use exop::Exop;
 use ldap::Ldap;
 use modify::Mod;
-use result::LdapResult;
+use result::{LdapResult, SearchResult};
 use search::{SearchOptions, SearchStream, Scope};
 
 struct LdapWrapper {
@@ -176,15 +176,12 @@ impl EntryStream {
 /// which accepts the same parameters, but returns a handle which must be used to obtain
 /// result entries one by one.
 ///
-/// As a rule, operations return a [`LdapResult`](struct.LdapResult.html) and a vector of
-/// response controls. `LdapResult` is a structure with result components, the most important
-/// of which is the result code, a numeric value indicating the outcome of the operation.
-/// Controls are not directly usable, and must be additionally parsed by the driver- or
+/// As a rule, operations return [`LdapResult`](struct.LdapResult.html),
+/// a structure of result components. The most important element of `LdapResult`
+/// is the result code, a numeric value indicating the outcome of the operation.
+/// This structure also contains the possibly empty vector of response controls,
+/// which are not directly usable, but must be additionally parsed by the driver- or
 /// user-supplied code.
-///
-/// __Note__: controls are presently returned as a separate element of a tuple. The next
-/// version of the library, 0.5.x, will probably change this to incorporate response
-/// controls into `LdapResult`.
 #[derive(Clone)]
 pub struct LdapConn {
     core: Rc<RefCell<Core>>,
@@ -269,37 +266,23 @@ impl LdapConn {
     /// attributes. Include both `*` and `+` in order to return all attributes
     /// of an entry.
     ///
-    /// The first member of the returned tuple will be the vector of all result
-    /// entries. Entries are not directly usable, and must be parsed by
+    /// The returned structure wraps the vector of result entries and the overall
+    /// result of the operation. Entries are not directly usable, and must be parsed by
     /// [`SearchEntry::construct()`](struct.SearchEntry.html#method.construct).
     ///
     /// This method should be used if it's known that the result set won't be
     /// large. For other situations, one can use [`streaming_search()`](#method.streaming_search).
-    ///
-    /// The asynchronous method of the same name works differently: it returns a
-    /// stream handle which must be iterated through to obtain result entries.
-    pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<(Vec<StructureTag>, LdapResult)> {
-        let srch = self.inner.clone().search(base, scope, filter, attrs)
-            .and_then(|mut strm| {
-                let rx_r = strm.get_result_rx().into_future();
-                rx_r.and_then(|rx_r| rx_r
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-                    .join(strm.collect())
-                )
-            });
-        let (result, result_set) = self.core.borrow_mut().run(srch)?;
-        Ok((result_set, result))
+    pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<SearchResult> {
+        let srch = self.inner.clone().search(base, scope, filter, attrs);
+        Ok(self.core.borrow_mut().run(srch)?)
     }
 
     /// Perform a Search, but unlike [`search()`](#method.search) (q.v., also for
     /// the parameters), which returns all results at once, return a handle which
     /// will be used for retrieving entries one by one. See [`EntryStream`](struct.EntryStream.html)
     /// for the explanation of the protocol which must be adhered to in this case.
-    ///
-    /// In the asynchronous interface, this method doesn't exist; there, _all_ searches
-    /// are streaming.
     pub fn streaming_search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) -> io::Result<EntryStream> {
-        let mut strm = self.core.borrow_mut().run(self.inner.clone().search(base, scope, filter, attrs))?;
+        let mut strm = self.core.borrow_mut().run(self.inner.clone().streaming_search(base, scope, filter, attrs))?;
         let rx_r = strm.get_result_rx()?;
         Ok(EntryStream { core: self.core.clone(), strm: Some(strm), rx_r: Some(rx_r) })
     }

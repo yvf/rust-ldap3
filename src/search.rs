@@ -11,7 +11,7 @@ use lber::structure::StructureTag;
 use lber::structures::{Boolean, Enumerated, Integer, OctetString, Sequence, Tag};
 use lber::common::TagClass::*;
 
-use futures::{Async, Future, Poll, Stream};
+use futures::{Async, Future, IntoFuture, Poll, Stream};
 use futures::sync::{mpsc, oneshot};
 use tokio_core::reactor::Timeout;
 use tokio_proto::multiplex::RequestId;
@@ -22,7 +22,7 @@ use filter::parse;
 use ldap::{bundle, next_search_options, next_req_controls, next_timeout};
 use ldap::{Ldap, LdapOp};
 use protocol::ProtoBundle;
-use result::LdapResult;
+use result::{LdapResult, SearchResult};
 
 /// Possible values for search scope.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -366,15 +366,32 @@ impl SearchOptions {
 
 impl Ldap {
     /// See [`LdapConn::search()`](struct.LdapConn.html#method.search).
-    ///
-    /// The returned future resolves to a pair consisting of a [`SearchStream`](struct.SearchStream.html),
-    /// which should be iterated through to obtain results, and a receiver future which will yield the
-    /// overall result of the search after the stream is drained. They should be polled concurrently
-    /// with `Future::join()`.
-    ///
-    /// The true synchronous counterpart of this method is not the identically named `LdapConn::search()`,
-    /// but rather [`LdapConn::streaming_search()`](struct.LdapConn.html#method.streaming_search).
     pub fn search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) ->
+        Box<Future<Item=SearchResult, Error=io::Error>>
+    {
+        let srch = self
+            .streaming_search(base, scope, filter, attrs)
+            .and_then(|mut strm| strm
+                .get_result_rx()
+                .into_future()
+                .and_then(|rx_r| rx_r
+                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                    .join(strm.collect())
+                )
+                .map(|(result, result_set)| SearchResult(result_set, result))
+            );
+        Box::new(srch)
+    }
+
+    /// See also [`LdapConn::streaming_search()`](struct.LdapConn.html#method.streaming_search).
+    ///
+    /// The returned future resolves to a [`SearchStream`](struct.SearchStream.html),
+    /// which should be iterated through to obtain results. Before starting the iteration,
+    /// the receiver future, which will yield the overall result of the search after the stream
+    /// is drained, should be retrieved from the stream instance with [`get_result_rx()`]
+    /// (#method.get_result_rx). The stream and the receiver should be polled concurrently
+    /// with `Future::join()`.
+    pub fn streaming_search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) ->
         Box<Future<Item=SearchStream, Error=io::Error>>
     {
         let opts = match next_search_options(self) {
