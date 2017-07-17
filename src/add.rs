@@ -9,14 +9,13 @@ use lber::common::TagClass;
 use futures::{future, Future};
 use tokio_service::Service;
 
-use controls::Control;
 use ldap::{Ldap, LdapOp, next_req_controls};
 use result::LdapResult;
 
 impl Ldap {
     /// See [`LdapConn::add()`](struct.LdapConn.html#method.add).
     pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: &str, attrs: Vec<(S, HashSet<S>)>) ->
-            Box<Future<Item=(LdapResult, Vec<Control>), Error=io::Error>> {
+            Box<Future<Item=LdapResult, Error=io::Error>> {
         let mut any_empty = false;
         let req = Tag::Sequence(Sequence {
             id: 8,
@@ -57,7 +56,11 @@ impl Ldap {
         }
 
         let fut = self.call(LdapOp::Single(req, next_req_controls(self)))
-            .and_then(|(result, controls)| Ok((result.into(), controls)));
+            .and_then(|(result, controls)| {
+                let mut result: LdapResult = result.into();
+                result.ctrls = controls;
+                Ok(result)
+            });
 
         Box::new(fut)
     }

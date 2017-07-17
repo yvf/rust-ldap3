@@ -16,7 +16,7 @@ fn main() {
 fn do_add() -> Result<(), Box<Error>> {
     let ldap = LdapConn::new("ldap://localhost:2389")?;
     ldap.simple_bind("cn=Manager,dc=example,dc=org", "secret")?.success()?;
-    let (res, _ctrls) = ldap.add(
+    let res = ldap.add(
         "uid=extra,ou=People,dc=example,dc=org",
         vec![
             ("objectClass", hashset!{"inetOrgPerson"}),
@@ -24,7 +24,7 @@ fn do_add() -> Result<(), Box<Error>> {
             ("cn", hashset!{"Extra User"}),
             ("sn", hashset!{"User"}),
         ]
-    )?;
+    )?.success()?;
     println!("{:?}", res);
     Ok(())
 }
