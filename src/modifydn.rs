@@ -6,14 +6,13 @@ use lber::common::TagClass;
 use futures::Future;
 use tokio_service::Service;
 
-use controls::Control;
 use ldap::{Ldap, LdapOp, next_req_controls};
 use result::LdapResult;
 
 impl Ldap {
     /// See [`LdapConn::modifydn()`](struct.LdapConn.html#method.modifydn).
     pub fn modifydn(&self, dn: &str, rdn: &str, delete_old: bool, new_sup: Option<&str>) ->
-            Box<Future<Item=(LdapResult, Vec<Control>), Error=io::Error>> {
+            Box<Future<Item=LdapResult, Error=io::Error>> {
         let mut params = vec![
            Tag::OctetString(OctetString {
                inner: Vec::from(dn.as_bytes()),
@@ -42,7 +41,11 @@ impl Ldap {
         });
 
         let fut = self.call(LdapOp::Single(req, next_req_controls(self)))
-            .and_then(|(result, controls)| Ok((result.into(), controls)));
+            .and_then(|(result, controls)| {
+                let mut result: LdapResult = result.into();
+                result.ctrls = controls;
+                Ok(result)
+            });
 
         Box::new(fut)
     }

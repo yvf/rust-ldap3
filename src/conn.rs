@@ -309,7 +309,7 @@ impl LdapConn {
     /// `delete_old` is `true`, delete the previous value of the naming attribute from
     /// the entry. If the entry is to be moved elsewhere in the DIT, `new_sup` gives
     /// the new superior entry where the moved entry will be anchored.
-    pub fn modifydn(&self, dn: &str, rdn: &str, delete_old: bool, new_sup: Option<&str>) -> io::Result<(LdapResult, Vec<Control>)> {
+    pub fn modifydn(&self, dn: &str, rdn: &str, delete_old: bool, new_sup: Option<&str>) -> io::Result<LdapResult> {
         Ok(self.core.borrow_mut().run(self.inner.clone().modifydn(dn, rdn, delete_old, new_sup))?)
     }
 

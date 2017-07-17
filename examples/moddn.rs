@@ -14,12 +14,12 @@ fn main() {
 fn do_modifydn() -> Result<(), Box<Error>> {
     let ldap = LdapConn::new("ldap://localhost:2389")?;
     ldap.simple_bind("cn=Manager,dc=example,dc=org", "secret")?.success()?;
-    let (res, _ctrls) = ldap.modifydn(
+    let res = ldap.modifydn(
         "uid=test,ou=People,dc=example,dc=org",
         "uid=next",
         true,
         None
-    )?;
+    )?.success()?;
     println!("{:?}", res);
     Ok(())
 }
