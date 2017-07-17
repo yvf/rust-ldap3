@@ -24,7 +24,7 @@ use controls::Control;
 use exop::Exop;
 use ldap::Ldap;
 use modify::Mod;
-use result::{LdapResult, SearchResult};
+use result::{CompareResult, LdapResult, SearchResult};
 use search::{SearchOptions, SearchStream, Scope};
 
 struct LdapWrapper {
@@ -323,7 +323,7 @@ impl LdapConn {
     /// (`compareTrue`), otherwise return result code 6 (`compareFalse`). If access control
     /// rules on the server disallow comparison, another result code will be used to indicate
     /// an error.
-    pub fn compare<B: AsRef<[u8]>>(&self, dn: &str, attr: &str, val: B) -> io::Result<(LdapResult, Vec<Control>)> {
+    pub fn compare<B: AsRef<[u8]>>(&self, dn: &str, attr: &str, val: B) -> io::Result<CompareResult> {
         Ok(self.core.borrow_mut().run(self.inner.clone().compare(dn, attr, val))?)
     }
 
