@@ -1,17 +1,26 @@
 extern crate ldap3;
 
+use std::error::Error;
+
 use ldap3::{LdapConn, Scope, SearchEntry};
 
 fn main() {
-    let ldap = LdapConn::new("ldap://localhost:2389").expect("ldap handle");
-    let (rs, res) = ldap.search(
+    match do_search() {
+        Ok(_) => (),
+        Err(e) => println!("{:?}", e),
+    }
+}
+
+fn do_search() -> Result<(), Box<Error>> {
+    let ldap = LdapConn::new("ldap://localhost:2389")?;
+    let (rs, _) = ldap.search(
         "ou=Places,dc=example,dc=org",
         Scope::Subtree,
         "(&(objectClass=locality)(l=ma*))",
         vec!["l"]
-    ).expect("search result");
-    println!("Result: {:?}", res);
+    )?.success()?;
     for entry in rs {
         println!("{:?}", SearchEntry::construct(entry));
     }
+    Ok(())
 }

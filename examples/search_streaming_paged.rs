@@ -1,7 +1,6 @@
 extern crate ldap3;
 
 use std::error::Error;
-use std::result::Result;
 
 use ldap3::{LdapConn, Scope};
 use ldap3::controls::{Control, PagedResults};
@@ -31,27 +30,25 @@ fn do_search() -> Result<u32, Box<Error>> {
         while let Some(_r) = strm.next()? {
             count += 1;
         }
-        let res = strm.result()?;
+        let res = strm.result()?.success()?;
         continue_search = false;
-        if res.rc == 0 {
-            for ctrl in res.ctrls {
-                // Ok clippy, I'm trying to illustrate multiple control matching
-                #[cfg_attr(feature="cargo-clippy", allow(single_match))]
-                match ctrl {
-                    // This match can never be exhaustive, i.e., it must have the
-                    // '_' variant, in order to make the set of control types
-                    // extensible without breaking existing code
-                    Control(Some(types::PagedResults), ref raw) => {
-                        if let Some(ref v) = raw.val {
-                            let pr: PagedResults = parse_control(v);
-                            if !pr.cookie.is_empty() {
-                                cookie = pr.cookie.clone();
-                                continue_search = true;
-                            }
+        for ctrl in res.ctrls {
+            // Ok clippy, I'm trying to illustrate multiple control matching
+            #[cfg_attr(feature="cargo-clippy", allow(single_match))]
+            match ctrl {
+                // This match can never be exhaustive, i.e., it must have the
+                // '_' variant, in order to make the set of control types
+                // extensible without breaking existing code
+                Control(Some(types::PagedResults), ref raw) => {
+                    if let Some(ref v) = raw.val {
+                        let pr: PagedResults = parse_control(v);
+                        if !pr.cookie.is_empty() {
+                            cookie = pr.cookie.clone();
+                            continue_search = true;
                         }
-                    },
-                    _ => (),
-                }
+                    }
+                },
+                _ => (),
             }
         }
     }

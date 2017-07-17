@@ -1,7 +1,6 @@
 extern crate ldap3;
 
 use std::error::Error;
-use std::result::Result;
 
 use ldap3::{LdapConn, LdapResult, Scope};
 

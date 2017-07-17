@@ -24,7 +24,7 @@ fn do_abandon() -> Result<LdapResult, io::Error> {
     let ldap = LdapConnAsync::new("ldap://localhost:2389", &handle)?;
     let srch = ldap
         .and_then(|ldap| {
-            ldap.search(
+            ldap.streaming_search(
                 "ou=Places,dc=example,dc=org",
                 Scope::Subtree,
                 "objectClass=locality",
