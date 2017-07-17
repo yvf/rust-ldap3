@@ -1,3 +1,10 @@
+//! Operation result structures and helpers.
+//!
+//! Most LDAP operations return a [`LdapResult`](#struct.LdapResult). This module
+//! contains its definition, as well as that of a number of wrapper structs and
+//! helper methods, which adapt the LDAP result and error handling to be a closer
+//! match to Rust conventions.
+
 use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
@@ -164,6 +171,12 @@ impl SearchResult {
     }
 }
 
+/// Wraper for the result of a Compare operation.
+///
+/// Compare uniquely has two non-zero return codes to indicate the outcome of a successful
+/// comparison, while other return codes indicate errors, as usual (except 10 for referral).
+/// The [`equal()`](#method.equal) method optimizes for the expected case of ignoring
+/// referrals; [`non_error()`](#method.non_error) can be used when that's not possible.
 #[derive(Clone, Debug)]
 pub struct CompareResult(pub LdapResult);
 
