@@ -207,7 +207,7 @@ impl LdapConn {
     }
 
     /// Do a simple Bind with the provided DN (`bind_dn`) and password (`bind_pw`).
-    pub fn simple_bind(&self, bind_dn: &str, bind_pw: &str) -> io::Result<(LdapResult, Vec<Control>)> {
+    pub fn simple_bind(&self, bind_dn: &str, bind_pw: &str) -> io::Result<LdapResult> {
         Ok(self.core.borrow_mut().run(self.inner.clone().simple_bind(bind_dn, bind_pw))?)
     }
 
@@ -215,7 +215,7 @@ impl LdapConn {
     /// Do a SASL EXTERNAL bind on the connection. Presently, it only makes sense
     /// on Unix domain socket connections. The bind is made with the hardcoded
     /// empty authzId value.
-    pub fn sasl_external_bind(&self) -> io::Result<(LdapResult, Vec<Control>)> {
+    pub fn sasl_external_bind(&self) -> io::Result<LdapResult> {
         Ok(self.core.borrow_mut().run(self.inner.clone().sasl_external_bind())?)
     }
 
@@ -361,8 +361,7 @@ impl LdapConn {
 ///     ldap.simple_bind(
 ///         "uid=test,ou=People,dc=example,dc=org",
 ///         "triplesecret"
-///     )
-///     .and_then(|(res, _ctrls)| Ok(res));
+///     );
 /// # }
 /// ```
 #[derive(Clone)]
