@@ -11,9 +11,9 @@ use protocol::LdapRequestId;
 
 impl Ldap {
     /// Abandon the request identified by `msgid`. Since this requires knowing the
-    /// `msgid` of an operation, it currently works only for synchronous streaming
-    /// searches and asynchronous searches in general, invoked via methods on
-    /// structures representing those searches. See [`EntryStream::abandon()`]
+    /// `msgid` of an operation, it currently works only for synchronous and
+    /// and asynchronous streaming searches, invoked via methods on structures
+    /// representing those searches. See [`EntryStream::abandon()`]
     /// (struct.EntryStream.html#method.abandon) and [`SearchStream::get_abandon_channel()`]
     /// (struct.SearchStream.html#method.get_abandon_channel).
     pub fn abandon(&self, msgid: LdapRequestId) ->

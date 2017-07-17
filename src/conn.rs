@@ -249,7 +249,7 @@ impl LdapConn {
     /// operation consists of an indeterminate number of Entry/Referral
     /// replies; the timer is reset for each reply.
     ///
-    /// If the timeout occurs, the operation will return an io::Error
+    /// If the timeout occurs, the operation will return an `io::Error`
     /// wrapping the string "timeout". The connection remains usable for
     /// subsequent operations.
     ///
@@ -299,7 +299,7 @@ impl LdapConn {
         Ok(self.core.borrow_mut().run(self.inner.clone().delete(dn))?)
     }
 
-    /// Modify an entry named by `dn`, by sequentially applying the modifications given by `mods`.
+    /// Modify an entry named by `dn` by sequentially applying the modifications given by `mods`.
     /// See the [`Mod`](enum.Mod.html) documentation for the description of possible values.
     pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: &str, mods: Vec<Mod<S>>) -> io::Result<LdapResult> {
         Ok(self.core.borrow_mut().run(self.inner.clone().modify(dn, mods))?)

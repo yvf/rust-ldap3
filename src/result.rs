@@ -2,7 +2,7 @@
 //!
 //! Most LDAP operations return a [`LdapResult`](#struct.LdapResult). This module
 //! contains its definition, as well as that of a number of wrapper structs and
-//! helper methods, which adapt the LDAP result and error handling to be a closer
+//! helper methods, which adapt LDAP result and error handling to be a closer
 //! match to Rust conventions.
 
 use std::collections::HashSet;
@@ -130,7 +130,7 @@ impl LdapResult {
 
     /// If the result code is 0 or 10 (referral), return the instance
     /// itself wrapped in `Ok()`, otherwise wrap the instance in an 
-    /// io::Error`.
+    /// `io::Error`.
     pub fn non_error(self) -> Result<Self, io::Error> {
         if self.rc == 0 || self.rc == 10 {
             Ok(self)

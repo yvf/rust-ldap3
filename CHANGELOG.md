@@ -41,6 +41,9 @@
   LDAP operations. For the first case, a connection must be constructed
   through LdapConnBuilder.
 
+* The function `ldap3::ldap_escape()` is provided to escape search literals when
+  constructing a search filter.
+
 ## v0.4.4, 2017-05-29
 
 * Fix Windows build ([#7](https://github.com/inejge/ldap3/pull/7)).
