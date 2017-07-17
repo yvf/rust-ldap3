@@ -13,10 +13,7 @@ fn main() {
 
 fn do_compare() -> Result<bool, Box<Error>> {
     let ldap = LdapConn::new("ldap://localhost:2389")?;
-    let (res, _ctrls) = ldap.simple_bind("cn=Manager,dc=example,dc=org", "secret")?;
-    if res.rc != 0 {
-        return Err(res)?;
-    }
+    ldap.simple_bind("cn=Manager,dc=example,dc=org", "secret")?.success()?;
     let cmp = ldap.compare(
         "uid=inejge,ou=People,dc=example,dc=org",
         "userPassword",

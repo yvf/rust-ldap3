@@ -1,21 +1,27 @@
 extern crate ldap3;
 
+use std::error::Error;
+
 use ldap3::LdapConn;
 use ldap3::exop::{WhoAmI, WhoAmIResp};
 use ldap3::exop::parse_exop;
 
 fn main() {
-    let ldap = LdapConn::new("ldap://localhost:2389").expect("ldap handle");
-    let (res, _ctrls) = ldap.simple_bind(
-        "cn=Manager,dc=example,dc=org",
-        "secret").expect("bind");
+    match do_whoami() {
+        Ok(_) => (),
+        Err(e) => println!("{:?}", e),
+    }
+}
+
+fn do_whoami() -> Result<(), Box<Error>> {
+    let ldap = LdapConn::new("ldap://localhost:2389")?;
+    ldap.simple_bind("cn=Manager,dc=example,dc=org", "secret")?.success()?;
+    let (res, exop, _ctrls) = ldap.extended(WhoAmI)?;
     if res.rc == 0 {
-        let (res, exop, _ctrls) = ldap.extended(WhoAmI).expect("extended");
-        if res.rc == 0 {
-            if let Some(val) = exop.val {
-                let whoami: WhoAmIResp = parse_exop(val.as_ref());
-                println!("{}", whoami.authzid);
-            }
+        if let Some(val) = exop.val {
+            let whoami: WhoAmIResp = parse_exop(val.as_ref());
+            println!("{}", whoami.authzid);
         }
     }
+    Ok(())
 }

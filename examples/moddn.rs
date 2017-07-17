@@ -1,17 +1,25 @@
 extern crate ldap3;
 
+use std::error::Error;
+
 use ldap3::LdapConn;
 
 fn main() {
-    let ldap = LdapConn::new("ldap://localhost:2389").expect("ldap handle");
-    let (res, _ctrls) = ldap.simple_bind("cn=Manager,dc=example,dc=org", "secret").expect("bind");
-    if res.rc == 0 {
-        let (res, _ctrls) = ldap.modifydn(
-            "uid=test,ou=People,dc=example,dc=org",
-            "uid=next",
-            true,
-            None
-        ).expect("moddn");
-        println!("{:?}", res);
+    match do_modifydn() {
+        Ok(_) => (),
+        Err(e) => println!("{:?}", e),
     }
+}
+
+fn do_modifydn() -> Result<(), Box<Error>> {
+    let ldap = LdapConn::new("ldap://localhost:2389")?;
+    ldap.simple_bind("cn=Manager,dc=example,dc=org", "secret")?.success()?;
+    let (res, _ctrls) = ldap.modifydn(
+        "uid=test,ou=People,dc=example,dc=org",
+        "uid=next",
+        true,
+        None
+    )?;
+    println!("{:?}", res);
+    Ok(())
 }

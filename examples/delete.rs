@@ -1,12 +1,20 @@
 extern crate ldap3;
 
+use std::error::Error;
+
 use ldap3::LdapConn;
 
 fn main() {
-    let ldap = LdapConn::new("ldap://localhost:2389").expect("ldap handle");
-    let (res, _ctrls) = ldap.simple_bind("cn=Manager,dc=example,dc=org", "secret").expect("bind");
-    if res.rc == 0 {
-        let (res, _ctrls) = ldap.delete("uid=extra,ou=People,dc=example,dc=org").expect("delete");
-        println!("{:?}", res);
+    match do_delete() {
+        Ok(_) => (),
+        Err(e) => println!("{:?}", e),
     }
+}
+
+fn do_delete() -> Result<(), Box<Error>> {
+    let ldap = LdapConn::new("ldap://localhost:2389")?;
+    ldap.simple_bind("cn=Manager,dc=example,dc=org", "secret")?.success()?;
+    let (res, _ctrls) = ldap.delete("uid=extra,ou=People,dc=example,dc=org")?;
+    println!("{:?}", res);
+    Ok(())
 }
