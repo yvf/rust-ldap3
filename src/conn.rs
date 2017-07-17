@@ -301,7 +301,7 @@ impl LdapConn {
 
     /// Modify an entry named by `dn`, by sequentially applying the modifications given by `mods`.
     /// See the [`Mod`](enum.Mod.html) documentation for the description of possible values.
-    pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: &str, mods: Vec<Mod<S>>) -> io::Result<(LdapResult, Vec<Control>)> {
+    pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: &str, mods: Vec<Mod<S>>) -> io::Result<LdapResult> {
         Ok(self.core.borrow_mut().run(self.inner.clone().modify(dn, mods))?)
     }
 

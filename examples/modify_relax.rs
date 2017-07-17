@@ -17,7 +17,7 @@ fn main() {
 fn do_modify() -> Result<(), Box<Error>> {
     let ldap = LdapConn::new("ldap://localhost:2389")?;
     ldap.simple_bind("cn=Manager,dc=example,dc=org", "secret")?.success()?;
-    let (res, _ctrls) = ldap
+    let res = ldap
         .with_controls(vec![RelaxRules.critical().into()])
         .modify(
             "uid=inejge,ou=People,dc=example,dc=org",
@@ -27,7 +27,7 @@ fn do_modify() -> Result<(), Box<Error>> {
                 Mod::Add("sn", hashset!{"Nejgebauer"}),
                 Mod::Add("cn", hashset!{"Ivan Nejgebauer"}),
             ]
-        )?;
+        )?.success()?;
     println!("{:?}", res);
     Ok(())
 }
