@@ -18,13 +18,12 @@ use url::{Host, Url};
 #[cfg(all(unix, not(feature = "minimal")))]
 use url::percent_encoding::percent_decode;
 
-use lber::structure::StructureTag;
 use controls::RawControl;
 use exop::Exop;
 use ldap::Ldap;
 use modify::Mod;
 use result::{CompareResult, ExopResult, LdapResult, SearchResult};
-use search::{SearchOptions, SearchStream, Scope};
+use search::{ResultEntry, SearchOptions, SearchStream, Scope};
 
 struct LdapWrapper {
     inner: Ldap,
@@ -102,7 +101,7 @@ impl EntryStream {
     // after iteration. Implementing Iterator on a helper is an option, but the semantics of termination
     // in case of Err(_) should be explored first
     #[cfg_attr(feature="cargo-clippy", allow(should_implement_trait))]
-    pub fn next(&mut self) -> io::Result<Option<StructureTag>> {
+    pub fn next(&mut self) -> io::Result<Option<ResultEntry>> {
         let strm = self.strm.take();
         if strm.is_none() {
             return Err(io::Error::new(io::ErrorKind::Other, "cannot fetch from an invalid stream"));

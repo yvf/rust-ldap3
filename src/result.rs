@@ -14,8 +14,8 @@ use std::result::Result;
 use controls::Control;
 use exop::Exop;
 use protocol::LdapResultExt;
+use search::ResultEntry;
 
-use lber::structure::StructureTag;
 use lber::structures::Tag;
 
 /// Common components of an LDAP operation result.
@@ -148,12 +148,12 @@ impl LdapResult {
 /// destructure the wrapper and return its components as elements of an anonymous
 /// tuple.
 #[derive(Clone, Debug)]
-pub struct SearchResult(pub Vec<StructureTag>, pub LdapResult);
+pub struct SearchResult(pub Vec<ResultEntry>, pub LdapResult);
 
 impl SearchResult {
     /// If the result code is zero, return an anonymous tuple of component structs
     /// wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
-    pub fn success(self) -> Result<(Vec<StructureTag>, LdapResult), io::Error> {
+    pub fn success(self) -> Result<(Vec<ResultEntry>, LdapResult), io::Error> {
         if self.1.rc == 0 {
             Ok((self.0, self.1))
         } else {
@@ -163,7 +163,7 @@ impl SearchResult {
 
     /// If the result code is 0 or 10 (referral), return an anonymous tuple of component
     /// structs wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
-    pub fn non_error(self) -> Result<(Vec<StructureTag>, LdapResult), io::Error> {
+    pub fn non_error(self) -> Result<(Vec<ResultEntry>, LdapResult), io::Error> {
         if self.1.rc == 0 || self.1.rc == 10 {
             Ok((self.0, self.1))
         } else {

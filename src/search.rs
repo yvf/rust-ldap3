@@ -61,6 +61,10 @@ enum AbandonState {
     AwaitingOp,
 }
 
+/// Wrapper for the internal structure of a result entry.
+#[derive(Debug,Clone)]
+pub struct ResultEntry(StructureTag);
+
 /// Stream of search results. __*__
 ///
 /// The stream will yield search result entries. It must be polled until
@@ -130,7 +134,7 @@ enum EndCause {
 }
 
 impl Stream for SearchStream {
-    type Item = StructureTag;
+    type Item = ResultEntry;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -225,7 +229,7 @@ impl Stream for SearchStream {
                 },
                 Some(SearchItem::Entry(tag)) => {
                     self.entry_timeout.take();
-                    return Ok(Async::Ready(Some(tag)))
+                    return Ok(Async::Ready(Some(ResultEntry(tag))))
                 },
                 Some(SearchItem::Referral(tag)) => {
                     self.refs.push(tag.expect_constructed().expect("referrals").into_iter()
@@ -260,7 +264,7 @@ impl Stream for SearchStream {
 /// de-emphasized in favor of custom Serde deserialization of search results directly
 /// into a user-supplied struct, which is expected to be a better fit for the
 /// majority of uses.
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct SearchEntry {
     /// Entry DN.
     pub dn: String,
@@ -273,11 +277,10 @@ pub struct SearchEntry {
 impl SearchEntry {
     /// Parse raw BER data and convert it into attribute map(s).
     ///
-    /// __Note__: this function has a wrong return type; it should be
-    /// `Result<SearchEntry>`. Error handling for the whole library is going to be
-    /// overhauled, probably for 0.6.x.
-    pub fn construct(tag: StructureTag) -> SearchEntry {
-        let mut tags = tag.match_id(4).and_then(|t| t.expect_constructed()).expect("entry").into_iter();
+    /// __Note__: this function will panic on parsing error. Error handling will be
+    /// improved in a future version of the library.
+    pub fn construct(re: ResultEntry) -> SearchEntry {
+        let mut tags = re.0.match_id(4).and_then(|t| t.expect_constructed()).expect("entry").into_iter();
         let dn = String::from_utf8(tags.next().expect("element").expect_primitive().expect("octet string"))
             .expect("dn");
         let mut attr_vals = HashMap::new();

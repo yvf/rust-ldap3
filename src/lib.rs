@@ -132,7 +132,7 @@ pub use conn::{EntryStream, LdapConn, LdapConnAsync, LdapConnBuilder};
 pub use ldap::Ldap;
 pub use modify::Mod;
 pub use result::LdapResult;
-pub use search::{DerefAliases, Scope, SearchEntry, SearchOptions, SearchStream};
+pub use search::{DerefAliases, ResultEntry, Scope, SearchEntry, SearchOptions, SearchStream};
 pub use util::ldap_escape;
 
 pub mod asn1 {
