@@ -20,7 +20,7 @@ use tokio_service::Service;
 use controls::Control;
 use filter::parse;
 use ldap::{bundle, next_search_options, next_req_controls, next_timeout};
-use ldap::{Ldap, LdapOp};
+use ldap::{Ldap, LdapOp, LdapResponse};
 use protocol::ProtoBundle;
 use result::{LdapResult, SearchResult};
 
@@ -448,8 +448,8 @@ impl Ldap {
         let ldap = self.clone();
         let fut = self.call(LdapOp::Multi(req, tx_i.clone(), next_req_controls(self))).and_then(move |res| {
             let (id, initial_timeout) = match res {
-                (Tag::Integer(Integer { inner, .. }), _) => (inner as u64, false),
-                (Tag::Enumerated(Enumerated { inner, .. }), _) => (inner as u64, true),
+                LdapResponse(Tag::Integer(Integer { inner, .. }), _) => (inner as u64, false),
+                LdapResponse(Tag::Enumerated(Enumerated { inner, .. }), _) => (inner as u64, true),
                 _ => unimplemented!(),
             };
             Ok(SearchStream {

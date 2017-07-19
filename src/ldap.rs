@@ -87,6 +87,8 @@ pub enum LdapOp {
     Solo(Tag, Option<Vec<RawControl>>),
 }
 
+pub struct LdapResponse(pub Tag, pub Vec<Control>);
+
 fn connect_with_timeout(timeout: Option<Duration>, fut: Box<Future<Item=Ldap, Error=io::Error>>, handle: &Handle)
     -> Box<Future<Item=Ldap, Error=io::Error>>
 {
@@ -211,7 +213,7 @@ impl Ldap {
 
 impl Service for Ldap {
     type Request = LdapOp;
-    type Response = (Tag, Vec<Control>);
+    type Response = LdapResponse;
     type Error = io::Error;
     type Future = Box<Future<Item=Self::Response, Error=io::Error>>;
 
@@ -231,14 +233,14 @@ impl Service for Ldap {
             let bundle = self.bundle.clone();
             let result = self.inner.call((req, Box::new(move |msgid| *closure_assigned_msgid.borrow_mut() = msgid))).select2(timeout).then(move |res| {
                 match res {
-                    Ok(Either::A((resp, _))) => future::ok(resp),
+                    Ok(Either::A((resp, _))) => future::ok(LdapResponse(resp.0, resp.1)),
                     Ok(Either::B((_, _))) => {
                         if is_search {
                             let tag = Tag::Enumerated(Enumerated {
                                 inner: *bundle.borrow().id_map.get(&*assigned_msgid.borrow()).expect("id from id_map") as i64,
                                 ..Default::default()
                             });
-                            future::ok((tag, Vec::new()))
+                            future::ok(LdapResponse(tag, Vec::new()))
                         } else {
                             // we piggyback on solo_ops because timed-out ops are handled in the same way
                             // (unless the request was solo to begin with)
@@ -253,7 +255,7 @@ impl Service for Ldap {
             });
             Box::new(result)
         } else {
-            self.inner.call((req, Box::new(|_msgid| ())))
+            Box::new(self.inner.call((req, Box::new(|_msgid| ()))).and_then(|(tag, vec)| Ok(LdapResponse(tag, vec))))
         }
     }
 }

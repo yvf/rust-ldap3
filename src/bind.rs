@@ -34,8 +34,8 @@ impl Ldap {
         });
 
         let fut = self.call(LdapOp::Single(req, next_req_controls(self)))
-            .and_then(|(result, controls)| {
-                let mut result: LdapResult = result.into();
+            .and_then(|response| {
+                let (mut result, controls) = (LdapResult::from(response.0), response.1);
                 result.ctrls = controls;
                 Ok(result)
             });
@@ -77,8 +77,8 @@ impl Ldap {
         });
 
         let fut = self.call(LdapOp::Single(req, next_req_controls(self)))
-            .and_then(|(result, controls)| {
-                let mut result: LdapResult = result.into();
+            .and_then(|response| {
+                let (mut result, controls) = (LdapResult::from(response.0), response.1);
                 result.ctrls = controls;
                 Ok(result)
             });

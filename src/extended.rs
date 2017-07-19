@@ -25,8 +25,8 @@ impl Ldap {
         });
 
         let fut = self.call(LdapOp::Single(req, next_req_controls(self)))
-            .and_then(|(result, controls)| {
-                let ldap_ext: LdapResultExt = result.into();
+            .and_then(|response| {
+                let (ldap_ext, controls) = (LdapResultExt::from(response.0), response.1);
                 let (mut result, exop) = (ldap_ext.0, ldap_ext.1);
                 result.ctrls = controls;
                 Ok(ExopResult(exop, result))
