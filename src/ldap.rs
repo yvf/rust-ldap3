@@ -25,11 +25,10 @@ use tokio_uds::UnixStream;
 #[cfg(all(unix, not(feature = "minimal")))]
 use tokio_uds_proto::UnixClient;
 
-use controls::Control;
+use controls::{Control, RawControl};
 use protocol::{LdapProto, ProtoBundle};
 use search::{SearchItem, SearchOptions};
 
-use lber::structure::StructureTag;
 use lber::structures::{Enumerated, Tag};
 
 #[derive(Clone)]
@@ -61,7 +60,7 @@ pub struct Ldap {
     inner: ClientMap,
     bundle: Rc<RefCell<ProtoBundle>>,
     next_search_options: Rc<RefCell<Option<SearchOptions>>>,
-    next_req_controls: Rc<RefCell<Option<Vec<StructureTag>>>>,
+    next_req_controls: Rc<RefCell<Option<Vec<RawControl>>>>,
     next_timeout: Rc<RefCell<Option<Duration>>>,
 }
 
@@ -73,7 +72,7 @@ pub fn next_search_options(ldap: &Ldap) -> Option<SearchOptions> {
     ldap.next_search_options.borrow_mut().take()
 }
 
-pub fn next_req_controls(ldap: &Ldap) -> Option<Vec<StructureTag>> {
+pub fn next_req_controls(ldap: &Ldap) -> Option<Vec<RawControl>> {
     ldap.next_search_options.borrow_mut().take();
     ldap.next_req_controls.borrow_mut().take()
 }
@@ -83,9 +82,9 @@ pub fn next_timeout(ldap: &Ldap) -> Option<Duration> {
 }
 
 pub enum LdapOp {
-    Single(Tag, Option<Vec<StructureTag>>),
-    Multi(Tag, mpsc::UnboundedSender<SearchItem>, Option<Vec<StructureTag>>),
-    Solo(Tag, Option<Vec<StructureTag>>),
+    Single(Tag, Option<Vec<RawControl>>),
+    Multi(Tag, mpsc::UnboundedSender<SearchItem>, Option<Vec<RawControl>>),
+    Solo(Tag, Option<Vec<RawControl>>),
 }
 
 fn connect_with_timeout(timeout: Option<Duration>, fut: Box<Future<Item=Ldap, Error=io::Error>>, handle: &Handle)
@@ -198,7 +197,7 @@ impl Ldap {
     }
 
     /// See [`LdapConn::with_controls()`](struct.LdapConn.html#method.with_controls).
-    pub fn with_controls(&self, ctrls: Vec<StructureTag>) -> &Self {
+    pub fn with_controls(&self, ctrls: Vec<RawControl>) -> &Self {
         mem::replace(&mut *self.next_req_controls.borrow_mut(), Some(ctrls));
         self
     }

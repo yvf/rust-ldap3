@@ -78,9 +78,8 @@ pub mod controls {
     //! A request control can be created by instantiating its structure and converting
     //! it to ASN.1 with `into()` when constructing the request control vector in the
     //! call to [`with_controls()`](../struct.LdapConn.html#method.with_controls).
-    //! Independently implemented controls must construct an instance of [`RawControl`]
-    //! (struct.RawControl.html), a general form of control, and call `into()` on that
-    //! instance.
+    //! A third-party control must implement the conversion from an instance
+    //! of itself to [`RawControl`](struct.RawControl.html), a general form of control.
     //!
     //! `RawControl`, together with an optional instance of [`ControlType`]
     //! (types/index.html), forms the type [`Control`](struct.Control.html); a vector
@@ -92,13 +91,12 @@ pub mod controls {
     //! be done through reexported types in the [`types`](types/index.html) module,
     //! and cannot be exhaustive.
     //!
-    //! A recognized response control can be parsed by [`parse_control()`](fn.parse_control.html).
-    //! __Note__: this function will be removed in 0.5.x.
-    // future text:
-    // A recognized response control can be parsed by calling [`parse()`](struct.RawControl.html#method.parse)
-    // on the instance of `RawControl` representing it.
-    pub use controls_impl::{Control, MakeCritical, PagedResults, ProxyAuth, RawControl, RelaxRules};
-    pub use controls_impl::parse_control;
+    //! A recognized response control can be parsed by calling [`parse()`]
+    //! (struct.RawControl.html#method.parse) on the instance of `RawControl` representing it.
+    //! A third-party control must implement the [`ControlParser`](trait.ControlParser.html)
+    //! trait to support this interface.
+    pub use controls_impl::{Control, ControlParser, CriticalControl, MakeCritical, RawControl};
+    pub use controls_impl::{PagedResults, ProxyAuth, RelaxRules};
     pub use controls_impl::types;
 }
 mod controls_impl;

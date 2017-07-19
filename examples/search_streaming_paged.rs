@@ -4,7 +4,7 @@ use std::error::Error;
 
 use ldap3::{LdapConn, Scope};
 use ldap3::controls::{Control, PagedResults};
-use ldap3::controls::{parse_control, types};
+use ldap3::controls::types;
 
 fn main() {
     match do_search() {
@@ -40,12 +40,10 @@ fn do_search() -> Result<u32, Box<Error>> {
                 // '_' variant, in order to make the set of control types
                 // extensible without breaking existing code
                 Control(Some(types::PagedResults), ref raw) => {
-                    if let Some(ref v) = raw.val {
-                        let pr: PagedResults = parse_control(v);
-                        if !pr.cookie.is_empty() {
-                            cookie = pr.cookie.clone();
-                            continue_search = true;
-                        }
+                    let pr: PagedResults = raw.parse();
+                    if !pr.cookie.is_empty() {
+                        cookie = pr.cookie.clone();
+                        continue_search = true;
                     }
                 },
                 _ => (),

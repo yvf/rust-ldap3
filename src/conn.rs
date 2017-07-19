@@ -19,6 +19,7 @@ use url::{Host, Url};
 use url::percent_encoding::percent_decode;
 
 use lber::structure::StructureTag;
+use controls::RawControl;
 use exop::Exop;
 use ldap::Ldap;
 use modify::Mod;
@@ -236,7 +237,7 @@ impl LdapConn {
     /// for defining custom controls.
     ///
     /// The desired operation can be invoked on the result of this method.
-    pub fn with_controls(&self, ctrls: Vec<StructureTag>) -> &Self {
+    pub fn with_controls(&self, ctrls: Vec<RawControl>) -> &Self {
         self.inner.with_controls(ctrls);
         self
     }

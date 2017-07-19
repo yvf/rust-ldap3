@@ -1,7 +1,4 @@
-use super::Oid;
-use super::construct_control;
-
-use lber::structure::StructureTag;
+use super::RawControl;
 
 /// Proxy Authorization control ([RFC 4370](https://tools.ietf.org/html/rfc4370)).
 ///
@@ -15,20 +12,12 @@ pub struct ProxyAuth {
 
 pub const PROXY_AUTH_OID: &'static str = "2.16.840.1.113730.3.4.18";
 
-impl Oid for ProxyAuth {
-    fn oid(&self) -> &'static str {
-        PROXY_AUTH_OID
-    }
-}
-
-impl From<ProxyAuth> for Option<Vec<u8>> {
-    fn from(pa: ProxyAuth) -> Option<Vec<u8>> {
-        Some(pa.authzid.into_bytes())
-    }
-}
-
-impl From<ProxyAuth> for StructureTag {
-    fn from(pa: ProxyAuth) -> StructureTag {
-        construct_control(PROXY_AUTH_OID, true, pa.into())
+impl From<ProxyAuth> for RawControl {
+    fn from(pa: ProxyAuth) -> RawControl {
+        RawControl {
+            ctype: PROXY_AUTH_OID.to_owned(),
+            crit: true,
+            val: Some(pa.authzid.into_bytes()),
+        }
     }
 }

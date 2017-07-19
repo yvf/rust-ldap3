@@ -1,12 +1,10 @@
-use super::{ControlParser, MakeCritical, Oid};
-use super::construct_control;
+use super::{ControlParser, MakeCritical, RawControl};
 
 use bytes::BytesMut;
 
 use lber::common::TagClass;
 use lber::IResult;
 use lber::parse::{parse_uint, parse_tag};
-use lber::structure::StructureTag;
 use lber::structures::{ASNTag, Integer, OctetString, Sequence, Tag};
 use lber::universal::Types;
 use lber::write;
@@ -26,16 +24,10 @@ pub struct PagedResults {
 
 pub const PAGED_RESULTS_OID: &'static str = "1.2.840.113556.1.4.319";
 
-impl Oid for PagedResults {
-    fn oid(&self) -> &'static str {
-        PAGED_RESULTS_OID
-    }
-}
-
 impl MakeCritical for PagedResults { }
 
-impl From<PagedResults> for Option<Vec<u8>> {
-    fn from(pr: PagedResults) -> Option<Vec<u8>> {
+impl From<PagedResults> for RawControl {
+    fn from(pr: PagedResults) -> RawControl {
         let cookie_len = pr.cookie.len();
         let cval = Tag::Sequence(Sequence {
             inner: vec![
@@ -52,13 +44,11 @@ impl From<PagedResults> for Option<Vec<u8>> {
         }).into_structure();
         let mut buf = BytesMut::with_capacity(cookie_len + 16);
         write::encode_into(&mut buf, cval).expect("encoded");
-        Some(Vec::from(&buf[..]))
-    }
-}
-
-impl From<PagedResults> for StructureTag {
-    fn from(pr: PagedResults) -> StructureTag {
-        construct_control(PAGED_RESULTS_OID, false, pr.into())
+        RawControl {
+            ctype: PAGED_RESULTS_OID.to_owned(),
+            crit: false,
+            val: Some(Vec::from(&buf[..])),
+        }
     }
 }
 

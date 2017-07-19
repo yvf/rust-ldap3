@@ -22,7 +22,7 @@ use lber::universal::Types;
 use lber::write;
 
 use controls::Control;
-use controls_impl::parse_controls;
+use controls_impl::{parse_controls, build_tag};
 use exop::Exop;
 use ldap::LdapOp;
 use result::LdapResult;
@@ -270,7 +270,7 @@ impl Encoder for LdapCodec {
                 msg.push(Tag::StructureTag(StructureTag {
                     id: 0,
                     class: TagClass::Context,
-                    payload: PL::C(controls)
+                    payload: PL::C(controls.into_iter().map(build_tag).collect())
                 }));
             }
             Tag::Sequence(Sequence {
