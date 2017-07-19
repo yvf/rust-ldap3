@@ -28,7 +28,7 @@ impl From<WhoAmI> for Exop {
 }
 
 impl ExopParser for WhoAmIResp {
-    fn parse<B: AsRef<[u8]>>(val: B) -> WhoAmIResp {
+    fn parse(val: &[u8]) -> WhoAmIResp {
         WhoAmIResp {
             authzid: str::from_utf8(val.as_ref()).expect("authzid").to_owned()
         }

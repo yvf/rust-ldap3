@@ -17,10 +17,21 @@ pub struct Exop {
     pub val: Option<Vec<u8>>,
 }
 
+impl Exop {
+    /// Parse the generic exop into a exop-specific struct.
+    ///
+    /// The parser will panic if the value is `None`. See [control parsing]
+    /// (../controls/struct.RawControl.html#method.parse), which behaves
+    /// analogously, for discussion and rationale.
+    pub fn parse<T: ExopParser>(&self) -> T {
+        T::parse(self.val.as_ref().expect("value"))
+    }
+}
+
 /// Conversion trait for Extended response values.
 pub trait ExopParser {
     /// Convert the raw BER value into an exop-specific struct.
-    fn parse<B: AsRef<[u8]>>(val: B) -> Self;
+    fn parse(val: &[u8]) -> Self;
 }
 
 pub fn construct_exop(exop: Exop) -> Vec<Tag> {
