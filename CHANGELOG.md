@@ -1,7 +1,19 @@
 ## v0.5.0, unreleased
 
+* [breaking change] Searches return a vector of `ResultEntry` elements, so
+  the internal ASN.1 type is hidden. This changes the signature of
+  `SearchEntry::construct()`.
+
+* Control and exop implementations don't depend on internal traits and
+  structs, enabling independent third-party development.
+
+* [breaking change] Exop and control handling is streamlined, but old parsing
+  methods don't work any more. The signatures of `Ldap::extended()`,
+  `LdapConn::extended()`, `Ldap::with_controls()` and `LdapConn::with_controls()`
+  have changed.
+
 * `LdapResult` implements `success()`, which returns the structure itself if
-   `rc` is zero, or and error if it's not. There's also `non_error()`, which
+   `rc` is zero, or an error if it's not. There's also `non_error()`, which
    also considers the value 10 (referral) as successful.
 
 * [breaking change] Compare returns `CompareResult`, a newtype of `LdapResult`
