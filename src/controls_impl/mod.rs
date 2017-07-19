@@ -57,6 +57,10 @@ pub trait MakeCritical {
     }
 }
 
+/// Wrapper for a control marked as critical.
+///
+/// The wrapper ensures that the criticality of the control will be set to
+/// true when the control is encoded.
 pub struct CriticalControl<T> {
     control: T
 }
