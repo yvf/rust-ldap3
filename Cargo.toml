@@ -29,7 +29,7 @@ tokio-uds-proto = "0.1"
 
 [dependencies.lber]
 path = "lber"
-version = "0.1.4"
+version = "0.1.5"
 
 [dependencies.tokio-tls]
 features = ["tokio-proto"]

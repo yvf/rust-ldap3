@@ -1,3 +1,4 @@
+//! BER encoding support.
 use bytes::BytesMut;
 use byteorder::{BigEndian, WriteBytesExt};
 use common::{TagClass, TagStructure};
@@ -5,6 +6,7 @@ use structure::{StructureTag, PL};
 
 use std::io::{self, Write};
 
+/// BER-encode a tag structure into the provided buffer.
 pub fn encode_into(buf: &mut BytesMut, tag: StructureTag) -> io::Result<()> {
     let mut tag_vec = Vec::new();
     encode_inner(&mut tag_vec, tag)?;
