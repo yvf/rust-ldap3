@@ -6,21 +6,19 @@
 //!
 //! ```
 //! [dependencies.ldap3]
-//! version = "0.4"
+//! version = "0.5"
 //! ```
 //!
-//! In the crate root:
+//! In the crate root (`src/lib.rs` or `src/main.rs`):
 //!
 //! ```
 //! extern crate ldap3;
 //! ```
 //! ## Summary
 //!
-//! Although the library provides both synchronous and asynchronous interfaces,
-//! presently the synchronous one is less likely to undergo breaking changes,
-//! and is the preferred way to use the library. __The [`LdapConn`](struct.LdapConn.html)
-//! structure is the starting point for all synchronous operations.__ [`LdapConnAsync`]
-//! (struct.LdapConnAsync) is its asynchronous analogue, and [`Ldap`](struct.Ldap) is
+//! The library provides both synchronous and asynchronous interfaces. The [`LdapConn`]
+//! (struct.LdapConn.html) structure is the starting point for all synchronous operations.
+//! [`LdapConnAsync`](struct.LdapConnAsync) is its asynchronous analogue, and [`Ldap`](struct.Ldap) is
 //! the low-level asynchronous connection handle used by both.
 //!
 //! In the [struct list](#structs), async-related structs have an asterisk (__*__) after
@@ -34,6 +32,84 @@
 //!
 //! The documentation is written for readers familiar with LDAP concepts and terminology,
 //! which it won't attempt to explain.
+//!
+//! ## Examples
+//!
+//! The two examples in the text perform exactly the same operation and should produce identical
+//! results. They should be run against the example server in the `data` subdirectory of the crate source.
+//! Other sample programs expecting the same server setup can be found in the `examples` subdirectory.
+//!
+//! ### Synchronous search
+//!
+//! ```rust,no_run
+//! extern crate ldap3;
+//!
+//! use std::error::Error;
+//!
+//! use ldap3::{LdapConn, Scope, SearchEntry};
+//!
+//! fn main() {
+//!     match do_search() {
+//!         Ok(_) => (),
+//!         Err(e) => println!("{}", e),
+//!     }
+//! }
+//!
+//! fn do_search() -> Result<(), Box<Error>> {
+//!     let ldap = LdapConn::new("ldap://localhost:2389")?;
+//!     let (rs, _res) = ldap.search(
+//!         "ou=Places,dc=example,dc=org",
+//!         Scope::Subtree,
+//!         "(&(objectClass=locality)(l=ma*))",
+//!         vec!["l"]
+//!     )?.success()?;
+//!     for entry in rs {
+//!         println!("{:?}", SearchEntry::construct(entry));
+//!     }
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ### Asynchronous search
+//!
+//! ```rust,no_run
+//! extern crate futures;
+//! extern crate ldap3;
+//! extern crate tokio_core;
+//!
+//! use std::error::Error;
+//!
+//! use futures::Future;
+//! use ldap3::{LdapConnAsync, Scope, SearchEntry};
+//! use tokio_core::reactor::Core;
+//!
+//! fn main() {
+//!     match do_search() {
+//!         Ok(_) => (),
+//!         Err(e) => println!("{}", e),
+//!     }
+//! }
+//!
+//! fn do_search() -> Result<(), Box<Error>> {
+//!     let mut core = Core::new()?;
+//!     let handle = core.handle();
+//!     let ldap = LdapConnAsync::new("ldap://localhost:2389", &handle)?;
+//!     let srch = ldap.and_then(|ldap|
+//!         ldap.search(
+//!             "ou=Places,dc=example,dc=org",
+//!             Scope::Subtree,
+//!             "(&(objectClass=locality)(l=ma*))",
+//!             vec!["l"]
+//!         ))
+//!         .and_then(|response| response.success())
+//!         .and_then(|(rs, _res)| Ok(rs));
+//!     let rs = core.run(srch)?;
+//!     for entry in rs {
+//!         println!("{:?}", SearchEntry::construct(entry));
+//!     }
+//!     Ok(())
+//! }
+//! ```
 
 extern crate bytes;
 extern crate byteorder;
@@ -71,13 +147,13 @@ pub mod controls {
     //! A control can be associated with a request or a response. Several common
     //! controls, such as [`PagedResults`](struct.PagedResults.html), are implemented
     //! directly by this library. If an implemented control has the same form for
-    //! the request and the response, there will be a single structure for both uses.
+    //! the request and the response, there will be a single structure for both.
     //! (This is the case for `PagedResults`.) If the response control is different,
     //! its name will consist of the request control name with the `Resp` suffix.
     //!
     //! A request control can be created by instantiating its structure and converting
-    //! it to ASN.1 with `into()` when constructing the request control vector in the
-    //! call to [`with_controls()`](../struct.LdapConn.html#method.with_controls).
+    //! it to ASN.1 with `into()` when passing the instance or constructing the request
+    //! control vector in the call to [`with_controls()`](../struct.LdapConn.html#method.with_controls).
     //! A third-party control must implement the conversion from an instance
     //! of itself to [`RawControl`](struct.RawControl.html), a general form of control.
     //!
