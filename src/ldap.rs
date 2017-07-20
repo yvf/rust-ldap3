@@ -26,6 +26,7 @@ use tokio_uds::UnixStream;
 use tokio_uds_proto::UnixClient;
 
 use controls::{Control, RawControl};
+use controls_impl::IntoRawControlVec;
 use protocol::{LdapProto, ProtoBundle};
 use search::{SearchItem, SearchOptions};
 
@@ -199,8 +200,8 @@ impl Ldap {
     }
 
     /// See [`LdapConn::with_controls()`](struct.LdapConn.html#method.with_controls).
-    pub fn with_controls(&self, ctrls: Vec<RawControl>) -> &Self {
-        mem::replace(&mut *self.next_req_controls.borrow_mut(), Some(ctrls));
+    pub fn with_controls<V: IntoRawControlVec>(&self, ctrls: V) -> &Self {
+        mem::replace(&mut *self.next_req_controls.borrow_mut(), Some(ctrls.into()));
         self
     }
 

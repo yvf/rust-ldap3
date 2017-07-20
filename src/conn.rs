@@ -18,7 +18,7 @@ use url::{Host, Url};
 #[cfg(all(unix, not(feature = "minimal")))]
 use url::percent_encoding::percent_decode;
 
-use controls::RawControl;
+use controls_impl::IntoRawControlVec;
 use exop::Exop;
 use ldap::Ldap;
 use modify::Mod;
@@ -228,15 +228,20 @@ impl LdapConn {
         self
     }
 
-    /// Pass the provided vector of request controls to the next LDAP operation.
+    /// Pass the provided request control(s) to the next LDAP operation.
     /// Controls can be constructed by instantiating structs in the [`controls`]
     /// (controls/index.html) module, and converted to the form needed by this
-    /// method by calling `into()` on the instances. See the module-level
-    /// documentation for the list of directly supported controls and procedures
-    /// for defining custom controls.
+    /// method by calling `into()` on the instances. Alternatively, a control
+    /// struct may offer a constructor which will produce a `RawControl` instance
+    /// itself. See the module-level documentation for the list of directly supported
+    /// controls and procedures for defining custom controls.
+    ///
+    /// This method accepts either a single `RawControl` or a `Vec` of them, in
+    /// order to make the call site less noisy, since it's expected that passing
+    /// a single control will comprise the majority of uses.
     ///
     /// The desired operation can be invoked on the result of this method.
-    pub fn with_controls(&self, ctrls: Vec<RawControl>) -> &Self {
+    pub fn with_controls<V: IntoRawControlVec>(&self, ctrls: V) -> &Self {
         self.inner.with_controls(ctrls);
         self
     }

@@ -42,6 +42,22 @@ lazy_static! {
     };
 }
 
+pub trait IntoRawControlVec {
+    fn into(self) -> Vec<RawControl>;
+}
+
+impl IntoRawControlVec for RawControl {
+    fn into(self) -> Vec<RawControl> {
+        vec![self]
+    }
+}
+
+impl IntoRawControlVec for Vec<RawControl> {
+    fn into(self) -> Vec<RawControl> {
+        self
+    }
+}
+
 /// Mark a control as critical.
 ///
 /// Most controls provided by this library implements this trait. All controls
