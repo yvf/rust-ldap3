@@ -1,5 +1,10 @@
 ## v0.5.0, unreleased
 
+* Assertion, Pre- and Post-Read controls are implemented in-tree.
+
+* `Ldap::with_controls()` can also accept a single control, without the
+  need to construct a vector.
+
 * [breaking change] Searches return a vector of `ResultEntry` elements, so
   the internal ASN.1 type is hidden. This changes the signature of
   `SearchEntry::construct()`.
