@@ -1,4 +1,8 @@
-## v0.5.0, unreleased
+## v0.5.0, 2017-07-20
+
+Changes are listed approximately in reverse chronological order. Since they
+are so numerous for this release, and many are breaking changes, please
+read them carefully.
 
 * Assertion, Pre- and Post-Read controls are implemented in-tree.
 
