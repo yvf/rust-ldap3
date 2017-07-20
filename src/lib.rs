@@ -97,6 +97,7 @@ pub mod controls {
     //! trait to support this interface.
     pub use controls_impl::{Control, ControlParser, CriticalControl, MakeCritical, RawControl};
     pub use controls_impl::{PagedResults, ProxyAuth, RelaxRules};
+    pub use controls_impl::{PostRead, PostReadResp, PreRead, PreReadResp, ReadEntryResp};
     pub use controls_impl::types;
 }
 mod controls_impl;

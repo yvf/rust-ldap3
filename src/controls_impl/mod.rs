@@ -9,7 +9,7 @@ pub mod types {
     //!
     //! Variants are individually reexported from the private submodule
     //! to inhibit exhaustive matching.
-    pub use self::inner::_ControlType::{PagedResults};  // there will be more
+    pub use self::inner::_ControlType::{PagedResults, PostReadResp, PreReadResp};
 
     /// Recognized control types. Variants can't be named in the namespace
     /// of this type; they must be used through module-level reexports.
@@ -18,6 +18,8 @@ pub mod types {
         #[derive(Clone, Copy, Debug)]
         pub enum _ControlType {
             PagedResults,
+            PostReadResp,
+            PreReadResp,
             #[doc(hidden)]
             _Nonexhaustive,
         }
@@ -31,6 +33,9 @@ pub use self::paged_results::PagedResults;
 mod proxy_auth;
 pub use self::proxy_auth::ProxyAuth;
 
+mod read_entry;
+pub use self::read_entry::{PostRead, PostReadResp, PreRead, PreReadResp, ReadEntryResp};
+
 mod relax_rules;
 pub use self::relax_rules::RelaxRules;
 
@@ -38,6 +43,8 @@ lazy_static! {
     static ref CONTROLS: HashMap<&'static str, ControlType> = {
         let mut map = HashMap::new();
         map.insert(self::paged_results::PAGED_RESULTS_OID, types::PagedResults);
+        map.insert(self::read_entry::POST_READ_OID, types::PostReadResp);
+        map.insert(self::read_entry::PRE_READ_OID, types::PreReadResp);
         map
     };
 }
