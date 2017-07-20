@@ -96,7 +96,7 @@ pub mod controls {
     //! A third-party control must implement the [`ControlParser`](trait.ControlParser.html)
     //! trait to support this interface.
     pub use controls_impl::{Control, ControlParser, CriticalControl, MakeCritical, RawControl};
-    pub use controls_impl::{PagedResults, ProxyAuth, RelaxRules};
+    pub use controls_impl::{Assertion, PagedResults, ProxyAuth, RelaxRules};
     pub use controls_impl::{PostRead, PostReadResp, PreRead, PreReadResp, ReadEntryResp};
     pub use controls_impl::types;
 }

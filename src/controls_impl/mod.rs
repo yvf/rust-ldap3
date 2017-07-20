@@ -27,6 +27,9 @@ pub mod types {
 }
 use self::types::ControlType;
 
+mod assertion;
+pub use self::assertion::Assertion;
+
 mod paged_results;
 pub use self::paged_results::PagedResults;
 
