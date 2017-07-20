@@ -129,6 +129,7 @@ mod unbind;
 mod util;
 
 pub use conn::{EntryStream, LdapConn, LdapConnAsync, LdapConnBuilder};
+pub use filter::parse as parse_filter;
 pub use ldap::Ldap;
 pub use modify::Mod;
 pub use result::LdapResult;
@@ -147,4 +148,5 @@ pub mod asn1 {
     pub use lber::structure::{PL, StructureTag};
     pub use lber::structures::{ASNTag, Boolean, Enumerated, ExplicitTag, Integer, Null, OctetString, Sequence, Set, Tag};
     pub use lber::parse::{parse_tag, parse_uint};
+    pub use lber::write;
 }

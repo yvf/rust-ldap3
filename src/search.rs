@@ -65,6 +65,13 @@ enum AbandonState {
 #[derive(Debug,Clone)]
 pub struct ResultEntry(StructureTag);
 
+impl ResultEntry {
+    #[doc(hidden)]
+    pub fn new(st: StructureTag) -> ResultEntry {
+        ResultEntry(st)
+    }
+}
+
 /// Stream of search results. __*__
 ///
 /// The stream will yield search result entries. It must be polled until
