@@ -101,6 +101,7 @@ impl Error for LdapResult {
 	    71 => "affectsMultipleDSAs",
 	    80 => "other",
 	    88 => "abandoned",
+	    122 => "assertionFailed",
 	    _ => "unknown",
 	}
     }
