@@ -14,9 +14,11 @@ differences in interaction and return values according to the nature of I/O.
 ### Attention!
 
 Version 0.5 has a large number of breaking changes, which are described in the
-[changelog](CHANGELOG.md). The change of the search return type and inclusion of
-response controls in the status struct are expected to result in most breakage,
-although the impact will ultimately depend on the manner of using the API.
+[changelog](https://github.com/inejge/ldap3/blob/4f4a9f07062b1cf90703b2b38c17770394318626/CHANGELOG.md).
+The change of the search return type and inclusion of response controls in the
+status struct are expected to result in most breakage, although the impact will
+ultimately depend on the manner of using the API. For a good illustration of the
+fixes needed in real-life code, see [this patch](https://github.com/lawliet89/rowdy/pull/57/files#diff-958ef05f8d9516354027128727e6e8ef).
 
 ## Usage
 
