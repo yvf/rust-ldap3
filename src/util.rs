@@ -103,3 +103,43 @@ pub fn dn_escape<'a, S: Into<Cow<'a, str>>>(val: S) -> Cow<'a, str> {
         val.into()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::dn_escape;
+
+    #[test]
+    fn dn_esc_leading_space() {
+        assert_eq!(dn_escape(" foo"), "\\20foo");
+    }
+
+    #[test]
+    fn dn_esc_trailing_space() {
+        assert_eq!(dn_escape("foo "), "foo\\20");
+    }
+
+    #[test]
+    fn dn_esc_inner_space() {
+        assert_eq!(dn_escape("f o o"), "f o o");
+    }
+
+    #[test]
+    fn dn_esc_single_space() {
+        assert_eq!(dn_escape(" "), "\\20");
+    }
+
+    #[test]
+    fn dn_esc_two_spaces() {
+        assert_eq!(dn_escape("  "), "\\20\\20");
+    }
+
+    #[test]
+    fn dn_esc_three_spaces() {
+        assert_eq!(dn_escape("   "), "\\20 \\20");
+    }
+
+    #[test]
+    fn dn_esc_leading_hash() {
+        assert_eq!(dn_escape("#rust"), "\\23rust");
+    }
+}
