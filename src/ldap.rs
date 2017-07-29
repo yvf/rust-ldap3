@@ -111,6 +111,39 @@ fn connect_with_timeout(timeout: Option<Duration>, fut: Box<Future<Item=Ldap, Er
     }
 }
 
+#[cfg(feature = "tls")]
+pub fn connect_with_tls_connector(addr: &str, handle: &Handle, timeout: Option<Duration>, connector: Option<TlsConnector>) ->
+        Box<Future<Item=Ldap, Error=io::Error>> {
+    if addr.parse::<SocketAddr>().ok().is_some() {
+        return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "SSL connection must be by hostname")));
+    }
+    let sockaddr = addr.to_socket_addrs().unwrap_or_else(|_| vec![].into_iter()).next();
+    if sockaddr.is_none() {
+        return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "no addresses found")));
+    }
+    let proto = LdapProto::new(handle.clone());
+    let bundle = proto.bundle();
+    let connector = match connector {
+        Some(connector) => connector,
+        None => TlsConnector::builder().expect("tls_builder").build().expect("connector"),
+    };
+    let wrapper = TlsClient::new(proto,
+        connector,
+        addr.split(':').next().expect("hostname"));
+    let ret = TcpClient::new(wrapper)
+        .connect(&sockaddr.unwrap(), handle)
+        .map(|client_proxy| {
+            Ldap {
+                inner: ClientMap::Tls(client_proxy),
+                bundle: bundle,
+                next_search_options: Rc::new(RefCell::new(None)),
+                next_req_controls: Rc::new(RefCell::new(None)),
+                next_timeout: Rc::new(RefCell::new(None)),
+            }
+        });
+    connect_with_timeout(timeout, Box::new(ret), handle)
+}
+
 impl Ldap {
     /// Connect to an LDAP server without using TLS, using an IP address/port number
     /// in `addr`, and an event loop handle in `handle`. If `timeout` is not `None`,
@@ -143,65 +176,7 @@ impl Ldap {
     #[cfg(feature = "tls")]
     pub fn connect_ssl(addr: &str, handle: &Handle, timeout: Option<Duration>) ->
             Box<Future<Item=Ldap, Error=io::Error>> {
-        if addr.parse::<SocketAddr>().ok().is_some() {
-            return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "SSL connection must be by hostname")));
-        }
-        let sockaddr = addr.to_socket_addrs().unwrap_or_else(|_| vec![].into_iter()).next();
-        if sockaddr.is_none() {
-            return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "no addresses found")));
-        }
-        let proto = LdapProto::new(handle.clone());
-        let bundle = proto.bundle();
-        let wrapper = TlsClient::new(proto,
-            TlsConnector::builder().expect("tls_builder").build().expect("connector"),
-            addr.split(':').next().expect("hostname"));
-        let ret = TcpClient::new(wrapper)
-            .connect(&sockaddr.unwrap(), handle)
-            .map(|client_proxy| {
-                Ldap {
-                    inner: ClientMap::Tls(client_proxy),
-                    bundle: bundle,
-                    next_search_options: Rc::new(RefCell::new(None)),
-                    next_req_controls: Rc::new(RefCell::new(None)),
-                    next_timeout: Rc::new(RefCell::new(None)),
-                }
-            });
-        connect_with_timeout(timeout, Box::new(ret), handle)
-    }
-
-    /// Connect to an LDAP server with an attempt to negotiate TLS immediately after
-    /// establishing the TCP connection, using the host name and port number in `addr`,
-    /// and an event loop handle in `handle`. If `timeout` is not `None`, it specifies
-    /// how long the connection attempt will take before returning an error.
-    ///
-    /// The connection _must_ be by host name for TLS hostname check to work.
-    #[cfg(feature = "tls")]
-    pub fn connect_ssl_with_connector(addr: &str, handle: &Handle, timeout: Option<Duration>, connector: TlsConnector) ->
-            Box<Future<Item=Ldap, Error=io::Error>> {
-        if addr.parse::<SocketAddr>().ok().is_some() {
-            return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "SSL connection must be by hostname")));
-        }
-        let sockaddr = addr.to_socket_addrs().unwrap_or_else(|_| vec![].into_iter()).next();
-        if sockaddr.is_none() {
-            return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "no addresses found")));
-        }
-        let proto = LdapProto::new(handle.clone());
-        let bundle = proto.bundle();
-        let wrapper = TlsClient::new(proto,
-            connector,
-            addr.split(':').next().expect("hostname"));
-        let ret = TcpClient::new(wrapper)
-            .connect(&sockaddr.unwrap(), handle)
-            .map(|client_proxy| {
-                Ldap {
-                    inner: ClientMap::Tls(client_proxy),
-                    bundle: bundle,
-                    next_search_options: Rc::new(RefCell::new(None)),
-                    next_req_controls: Rc::new(RefCell::new(None)),
-                    next_timeout: Rc::new(RefCell::new(None)),
-                }
-            });
-        connect_with_timeout(timeout, Box::new(ret), handle)
+        connect_with_tls_connector(addr, handle, timeout, None)
     }
 
     /// Connect to an LDAP server through a Unix domain socket, using the path
