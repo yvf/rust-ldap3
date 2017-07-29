@@ -356,16 +356,27 @@ impl LdapConn {
 /// ### Example
 ///
 /// ```rust,no_run
+/// # extern crate futures;
+/// # extern crate tokio_core;
+/// # extern crate ldap3;
+/// # fn main() {
 /// # use std::io;
+/// # use futures::Future;
+/// # use tokio_core::reactor::Core;
 /// use ldap3::LdapConnAsync;
 ///
 /// # fn _x() -> io::Result<()> {
-/// let ldap = LdapConnAsync::new("ldap://localhost:2389")?;
+/// # let core = Core::new()?;
+/// # let handle = core.handle();
+/// let ldap = LdapConnAsync::new("ldap://localhost:2389", &handle)?;
 /// let bind = ldap.clone().and_then(|ldap| {
 ///     ldap.simple_bind(
 ///         "uid=test,ou=People,dc=example,dc=org",
 ///         "triplesecret"
-///     );
+///     )
+/// });
+/// # Ok(())
+/// # }
 /// # }
 /// ```
 #[derive(Clone)]
@@ -505,6 +516,7 @@ impl Future for LdapConnAsync {
 ///
 /// ```rust,no_run
 /// # use std::io;
+/// # use ldap3::LdapConn;
 /// use std::time::Duration;
 /// use ldap3::LdapConnBuilder;
 ///
@@ -512,6 +524,7 @@ impl Future for LdapConnAsync {
 /// let ldap = LdapConnBuilder::<LdapConn>::new()
 ///     .with_conn_timeout(Duration::from_secs(10))
 ///     .connect("ldap://localhost:2389")?;
+/// # Ok(())
 /// # }
 /// ```
 pub struct LdapConnBuilder<T> {

@@ -4,7 +4,7 @@
 //!
 //! In `Cargo.toml`:
 //!
-//! ```
+//! ```toml
 //! [dependencies.ldap3]
 //! version = "0.5"
 //! ```
@@ -211,7 +211,7 @@ pub use ldap::Ldap;
 pub use modify::Mod;
 pub use result::LdapResult;
 pub use search::{DerefAliases, ResultEntry, Scope, SearchEntry, SearchOptions, SearchStream};
-pub use util::ldap_escape;
+pub use util::{dn_escape, ldap_escape};
 
 pub mod asn1 {
     //! ASN.1 structure construction and parsing.
