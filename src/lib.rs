@@ -4,7 +4,7 @@
 //!
 //! In `Cargo.toml`:
 //!
-//! ```
+//! ```toml
 //! [dependencies.ldap3]
 //! version = "0.5"
 //! ```
