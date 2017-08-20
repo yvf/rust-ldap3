@@ -1,3 +1,5 @@
+extern crate ldap3;
+
 use ldap3::LdapConn;
 
 const LDAPS_SERVER: &str = "ldaps://directory.example.com:636";
