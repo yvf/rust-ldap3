@@ -1,15 +1,18 @@
 extern crate ldap3;
 
+use std::error::Error;
+
 use ldap3::LdapConn;
 
-const LDAPS_SERVER: &str = "ldaps://directory.example.com:636";
-const LDAP_SERVICE_USER_DN: &str = "CN=ldapuser,CN=Users,DC=example,DC=com";
-const LDAP_SERVICE_USER_PW: &str = "SuperSecretPassword";
-
 fn main() {
+    match do_tls_conn() {
+        Ok(_) => (),
+        Err(e) => println!("{:?}", e),
+    }
+}
 
-    let ldap = LdapConn::new(LDAPS_SERVER).expect("Failed to create handle");
-
-    ldap.simple_bind(LDAP_SERVICE_USER_DN, LDAP_SERVICE_USER_PW).expect("Bind error");
-    
+fn do_tls_conn() -> Result<(), Box<Error>> {
+    let ldap = LdapConn::new("ldaps://ldap.example.com")?;
+    ldap.simple_bind("cn=user,ou=People,dc=example,dc=com", "secret")?.success()?;
+    Ok(())
 }
