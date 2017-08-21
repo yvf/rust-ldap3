@@ -1,3 +1,15 @@
+## v0.5.1, 2017-08-21
+
+* An LDAP connection can be constructed with a pre-built TLS connector
+  using `LdapConnBuilder::with_tls_connector()`
+  ([#11](https://github.com/inejge/ldap3/pull/11)). This function is not
+  publicly documented, to avoid fixing the API. The intent is to allow
+  connections which need additional connector configuration, such as
+  those to a server using a self-signed certificate.
+
+* The function `ldap3::dn_escape()` is provided to escape RDN values
+  when constructing a DN ([#13](https://github.com/inejge/ldap3/pull/13)).
+
 ## v0.5.0, 2017-07-20
 
 Changes are listed approximately in reverse chronological order. Since they
