@@ -35,7 +35,7 @@
 //!
 //! ## Examples
 //!
-//! The two examples in the text perform exactly the same operation and should produce identical
+//! The following two examples perform exactly the same operation and should produce identical
 //! results. They should be run against the example server in the `data` subdirectory of the crate source.
 //! Other sample programs expecting the same server setup can be found in the `examples` subdirectory.
 //!

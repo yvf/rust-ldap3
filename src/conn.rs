@@ -129,13 +129,14 @@ impl EntryStream {
     }
 
     /// Abandon the search by signalling the underlying asynchronous stream to
-    /// send the Abandon operation to the server. If the operation is successfully sent,
+    /// send an Abandon operation to the server. If the operation is successfully sent,
     /// the next invocation of `EntryStream::next()` will return `Ok(None)`, indicating
     /// the end of the stream. The overall result of the search will have an error code
     /// indicating that the operation has been abandoned.
     ///
-    /// This method can return an error if there is a problem with retrieving the
-    /// channel from the stream instance or sending the signal over the channel.
+    /// This method can return an error if there is a problem with
+    /// [retrieving the channel](SearchStream.html#method.get_abandon_channel)
+    /// from the stream instance or sending the signal over the channel.
     pub fn abandon(&mut self) -> io::Result<()> {
         if let Some(mut strm) = self.strm.take() {
             let channel = strm.get_abandon_channel()?;
@@ -510,7 +511,7 @@ impl Future for LdapConnAsync {
 ///
 /// This struct must be instantiated by explicitly specifying the
 /// marker type, which is one of [`LdapConn`](struct.LdapConn.html)
-/// and [`LdapConnAsync`](struct.LdapConnAsync.html).
+/// or [`LdapConnAsync`](struct.LdapConnAsync.html).
 ///
 /// ### Example
 ///
