@@ -49,7 +49,7 @@ pub fn ldap_escape<'a, S: Into<Cow<'a, str>>>(lit: S) -> Cow<'a, str> {
 /// Escape an attribute value in a relative distinguished name (RDN).
 ///
 /// When a literal string is used to represent an attribute value in an RDN,
-/// some of it characters might need to be escaped according to the rules
+/// some of its characters might need to be escaped according to the rules
 /// of [RFC 4514](https://tools.ietf.org/html/rfc4514).
 ///
 /// The function is named `dn_escape()` instead of `rdn_escape()` because of

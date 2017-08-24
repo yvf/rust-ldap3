@@ -128,6 +128,13 @@ Caveats:
 
 * Certificate and hostname checking __can't be turned off__ for TLS connections.
 
+* Due to the structuring of support libraries, certificate errors may manifest
+  themselves as a generic "broken pipe" error, and get triggered on first use of
+  a connection, not on opening. To debug these kinds of issues, it's helpful
+  to run the program while setting `RUST_LOG=tokio=trace` in the environment.
+  See [this issue](https://github.com/inejge/ldap3/issues/14#issuecomment-323356983)
+  for an example.
+
 * Hostname resolution is synchronous. The library doesn't initiate any
   connections by itself, so this should be manageable in most scenarios.
 
