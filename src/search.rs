@@ -11,6 +11,7 @@ use lber::structure::StructureTag;
 use lber::structures::{Boolean, Enumerated, Integer, OctetString, Sequence, Tag};
 use lber::common::TagClass::*;
 
+use futures::future;
 use futures::{Async, Future, IntoFuture, Poll, Stream};
 use futures::sync::{mpsc, oneshot};
 use tokio_core::reactor::Timeout;
@@ -436,7 +437,10 @@ impl Ldap {
                        inner: opts.typesonly,
                        .. Default::default()
                    }),
-                   parse(filter).unwrap(),
+                   match parse(filter) {
+                       Ok(filter) => filter,
+                       _ => return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "filter parse error"))),
+                   },
                    Tag::Sequence(Sequence {
                        inner: attrs.into_iter().map(|s|
                             Tag::OctetString(OctetString { inner: Vec::from(s.as_ref()), ..Default::default() })).collect(),
