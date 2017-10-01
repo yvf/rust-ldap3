@@ -14,7 +14,7 @@ use result::LdapResult;
 
 /// Possible sub-operations for the Modify operation.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Mod<S: AsRef<str> + Eq + Hash> {
+pub enum Mod<S: AsRef<[u8]> + Eq + Hash> {
     /// Add an attribute, with at least one value.
     Add(S, HashSet<S>),
     /// Delete the entire attribute, or the given values of an attribute.
@@ -25,7 +25,7 @@ pub enum Mod<S: AsRef<str> + Eq + Hash> {
 
 impl Ldap {
     /// See [`LdapConn::modify()`](struct.LdapConn.html#method.modify).
-    pub fn modify<S: AsRef<str> + Eq + Hash>(&self, dn: &str, mods: Vec<Mod<S>>) ->
+    pub fn modify<S: AsRef<[u8]> + Eq + Hash>(&self, dn: &str, mods: Vec<Mod<S>>) ->
             Box<Future<Item=LdapResult, Error=io::Error>> {
         let mut any_add_empty = false;
         let req = Tag::Sequence(Sequence {
