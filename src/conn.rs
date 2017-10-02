@@ -298,7 +298,7 @@ impl LdapConn {
     /// Add an entry named by `dn`, with the list of attributes and their values
     /// given in `attrs`. None of the `HashSet`s of values for an attribute may
     /// be empty.
-    pub fn add<S: AsRef<str> + Eq + Hash>(&self, dn: &str, attrs: Vec<(S, HashSet<S>)>) -> io::Result<LdapResult> {
+    pub fn add<S: AsRef<[u8]> + Eq + Hash>(&self, dn: &str, attrs: Vec<(S, HashSet<S>)>) -> io::Result<LdapResult> {
         Ok(self.core.borrow_mut().run(self.inner.clone().add(dn, attrs))?)
     }
 
