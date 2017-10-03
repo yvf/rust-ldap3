@@ -4,6 +4,9 @@ use lber::structures::{OctetString, Tag};
 mod whoami;
 pub use self::whoami::{WhoAmI, WhoAmIResp};
 
+mod starttls;
+pub use self::starttls::StartTLS;
+
 /// Generic extended operation.
 ///
 /// Since the same struct can be used both for requests and responses,
