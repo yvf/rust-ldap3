@@ -202,6 +202,8 @@ mod modifydn;
 mod protocol;
 pub mod result;
 mod search;
+#[cfg(feature = "tls")]
+mod tls_client;
 mod unbind;
 mod util;
 

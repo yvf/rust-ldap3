@@ -32,7 +32,6 @@ path = "lber"
 version = "0.1.5"
 
 [dependencies.tokio-tls]
-features = ["tokio-proto"]
 version = "0.1.2"
 optional = true
 

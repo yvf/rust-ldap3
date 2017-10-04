@@ -18,8 +18,6 @@ use tokio_core::reactor::{Handle, Timeout};
 use tokio_proto::TcpClient;
 use tokio_proto::multiplex::ClientService;
 use tokio_service::Service;
-#[cfg(feature = "tls")]
-use tokio_tls::proto::Client as TlsClient;
 #[cfg(all(unix, not(feature = "minimal")))]
 use tokio_uds::UnixStream;
 #[cfg(all(unix, not(feature = "minimal")))]
@@ -29,6 +27,8 @@ use controls::{Control, RawControl};
 use controls_impl::IntoRawControlVec;
 use protocol::{LdapProto, ProtoBundle};
 use search::{SearchItem, SearchOptions};
+#[cfg(feature = "tls")]
+use tls_client::TlsClient;
 
 use lber::structures::{Enumerated, Tag};
 
@@ -36,7 +36,7 @@ use lber::structures::{Enumerated, Tag};
 enum ClientMap {
     Plain(ClientService<TcpStream, LdapProto>),
     #[cfg(feature = "tls")]
-    Tls(ClientService<TcpStream, TlsClient<LdapProto>>),
+    Tls(ClientService<TcpStream, TlsClient>),
     #[cfg(all(unix, not(feature = "minimal")))]
     Unix(ClientService<UnixStream, LdapProto>),
 }
@@ -129,6 +129,7 @@ pub fn connect_with_tls_connector(addr: &str, handle: &Handle, timeout: Option<D
     };
     let wrapper = TlsClient::new(proto,
         connector,
+        false,
         addr.split(':').next().expect("hostname"));
     let ret = TcpClient::new(wrapper)
         .connect(&sockaddr.unwrap(), handle)
