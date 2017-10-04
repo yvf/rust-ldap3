@@ -15,7 +15,7 @@ bytes = "0.4.1"
 futures = "0.1"
 lazy_static = "0.2.4"
 log = "0.3.6"
-native-tls = { version = "0.1.1", optional = true }
+native-tls = { version = "0.1.3", optional = true }
 nom = "2.0"
 tokio-core = "0.1"
 tokio-io = "0.1.1"
