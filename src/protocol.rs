@@ -134,7 +134,7 @@ impl From<Tag> for LdapResultExt {
 }
 
 pub struct LdapCodec {
-    bundle: Rc<RefCell<ProtoBundle>>,
+    pub bundle: Rc<RefCell<ProtoBundle>>,
 }
 
 impl Decoder for LdapCodec {
@@ -284,6 +284,7 @@ impl Encoder for LdapCodec {
     }
 }
 
+#[derive(Clone)]
 pub struct LdapProto {
     bundle: Rc<RefCell<ProtoBundle>>,
 }
@@ -307,8 +308,8 @@ impl LdapProto {
 }
 
 pub struct ResponseFilter<T> {
-    upstream: T,
-    bundle: Rc<RefCell<ProtoBundle>>,
+    pub upstream: T,
+    pub bundle: Rc<RefCell<ProtoBundle>>,
 }
 
 impl<T> Stream for ResponseFilter<T>
