@@ -193,7 +193,7 @@ pub mod exop {
     //! A request struct must implement the `From` conversion of itself into `Exop`.
     //! A response struct must implement the [`ExopParser`](trait.ExopParser.html)
     //! trait.
-    pub use exop_impl::{Exop, ExopParser, StartTLS, WhoAmI, WhoAmIResp};
+    pub use exop_impl::{Exop, ExopParser, WhoAmI, WhoAmIResp};
 }
 mod filter;
 mod ldap;
