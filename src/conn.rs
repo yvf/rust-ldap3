@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use std::convert::AsRef;
 use std::hash::Hash;
 use std::io;
-use std::marker::PhantomData;
 use std::mem;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::rc::Rc;
@@ -13,8 +12,6 @@ use std::time::Duration;
 
 use futures::{Async, Future, Poll, Stream};
 use futures::sync::oneshot;
-#[cfg(feature = "tls")]
-use native_tls::TlsConnector;
 use tokio_core::reactor::{Core, Handle};
 use url::{Host, Url};
 #[cfg(all(unix, not(feature = "minimal")))]
@@ -22,9 +19,8 @@ use url::percent_encoding::percent_decode;
 
 use controls_impl::IntoRawControlVec;
 use exop::Exop;
-#[cfg(feature = "tls")]
-use ldap::connect_with_tls_connector;
-use ldap::Ldap;
+use ldap::is_starttls;
+use ldap::{Ldap, LdapConnSettings};
 use modify::Mod;
 use result::{CompareResult, ExopResult, LdapResult, SearchResult};
 use search::{ResultEntry, SearchOptions, SearchStream, Scope};
@@ -38,10 +34,10 @@ impl LdapWrapper {
         self.inner.clone()
     }
 
-    fn connect(addr: &SocketAddr, handle: &Handle, timeout: Option<Duration>)
+    fn connect(addr: &SocketAddr, handle: &Handle, settings: LdapConnSettings)
         -> Box<Future<Item=LdapWrapper, Error=io::Error>>
     {
-        let lw = Ldap::connect(addr, handle, timeout)
+        let lw = Ldap::connect(addr, handle, settings)
             .map(|ldap| {
                 LdapWrapper {
                     inner: ldap,
@@ -51,10 +47,10 @@ impl LdapWrapper {
     }
 
     #[cfg(feature = "tls")]
-    fn connect_ssl(addr: &str, handle: &Handle, timeout: Option<Duration>, connector: Option<TlsConnector>)
+    fn connect_ssl(addr: &str, handle: &Handle, settings: LdapConnSettings)
         -> Box<Future<Item=LdapWrapper, Error=io::Error>>
     {
-        let lw = connect_with_tls_connector(addr, handle, timeout, connector)
+        let lw = Ldap::connect_ssl(addr, handle, settings)
             .map(|ldap| {
                 LdapWrapper {
                     inner: ldap,
@@ -64,8 +60,10 @@ impl LdapWrapper {
     }
 
     #[cfg(all(unix, not(feature = "minimal")))]
-    fn connect_unix(path: &str, handle: &Handle) -> Box<Future<Item=LdapWrapper, Error=io::Error>> {
-        let lw = Ldap::connect_unix(path, handle)
+    fn connect_unix(path: &str, handle: &Handle, settings: LdapConnSettings)
+        -> Box<Future<Item=LdapWrapper, Error=io::Error>>
+    {
+        let lw = Ldap::connect_unix(path, handle, settings)
             .map(|ldap| {
                 LdapWrapper {
                     inner: ldap,
@@ -156,10 +154,11 @@ impl EntryStream {
 /// (#method.sasl_external_bind); the latter is available on Unix-like systems, and can only
 /// work on Unix domain socket connections.
 ///
-/// Some connections need additional parameters, and providing separate functions to initialize
+/// Some connections need additional parameters, and providing many separate functions to initialize
 /// them, singly or in combination, would result in a confusing and cumbersome interface.
 /// Instead, connection initialization is optimized for the expected most frequent usage,
-/// and additional customization is delegated to [`LdapConnBuilder`](struct.LdapConnBuilder.html).
+/// and additional customization is possible through the [`LdapConnSettings`](struct.LdapConnSettings.html)
+/// struct, which can be passed to [`with_settings()`](#method.with_settings).
 ///
 /// All LDAP operations allow attaching a series of request controls, which augment or modify
 /// the operation. Controls are attached by calling [`with_controls()`](#method.with_controls)
@@ -199,7 +198,9 @@ impl LdapConn {
         LdapConn::with_settings(LdapConnSettings::new(), url)
     }
 
-    fn with_settings(settings: LdapConnSettings, url: &str) -> io::Result<Self> {
+    /// Open a connection to an LDAP server specified by `url`, using
+    /// `settings` to specify additional parameters.
+    pub fn with_settings(settings: LdapConnSettings, url: &str) -> io::Result<Self> {
         let mut core = Core::new()?;
         let conn = LdapConnAsync::with_settings(settings, url, &core.handle())?;
         let ldap = core.run(conn)?;
@@ -399,7 +400,9 @@ impl LdapConnAsync {
     }
 
     #[cfg(any(not(unix), feature = "minimal"))]
-    fn with_settings(settings: LdapConnSettings, url: &str, handle: &Handle) -> io::Result<Self> {
+    /// Open a connection to an LDAP server specified by `url`, using
+    /// `settings` to specify additional parameters.
+    pub fn with_settings(settings: LdapConnSettings, url: &str, handle: &Handle) -> io::Result<Self> {
         LdapConnAsync::new_tcp(url, handle, settings)
     }
 
@@ -416,21 +419,23 @@ impl LdapConnAsync {
         if !url.starts_with("ldapi://") {
             LdapConnAsync::new_tcp(url, handle, LdapConnSettings::new())
         } else {
-            LdapConnAsync::new_unix(url, handle)
+            LdapConnAsync::new_unix(url, handle, LdapConnSettings::new())
         }
     }
 
     #[cfg(all(unix, not(feature = "minimal")))]
-    fn with_settings(settings: LdapConnSettings, url: &str, handle: &Handle) -> io::Result<Self> {
+    /// Open a connection to an LDAP server specified by `url`, using
+    /// `settings` to specify additional parameters.
+    pub fn with_settings(settings: LdapConnSettings, url: &str, handle: &Handle) -> io::Result<Self> {
         if !url.starts_with("ldapi://") {
             LdapConnAsync::new_tcp(url, handle, settings)
         } else {
-            LdapConnAsync::new_unix(url, handle)
+            LdapConnAsync::new_unix(url, handle, settings)
         }
     }
 
     #[cfg(all(unix, not(feature = "minimal")))]
-    fn new_unix(url: &str, handle: &Handle) -> io::Result<Self> {
+    fn new_unix(url: &str, handle: &Handle, settings: LdapConnSettings) -> io::Result<Self> {
         let path = url.split('/').nth(2).unwrap();
         if path.is_empty() {
             return Err(io::Error::new(io::ErrorKind::Other, "empty Unix domain socket path"));
@@ -440,7 +445,7 @@ impl LdapConnAsync {
         }
         let dec_path = percent_decode(path.as_bytes()).decode_utf8_lossy();
         Ok(LdapConnAsync {
-            in_progress: Rc::new(RefCell::new(LdapWrapper::connect_unix(dec_path.borrow(), handle))),
+            in_progress: Rc::new(RefCell::new(LdapWrapper::connect_unix(dec_path.borrow(), handle, settings))),
             wrapper: Rc::new(RefCell::new(None)),
         })
     }
@@ -449,7 +454,7 @@ impl LdapConnAsync {
         let url = Url::parse(url).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         let mut port = 389;
         let scheme = match url.scheme() {
-            s @ "ldap" => s,
+            s @ "ldap" => if is_starttls(&settings) { "ldaps" } else { s },
             #[cfg(feature = "tls")]
             s @ "ldaps" => { port = 636; s },
             s => return Err(io::Error::new(io::ErrorKind::Other, format!("unimplemented LDAP URL scheme: {}", s))),
@@ -477,9 +482,9 @@ impl LdapConnAsync {
         };
         Ok(LdapConnAsync {
             in_progress: match scheme {
-                "ldap" => Rc::new(RefCell::new(LdapWrapper::connect(&addr.expect("addr"), handle, settings.timeout))),
+                "ldap" => Rc::new(RefCell::new(LdapWrapper::connect(&addr.expect("addr"), handle, settings))),
                 #[cfg(feature = "tls")]
-                "ldaps" => Rc::new(RefCell::new(LdapWrapper::connect_ssl(&host_port, handle, settings.timeout, settings.connector))),
+                "ldaps" => Rc::new(RefCell::new(LdapWrapper::connect_ssl(&host_port, handle, settings))),
                 _ => unimplemented!(),
             },
             wrapper: Rc::new(RefCell::new(None)),
@@ -504,105 +509,5 @@ impl Future for LdapConnAsync {
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(e) => Err(e),
         }
-    }
-}
-
-/// Helper for creating a customized LDAP connection.
-///
-/// This struct must be instantiated by explicitly specifying the
-/// marker type, which is one of [`LdapConn`](struct.LdapConn.html)
-/// or [`LdapConnAsync`](struct.LdapConnAsync.html).
-///
-/// ### Example
-///
-/// ```rust,no_run
-/// # use std::io;
-/// # use ldap3::LdapConn;
-/// use std::time::Duration;
-/// use ldap3::LdapConnBuilder;
-///
-/// # fn _x() -> io::Result<()> {
-/// let ldap = LdapConnBuilder::<LdapConn>::new()
-///     .with_conn_timeout(Duration::from_secs(10))
-///     .connect("ldap://localhost:2389")?;
-/// # Ok(())
-/// # }
-/// ```
-pub struct LdapConnBuilder<T> {
-    settings: LdapConnSettings,
-    _marker: PhantomData<T>,
-}
-
-impl<T> LdapConnBuilder<T> {
-    /// Set the network timeout for this connection. This parameter
-    /// will be ignored for Unix domain socket connections.
-    pub fn with_conn_timeout(mut self, timeout: Duration) -> Self {
-        self.settings = self.settings.set_timeout(Some(timeout));
-        self
-    }
-
-    #[cfg(feature = "tls")]
-    #[doc(hidden)]
-    pub fn with_tls_connector(mut self, connector: TlsConnector) -> Self {
-        self.settings = self.settings.set_connector(Some(connector));
-        self
-    }
-}
-
-impl LdapConnBuilder<LdapConn> {
-    /// Create a helper instance which will eventually
-    /// produce a synchronous LDAP connection.
-    pub fn new() -> LdapConnBuilder<LdapConn> {
-        LdapConnBuilder {
-            settings: LdapConnSettings::new(),
-            _marker: PhantomData,
-        }
-    }
-
-    /// Create a synchronous LDAP connection from this helper.
-    pub fn connect(self, url: &str) -> io::Result<LdapConn> {
-        LdapConn::with_settings(self.settings, url)
-    }
-}
-
-impl LdapConnBuilder<LdapConnAsync> {
-    /// Create a helper instance which will eventually
-    /// produce an asynchronous LDAP connection.
-    pub fn new() -> LdapConnBuilder<LdapConnAsync> {
-        LdapConnBuilder {
-            settings: LdapConnSettings::new(),
-            _marker: PhantomData,
-        }
-    }
-
-    /// Create an asynchronous LDAP connection from this helper.
-    pub fn connect(self, url: &str, handle: &Handle) -> io::Result<LdapConnAsync> {
-        LdapConnAsync::with_settings(self.settings, url, handle)
-    }
-}
-
-#[derive(Default)]
-struct LdapConnSettings {
-    timeout: Option<Duration>,
-    #[cfg(feature = "tls")]
-    connector: Option<TlsConnector>,
-}
-
-impl LdapConnSettings {
-    fn new() -> LdapConnSettings {
-        LdapConnSettings {
-            ..Default::default()
-        }
-    }
-
-    fn set_timeout(mut self, timeout: Option<Duration>) -> Self {
-        self.timeout = timeout;
-        self
-    }
-
-    #[cfg(feature = "tls")]
-    fn set_connector(mut self, connector: Option<TlsConnector>) -> Self {
-        self.connector = connector;
-        self
     }
 }

@@ -207,9 +207,9 @@ mod tls_client;
 mod unbind;
 mod util;
 
-pub use conn::{EntryStream, LdapConn, LdapConnAsync, LdapConnBuilder};
+pub use conn::{EntryStream, LdapConn, LdapConnAsync};
 pub use filter::parse as parse_filter;
-pub use ldap::Ldap;
+pub use ldap::{Ldap, LdapConnSettings};
 pub use modify::Mod;
 pub use result::LdapResult;
 pub use search::{DerefAliases, ResultEntry, Scope, SearchEntry, SearchOptions, SearchStream};

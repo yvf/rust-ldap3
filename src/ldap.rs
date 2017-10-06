@@ -111,46 +111,11 @@ fn connect_with_timeout(timeout: Option<Duration>, fut: Box<Future<Item=Ldap, Er
     }
 }
 
-#[cfg(feature = "tls")]
-pub fn connect_with_tls_connector(addr: &str, handle: &Handle, timeout: Option<Duration>, connector: Option<TlsConnector>) ->
-        Box<Future<Item=Ldap, Error=io::Error>> {
-    if addr.parse::<SocketAddr>().ok().is_some() {
-        return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "SSL connection must be by hostname")));
-    }
-    let sockaddr = addr.to_socket_addrs().unwrap_or_else(|_| vec![].into_iter()).next();
-    if sockaddr.is_none() {
-        return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "no addresses found")));
-    }
-    let proto = LdapProto::new(handle.clone());
-    let bundle = proto.bundle();
-    let connector = match connector {
-        Some(connector) => connector,
-        None => TlsConnector::builder().expect("tls_builder").build().expect("connector"),
-    };
-    let wrapper = TlsClient::new(proto,
-        connector,
-        false,
-        addr.split(':').next().expect("hostname"));
-    let ret = TcpClient::new(wrapper)
-        .connect(&sockaddr.unwrap(), handle)
-        .map(|client_proxy| {
-            Ldap {
-                inner: ClientMap::Tls(client_proxy),
-                bundle: bundle,
-                next_search_options: Rc::new(RefCell::new(None)),
-                next_req_controls: Rc::new(RefCell::new(None)),
-                next_timeout: Rc::new(RefCell::new(None)),
-            }
-        });
-    connect_with_timeout(timeout, Box::new(ret), handle)
-}
-
 impl Ldap {
     /// Connect to an LDAP server without using TLS, using an IP address/port number
-    /// in `addr`, and an event loop handle in `handle`. If `timeout` is not `None`,
-    /// it specifies how long the connection attempt will take before returning an
-    /// error.
-    pub fn connect(addr: &SocketAddr, handle: &Handle, timeout: Option<Duration>) ->
+    /// in `addr`, and an event loop handle in `handle`. The `settings` struct can specify
+    /// additional parameters, such as connection timeout.
+    pub fn connect(addr: &SocketAddr, handle: &Handle, settings: LdapConnSettings) ->
             Box<Future<Item=Ldap, Error=io::Error>> {
         let proto = LdapProto::new(handle.clone());
         let bundle = proto.bundle();
@@ -165,26 +130,56 @@ impl Ldap {
                     next_timeout: Rc::new(RefCell::new(None)),
                 }
             });
-        connect_with_timeout(timeout, Box::new(ret), handle)
+        connect_with_timeout(settings.conn_timeout, Box::new(ret), handle)
     }
 
     /// Connect to an LDAP server with an attempt to negotiate TLS immediately after
     /// establishing the TCP connection, using the host name and port number in `addr`,
-    /// and an event loop handle in `handle`. If `timeout` is not `None`, it specifies
-    /// how long the connection attempt will take before returning an error.
+    /// and an event loop handle in `handle`. The `settings` struct can specify
+    /// additional parameters, such as connection timeout.
     ///
     /// The connection _must_ be by host name for TLS hostname check to work.
     #[cfg(feature = "tls")]
-    pub fn connect_ssl(addr: &str, handle: &Handle, timeout: Option<Duration>) ->
+    pub fn connect_ssl(addr: &str, handle: &Handle, settings: LdapConnSettings) ->
             Box<Future<Item=Ldap, Error=io::Error>> {
-        connect_with_tls_connector(addr, handle, timeout, None)
+        if addr.parse::<SocketAddr>().ok().is_some() {
+            return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "SSL connection must be by hostname")));
+        }
+        let sockaddr = addr.to_socket_addrs().unwrap_or_else(|_| vec![].into_iter()).next();
+        if sockaddr.is_none() {
+            return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "no addresses found")));
+        }
+        let proto = LdapProto::new(handle.clone());
+        let bundle = proto.bundle();
+        let connector = match settings.connector {
+            Some(connector) => connector,
+            None => TlsConnector::builder().expect("tls_builder").build().expect("connector"),
+        };
+        let wrapper = TlsClient::new(proto,
+            connector,
+            settings.starttls,
+            addr.split(':').next().expect("hostname"));
+        let ret = TcpClient::new(wrapper)
+            .connect(&sockaddr.unwrap(), handle)
+            .map(|client_proxy| {
+                Ldap {
+                    inner: ClientMap::Tls(client_proxy),
+                    bundle: bundle,
+                    next_search_options: Rc::new(RefCell::new(None)),
+                    next_req_controls: Rc::new(RefCell::new(None)),
+                    next_timeout: Rc::new(RefCell::new(None)),
+                }
+            });
+        connect_with_timeout(settings.conn_timeout, Box::new(ret), handle)
     }
 
     /// Connect to an LDAP server through a Unix domain socket, using the path
-    /// in `path`, and an event loop handle in `handle`.
+    /// in `path`, and an event loop handle in `handle`. The `settings` struct
+    /// is presently unused.
     #[cfg(all(unix, not(feature = "minimal")))]
-    pub fn connect_unix<P: AsRef<Path>>(path: P, handle: &Handle) ->
+    pub fn connect_unix<P: AsRef<Path>>(path: P, handle: &Handle, settings: LdapConnSettings) ->
             Box<Future<Item=Ldap, Error=io::Error>> {
+        let _ = settings;
         let proto = LdapProto::new(handle.clone());
         let bundle = proto.bundle();
         let client = UnixClient::new(proto)
@@ -287,4 +282,66 @@ impl Service for ClientMap {
             ClientMap::Unix(ref u) => Box::new(u.call(req)),
         }
     }
+}
+
+/// Additional settings for an LDAP connection.
+///
+/// The structure is opaque for better extensibility. An instance with
+/// default values is constructed by [`new()`](#method.new), and all
+/// available settings can be replaced through a builder-like interface,
+/// by calling the appropriate functions.
+#[derive(Clone, Default)]
+pub struct LdapConnSettings {
+    conn_timeout: Option<Duration>,
+    #[cfg(feature = "tls")]
+    connector: Option<TlsConnector>,
+    #[cfg(feature = "tls")]
+    starttls: bool,
+}
+
+impl LdapConnSettings {
+    /// Create an instance of the structure with default settings.
+    pub fn new() -> LdapConnSettings {
+        LdapConnSettings {
+            ..Default::default()
+        }
+    }
+
+    /// Set the connection timeout. If a connetion to the server can't
+    /// be established before the timeout expires, an error will be
+    /// returned to the user. Defaults to `None`, meaning an infinite
+    /// timeout.
+    pub fn set_conn_timeout(mut self, timeout: Duration) -> Self {
+        self.conn_timeout = Some(timeout);
+        self
+    }
+
+    #[cfg(feature = "tls")]
+    /// Set a custom TLS connector, which enables setting various options
+    /// when establishing a secure connection. See the documentation for
+    /// [native_tls](https://docs.rs/native-tls/0.1.4/native_tls/).
+    /// Defaults to `None`, which will use a connector with default
+    /// settings.
+    pub fn set_connector(mut self, connector: TlsConnector) -> Self {
+        self.connector = Some(connector);
+        self
+    }
+
+    #[cfg(feature = "tls")]
+    /// If `true`, use the StartTLS extended operation to establish a
+    /// secure connection. Defaults to `false`.
+    pub fn set_starttls(mut self, starttls: bool) -> Self {
+        self.starttls = starttls;
+        self
+    }
+}
+
+#[cfg(feature = "tls")]
+pub fn is_starttls(settings: &LdapConnSettings) -> bool {
+    settings.starttls
+}
+
+#[cfg(not(feature = "tls"))]
+pub fn is_starttls(_settings: &LdapConnSettings) -> bool {
+    false
 }
