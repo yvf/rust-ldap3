@@ -327,6 +327,7 @@ impl SearchEntry {
 }
 
 /// Additional parameters for the Search operation.
+#[derive(Clone)]
 pub struct SearchOptions {
     deref: DerefAliases,
     typesonly: bool,
