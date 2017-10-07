@@ -1,3 +1,18 @@
+## v0.6.0, unreleased
+
+* [breaking change] `Ldap::{connect,connect_ssl,connect_unix}`
+  signatures have changed to accept an `LdapConnSettings` argument.
+
+* [breaking change] `LdapConnBuilder` has been removed. Connection
+  parameters can now be set via `LdapConnSettings` and passed to
+  connection establishment routines via `with_settings()`, both
+  sync and async.
+
+* StartTLS is now supported.
+
+* Add and Modify operations now accept arbitrary binary attribute
+  values ([#20](https://github.com/inejge/ldap3/issues/20)).
+
 ## v0.5.1, 2017-08-21
 
 * An LDAP connection can be constructed with a pre-built TLS connector

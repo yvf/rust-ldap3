@@ -115,8 +115,8 @@ impl SearchStream {
     }
 
     /// Obtain the channel which will receive the result of the finished
-    /// search. It can be retrieved only once, and is wrapped in an `Option`
-    /// to avoid partially moving out of the parent structure.
+    /// search. It can be retrieved only once; it will return an error
+    /// on second call.
     pub fn get_result_rx(&mut self) -> io::Result<oneshot::Receiver<LdapResult>> {
         self.rx_r.take().ok_or_else(|| io::Error::new(io::ErrorKind::Other, "channel already retrieved"))
     }
