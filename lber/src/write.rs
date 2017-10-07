@@ -116,13 +116,9 @@ fn write_length(w: &mut Write, length: usize) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use std::string;
-
     use std::default::Default;
 
-    use byteorder::{BigEndian, WriteBytesExt};
+    use bytes::BytesMut;
 
     use structures::*;
     use common::TagClass::*;
@@ -134,8 +130,8 @@ mod tests {
             .. Default::default()
         });
 
-        let mut buf = Vec::<u8>::new();
-        super::encode_into(&mut buf, tag.into_structure());
+        let mut buf = BytesMut::new();
+        super::encode_into(&mut buf, tag.into_structure()).unwrap();
 
         assert_eq!(buf, vec![0x2, 0x2, 0x06, 0x50]);
     }
@@ -153,8 +149,8 @@ mod tests {
             .. Default::default()
         });
 
-        let mut buf = Vec::<u8>::new();
-        super::encode_into(&mut buf, tag.into_structure());
+        let mut buf = BytesMut::new();
+        super::encode_into(&mut buf, tag.into_structure()).unwrap();
 
         assert_eq!(buf, vec![48,14,4,12,72,101,108,108,111,32,87,111,114,108,100,33]);
     }
@@ -200,8 +196,8 @@ mod tests {
                     0x80, 0x04, 0x61, 0x73, 0x64, 0x66
         ];
 
-        let mut buf = Vec::<u8>::new();
-        super::encode_into(&mut buf, tag.into_structure());
+        let mut buf = BytesMut::new();
+        super::encode_into(&mut buf, tag.into_structure()).unwrap();
 
         assert_eq!(buf, expected);
     }
