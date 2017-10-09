@@ -47,10 +47,10 @@ impl LdapWrapper {
     }
 
     #[cfg(feature = "tls")]
-    fn connect_ssl(addr: &str, handle: &Handle, settings: LdapConnSettings)
+    fn connect_ssl(addr: &SocketAddr, hostname: &str, handle: &Handle, settings: LdapConnSettings)
         -> Box<Future<Item=LdapWrapper, Error=io::Error>>
     {
-        let lw = Ldap::connect_ssl(addr, handle, settings)
+        let lw = Ldap::connect_ssl(addr, hostname, handle, settings)
             .map(|ldap| {
                 LdapWrapper {
                     inner: ldap,
@@ -450,41 +450,51 @@ impl LdapConnAsync {
         })
     }
 
-    fn new_tcp(url: &str, handle: &Handle, settings: LdapConnSettings) -> io::Result<Self> {
+    fn new_tcp(url: &str, handle: &Handle, mut settings: LdapConnSettings) -> io::Result<Self> {
         let url = Url::parse(url).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         let mut port = 389;
         let scheme = match url.scheme() {
             s @ "ldap" => if is_starttls(&settings) { "ldaps" } else { s },
             #[cfg(feature = "tls")]
-            s @ "ldaps" => { port = 636; s },
+            s @ "ldaps" => {
+                settings = settings.set_starttls(false);
+                port = 636;
+                s
+            },
             s => return Err(io::Error::new(io::ErrorKind::Other, format!("unimplemented LDAP URL scheme: {}", s))),
         };
         if let Some(url_port) = url.port() {
             port = url_port;
         }
-        let host_port = match url.host_str() {
-            Some(h) => format!("{}:{}", h, port),
-            None => format!("localhost:{}", port),
+        let (hostname, host_port) = match url.host_str() {
+            Some(h) if h != "" => (h, format!("{}:{}", h, port)),
+            Some(h) if h == "" => ("localhost", format!("localhost:{}", port)),
+            _ => panic!("unexpected None from url.host_str()"),
         };
-        let addr = match url.host() {
-            Some(Host::Ipv4(v4)) if scheme == "ldap" => Some(SocketAddr::new(IpAddr::V4(v4), port)),
-            Some(Host::Ipv6(v6)) if scheme == "ldap" => Some(SocketAddr::new(IpAddr::V6(v6), port)),
-            Some(Host::Domain(_)) if scheme == "ldap" => {
+        let (addr, addr_is_numeric) = match url.host() {
+            Some(Host::Ipv4(v4)) => (SocketAddr::new(IpAddr::V4(v4), port), true),
+            Some(Host::Ipv6(v6)) => (SocketAddr::new(IpAddr::V6(v6), port), true),
+            Some(Host::Domain(_)) => {
                 match host_port.to_socket_addrs() {
                     Ok(mut addrs) => match addrs.next() {
-                        Some(addr) => Some(addr),
+                        Some(addr) => (addr, false),
                         None => return Err(io::Error::new(io::ErrorKind::Other, format!("empty address list for: {}", host_port))),
                     },
                     Err(e) => return Err(e),
                 }
             }
-            _ => None,
+            _ => panic!("unexpected None from url.host()"),
         };
         Ok(LdapConnAsync {
             in_progress: match scheme {
-                "ldap" => Rc::new(RefCell::new(LdapWrapper::connect(&addr.expect("addr"), handle, settings))),
+                "ldap" => Rc::new(RefCell::new(LdapWrapper::connect(&addr, handle, settings))),
                 #[cfg(feature = "tls")]
-                "ldaps" => Rc::new(RefCell::new(LdapWrapper::connect_ssl(&host_port, handle, settings))),
+                "ldaps" => {
+                    if addr_is_numeric {
+                        return Err(io::Error::new(io::ErrorKind::Other, "TLS connection must be by hostname"));
+                    }
+                    Rc::new(RefCell::new(LdapWrapper::connect_ssl(&addr, hostname, handle, settings)))
+                },
                 _ => unimplemented!(),
             },
             wrapper: Rc::new(RefCell::new(None)),

@@ -120,13 +120,17 @@ and response controls. The driver still lacks automated handling of several comm
 scenarios, such as referral chasing and paged results.
 
 TLS support exists for the case of immediate negotiation (aka __ldaps://__).
-StartTLS will probably be supported in the medium term. On Unix-like systems,
-connecting through a Unix domain socket with the __ldapi://__ scheme is
-supported.
+StartTLS is also supported in the latest master, but see the changelog for
+the list of breaking changes which might need accounting for in your code.
+On Unix-like systems, connecting through a Unix domain socket with the 
+__ldapi://__ scheme is supported.
 
 Caveats:
 
 * Certificate and hostname checking __can't be turned off__ for TLS connections.
+  This may not be strictly true for the latest master, since there's support for
+  passing a custom `TlsConnector` when establishing a connection. The specifics
+  depend on the amount of customization available when creating a `TlsConnector`.
 
 * Due to the structuring of support libraries, certificate errors may manifest
   themselves as a generic "broken pipe" error, and get triggered on first use of

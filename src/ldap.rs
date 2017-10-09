@@ -1,8 +1,6 @@
 use std::cell::RefCell;
 use std::{io, mem};
 use std::net::SocketAddr;
-#[cfg(feature = "tls")]
-use std::net::ToSocketAddrs;
 #[cfg(all(unix, not(feature = "minimal")))]
 use std::path::Path;
 use std::rc::Rc;
@@ -133,22 +131,17 @@ impl Ldap {
         connect_with_timeout(settings.conn_timeout, Box::new(ret), handle)
     }
 
-    /// Connect to an LDAP server with an attempt to negotiate TLS immediately after
-    /// establishing the TCP connection, using the host name and port number in `addr`,
-    /// and an event loop handle in `handle`. The `settings` struct can specify
-    /// additional parameters, such as connection timeout.
+    /// Connect to an LDAP server using an IP address/port number in `addr` and an
+    /// event loop handle in `handle`, with an attempt to negotiate TLS after establishing
+    /// the TCP connection. The `settings` struct can specify additional parameters, such
+    /// as connection timeout and, specifically for this function, whether TLS negotiation
+    /// is going to be immediate (ldaps://) or will follow a handshake (StartTLS).
     ///
-    /// The connection _must_ be by host name for TLS hostname check to work.
+    /// The `hostname` parameter contains the name used to check the validity of the
+    /// certificate offered by the server.
     #[cfg(feature = "tls")]
-    pub fn connect_ssl(addr: &str, handle: &Handle, settings: LdapConnSettings) ->
+    pub fn connect_ssl(addr: &SocketAddr, hostname: &str, handle: &Handle, settings: LdapConnSettings) ->
             Box<Future<Item=Ldap, Error=io::Error>> {
-        if addr.parse::<SocketAddr>().ok().is_some() {
-            return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "SSL connection must be by hostname")));
-        }
-        let sockaddr = addr.to_socket_addrs().unwrap_or_else(|_| vec![].into_iter()).next();
-        if sockaddr.is_none() {
-            return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "no addresses found")));
-        }
         let proto = LdapProto::new(handle.clone());
         let bundle = proto.bundle();
         let connector = match settings.connector {
@@ -158,9 +151,9 @@ impl Ldap {
         let wrapper = TlsClient::new(proto,
             connector,
             settings.starttls,
-            addr.split(':').next().expect("hostname"));
+            hostname);
         let ret = TcpClient::new(wrapper)
-            .connect(&sockaddr.unwrap(), handle)
+            .connect(addr, handle)
             .map(|client_proxy| {
                 Ldap {
                     inner: ClientMap::Tls(client_proxy),

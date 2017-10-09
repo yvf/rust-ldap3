@@ -1,5 +1,9 @@
 ## v0.6.0, unreleased
 
+* [breaking change] `Ldap::connect_ssl()` is additionally changed
+  to accept the hostname for TLS checks instead of finding it out
+  itself. This is done to centralize address resolution.
+
 * [breaking change] `Ldap::{connect,connect_ssl,connect_unix}`
   signatures have changed to accept an `LdapConnSettings` argument.
 
