@@ -6,10 +6,11 @@ use std::convert::AsRef;
 use std::hash::Hash;
 use std::io;
 use std::mem;
-use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
+use std::net::{IpAddr, SocketAddr};
 use std::rc::Rc;
 use std::time::Duration;
 
+use futures::future;
 use futures::{Async, Future, Poll, Stream};
 use futures::sync::oneshot;
 use tokio_core::reactor::{Core, Handle};
@@ -19,7 +20,7 @@ use url::percent_encoding::percent_decode;
 
 use controls_impl::IntoRawControlVec;
 use exop::Exop;
-use ldap::is_starttls;
+use ldap::{is_starttls, resolve_addr};
 use ldap::{Ldap, LdapConnSettings};
 use modify::Mod;
 use result::{CompareResult, ExopResult, LdapResult, SearchResult};
@@ -34,10 +35,11 @@ impl LdapWrapper {
         self.inner.clone()
     }
 
-    fn connect(addr: &SocketAddr, handle: &Handle, settings: LdapConnSettings)
+    fn connect(addr: Box<Future<Item=SocketAddr, Error=io::Error>>, handle: &Handle, settings: LdapConnSettings)
         -> Box<Future<Item=LdapWrapper, Error=io::Error>>
     {
-        let lw = Ldap::connect(addr, handle, settings)
+        let handle = handle.clone();
+        let lw = addr.and_then(move |addr| Ldap::connect(&addr, &handle, settings))
             .map(|ldap| {
                 LdapWrapper {
                     inner: ldap,
@@ -47,10 +49,12 @@ impl LdapWrapper {
     }
 
     #[cfg(feature = "tls")]
-    fn connect_ssl(addr: &SocketAddr, hostname: &str, handle: &Handle, settings: LdapConnSettings)
+    fn connect_ssl(addr: Box<Future<Item=SocketAddr, Error=io::Error>>, hostname: &str, handle: &Handle, settings: LdapConnSettings)
         -> Box<Future<Item=LdapWrapper, Error=io::Error>>
     {
-        let lw = Ldap::connect_ssl(addr, hostname, handle, settings)
+        let handle = handle.clone();
+        let hostname = hostname.to_owned();
+        let lw = addr.and_then(move |addr| Ldap::connect_ssl(&addr, &hostname, &handle, settings))
             .map(|ldap| {
                 LdapWrapper {
                     inner: ldap,
@@ -450,6 +454,9 @@ impl LdapConnAsync {
         })
     }
 
+    // if the "tls" feature is off, settings doesn't have to be mut, and rustc
+    // complains. Duplicating the function because of this would be overkill
+    #[allow(unused_mut)]
     fn new_tcp(url: &str, handle: &Handle, mut settings: LdapConnSettings) -> io::Result<Self> {
         let url = Url::parse(url).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         let mut port = 389;
@@ -466,34 +473,26 @@ impl LdapConnAsync {
         if let Some(url_port) = url.port() {
             port = url_port;
         }
-        let (hostname, host_port) = match url.host_str() {
+        let (_hostname, host_port) = match url.host_str() {
             Some(h) if h != "" => (h, format!("{}:{}", h, port)),
             Some(h) if h == "" => ("localhost", format!("localhost:{}", port)),
             _ => panic!("unexpected None from url.host_str()"),
         };
-        let (addr, addr_is_numeric) = match url.host() {
-            Some(Host::Ipv4(v4)) => (SocketAddr::new(IpAddr::V4(v4), port), true),
-            Some(Host::Ipv6(v6)) => (SocketAddr::new(IpAddr::V6(v6), port), true),
-            Some(Host::Domain(_)) => {
-                match host_port.to_socket_addrs() {
-                    Ok(mut addrs) => match addrs.next() {
-                        Some(addr) => (addr, false),
-                        None => return Err(io::Error::new(io::ErrorKind::Other, format!("empty address list for: {}", host_port))),
-                    },
-                    Err(e) => return Err(e),
-                }
-            }
+        let (addr, _addr_is_numeric): (Box<Future<Item=SocketAddr, Error=io::Error>>, _)= match url.host() {
+            Some(Host::Ipv4(v4)) => (Box::new(future::ok(SocketAddr::new(IpAddr::V4(v4), port))), true),
+            Some(Host::Ipv6(v6)) => (Box::new(future::ok(SocketAddr::new(IpAddr::V6(v6), port))), true),
+            Some(Host::Domain(_)) => (resolve_addr(&host_port, &settings), false),
             _ => panic!("unexpected None from url.host()"),
         };
         Ok(LdapConnAsync {
             in_progress: match scheme {
-                "ldap" => Rc::new(RefCell::new(LdapWrapper::connect(&addr, handle, settings))),
+                "ldap" => Rc::new(RefCell::new(LdapWrapper::connect(addr, handle, settings))),
                 #[cfg(feature = "tls")]
                 "ldaps" => {
-                    if addr_is_numeric {
+                    if _addr_is_numeric {
                         return Err(io::Error::new(io::ErrorKind::Other, "TLS connection must be by hostname"));
                     }
-                    Rc::new(RefCell::new(LdapWrapper::connect_ssl(&addr, hostname, handle, settings)))
+                    Rc::new(RefCell::new(LdapWrapper::connect_ssl(addr, _hostname, handle, settings)))
                 },
                 _ => unimplemented!(),
             },

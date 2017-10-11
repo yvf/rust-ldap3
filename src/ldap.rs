@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::{io, mem};
-use std::net::SocketAddr;
+use std::net::{SocketAddr, ToSocketAddrs};
 #[cfg(all(unix, not(feature = "minimal")))]
 use std::path::Path;
 use std::rc::Rc;
@@ -290,6 +290,7 @@ pub struct LdapConnSettings {
     connector: Option<TlsConnector>,
     #[cfg(feature = "tls")]
     starttls: bool,
+    resolver: Option<Rc<Fn(&str) -> Box<Future<Item=SocketAddr, Error=io::Error>>>>,
 }
 
 impl LdapConnSettings {
@@ -327,6 +328,51 @@ impl LdapConnSettings {
         self.starttls = starttls;
         self
     }
+
+    /// Set a custom resolver for translating a _hostname_&#8239;:&#8239;_port_
+    /// string into its numeric representation. As the string is passed from
+    /// internal URL-parsing routines, it is guaranteed to be in this format
+    /// and have a non-numeric hostname part.
+    ///
+    /// Since the return value of the closure is a future, the intended use is
+    /// to set up an asynchronous resolver running on the same event loop as
+    /// the LDAP connection.
+    ///
+    /// If the resolver is not explicitly set, the system, usually synchronous,
+    /// resolver will be used.
+    ///
+    /// ### Example
+    ///
+    /// This is just an illustration of the mechanics of constructing the
+    /// appropriate closure, since the "resolver" will translate every hostname
+    /// and port into a fixed result.
+    ///
+    /// ```rust,no_run
+    /// # extern crate futures;
+    /// # extern crate ldap3;
+    /// # fn main() {
+    /// # use std::io;
+    /// # use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    /// # use std::rc::Rc;
+    /// # use futures::future;
+    /// use ldap3::LdapConnSettings;
+    ///
+    /// # fn _x() -> io::Result<()> {
+    /// let settings = LdapConnSettings::new()
+    ///     .set_resolver(Rc::new(|_s| Box::new(
+    ///         future::ok(SocketAddr::new(
+    ///             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+    ///             2389
+    ///         ))
+    ///     )));
+    /// # Ok(())
+    /// # }
+    /// # }
+    /// ```
+    pub fn set_resolver(mut self, resolver: Rc<Fn(&str) -> Box<Future<Item=SocketAddr, Error=io::Error>>>) -> Self {
+        self.resolver = Some(resolver);
+        self
+    }
 }
 
 #[cfg(feature = "tls")]
@@ -337,4 +383,18 @@ pub fn is_starttls(settings: &LdapConnSettings) -> bool {
 #[cfg(not(feature = "tls"))]
 pub fn is_starttls(_settings: &LdapConnSettings) -> bool {
     false
+}
+
+pub fn resolve_addr(addr: &str, settings: &LdapConnSettings) -> Box<Future<Item=SocketAddr, Error=io::Error>> {
+    if let Some(ref resolver) = settings.resolver {
+        resolver(addr)
+    } else {
+        Box::new(match addr.to_socket_addrs() {
+            Ok(mut addrs) => match addrs.next() {
+                Some(addr) => future::ok(addr),
+                None => future::err(io::Error::new(io::ErrorKind::Other, format!("empty address list for: {}", addr))),
+            },
+            Err(e) => future::err(e),
+        })
+    }
 }

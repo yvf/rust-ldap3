@@ -139,8 +139,11 @@ Caveats:
   See [this issue](https://github.com/inejge/ldap3/issues/14#issuecomment-323356983)
   for an example.
 
-* Hostname resolution is synchronous. The library doesn't initiate any
-  connections by itself, so this should be manageable in most scenarios.
+* Hostname resolution is synchronous by default. The latest master makes the
+  resolver configurable in the connection settings, so it's possible to plug in
+  an async resolver running on the same event loop as the LDAP connection.
+  The library still doesn't initiate any connections by itself, so setting
+  a custom resolver shouldn't be necessary in most scenarios.
 
 * Unbind doesn't close our side of the connection, since the underlying
   TCP stream is inaccessible in the present implementation.

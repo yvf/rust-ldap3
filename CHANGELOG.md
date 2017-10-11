@@ -1,5 +1,9 @@
 ## v0.6.0, unreleased
 
+* It's possible to set a custom hostname resolver with
+  `LdapConnSettings::set_resolver()`. The intent is to enable
+  asynchronous resolution when dealing with async connections.
+
 * [breaking change] `Ldap::connect_ssl()` is additionally changed
   to accept the hostname for TLS checks instead of finding it out
   itself. This is done to centralize address resolution.
