@@ -159,6 +159,12 @@ Caveats:
 There are no firm plans for the next version. ASN.1 structures, internal parsing
 and error handling all need improvement. StartTLS support would be nice to have.
 
+## Compatibility notes
+
+The earliest stable compiler which is routinely tested to build the crate is 1.15.1.
+The hard lower limit is 1.13, which introduced the '?' operator, used extensively
+throughout the source.
+
 ## License
 
 Licensed under either of:

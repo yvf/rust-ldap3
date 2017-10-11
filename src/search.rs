@@ -203,7 +203,7 @@ impl Stream for SearchStream {
                     ldap.abandon(msgid)
                 };
                 handle.spawn(abandon.then(move |_r| {
-                    tx_a.send(()).map_err(|_e| ())
+                    tx_a.unbounded_send(()).map_err(|_e| ())
                 }));
                 continue;
             }

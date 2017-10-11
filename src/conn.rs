@@ -143,7 +143,7 @@ impl EntryStream {
         if let Some(mut strm) = self.strm.take() {
             let channel = strm.get_abandon_channel()?;
             self.strm = Some(strm);
-            Ok(channel.send(()).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send on abandon channel"))?)
+            Ok(channel.unbounded_send(()).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send on abandon channel"))?)
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "cannot abandon an invalid stream"))
         }
