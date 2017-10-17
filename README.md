@@ -129,8 +129,9 @@ Caveats:
 
 * Certificate and hostname checking __can't be turned off__ for TLS connections.
   This may not be strictly true for the latest master, since there's support for
-  passing a custom `TlsConnector` when establishing a connection. The specifics
-  depend on the amount of customization available when creating a `TlsConnector`.
+  relaxing hostname checking and passing a custom `TlsConnector` when establishing
+  a connection. The specifics depend on the amount of customization available when
+  creating a `TlsConnector`, which in turn depends on the platform TLS backend.
 
 * Due to the structuring of support libraries, certificate errors may manifest
   themselves as a generic "broken pipe" error, and get triggered on first use of

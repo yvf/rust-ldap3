@@ -1,5 +1,10 @@
 ## v0.6.0, unreleased
 
+* `LdapConnSettings::set_no_tls_verify()` can be used to
+  request skipping certificate hostname checks. If supported
+  by the platform TLS backend, this may be combined with a
+  custom connector which can skip all TLS checks.
+
 * SASL EXTERNAL binds also work when authenticating with TLS
   client certificates, so `Ldap::sasl_external_bind()` and its
   sync adapter are no longer limited to Unix-like systems.
@@ -8,12 +13,12 @@
   `LdapConnSettings::set_resolver()`. The intent is to enable
   asynchronous resolution when dealing with async connections.
 
+* [breaking change] `Ldap::{connect,connect_ssl,connect_unix}`
+  signatures have changed to accept an `LdapConnSettings` argument.
+
 * [breaking change] `Ldap::connect_ssl()` is additionally changed
   to accept the hostname for TLS checks instead of finding it out
   itself. This is done to centralize address resolution.
-
-* [breaking change] `Ldap::{connect,connect_ssl,connect_unix}`
-  signatures have changed to accept an `LdapConnSettings` argument.
 
 * [breaking change] `LdapConnBuilder` has been removed. Connection
   parameters can now be set via `LdapConnSettings` and passed to
