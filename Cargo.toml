@@ -32,7 +32,7 @@ path = "lber"
 version = "0.1.5"
 
 [dependencies.tokio-tls]
-version = "0.1.2"
+version = "0.1.3"
 optional = true
 
 [dependencies.clippy]

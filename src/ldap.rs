@@ -151,6 +151,7 @@ impl Ldap {
         let wrapper = TlsClient::new(proto,
             connector,
             settings.starttls,
+            settings.no_tls_verify,
             hostname);
         let ret = TcpClient::new(wrapper)
             .connect(addr, handle)
@@ -290,6 +291,7 @@ pub struct LdapConnSettings {
     connector: Option<TlsConnector>,
     #[cfg(feature = "tls")]
     starttls: bool,
+    no_tls_verify: bool,
     resolver: Option<Rc<Fn(&str) -> Box<Future<Item=SocketAddr, Error=io::Error>>>>,
 }
 
@@ -326,6 +328,22 @@ impl LdapConnSettings {
     /// secure connection. Defaults to `false`.
     pub fn set_starttls(mut self, starttls: bool) -> Self {
         self.starttls = starttls;
+        self
+    }
+
+    #[cfg(feature = "tls")]
+    /// If `true`, try to establish a TLS connection without hostname
+    /// verification. Defaults to `false`.
+    ///
+    /// The connection can still fail if the server certificate is
+    /// considered invalid for other reasons (e.g., chain of trust or
+    /// expiration date.) Depending on the platform, using a
+    /// custom connector with backend-specific options _and_ setting
+    /// this option to `true` may enable connections to servers with
+    /// invalid certificates. One tested combination is OpenSSL with
+    /// a connector for which `SSL_VERIFY_NONE` option has been set.
+    pub fn set_no_tls_verify(mut self, no_tls_verify: bool) -> Self {
+        self.no_tls_verify = no_tls_verify;
         self
     }
 

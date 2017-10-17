@@ -19,6 +19,7 @@ pub struct TlsClient {
     inner: LdapProto,
     connector: TlsConnector,
     do_handshake: bool,
+    no_tls_verify: bool,
     hostname: String,
 }
 
@@ -26,11 +27,13 @@ impl TlsClient {
     pub fn new(protocol: LdapProto,
                connector: TlsConnector,
                do_handshake: bool,
+               no_tls_verify: bool,
                hostname: &str) -> TlsClient {
         TlsClient {
             inner: protocol,
             connector: connector,
             do_handshake: do_handshake,
+            no_tls_verify: no_tls_verify,
             hostname: hostname.to_string(),
         }
     }
@@ -61,8 +64,13 @@ impl<I> ClientProto<I> for TlsClient
         let hostname = self.hostname.clone();
         let connector = self.connector.clone();
         let proto = self.inner.clone();
+        let no_tls_verify = self.no_tls_verify;
         if !self.do_handshake {
-            let io = connector.connect_async(&hostname, io);
+            let io = if !no_tls_verify {
+                connector.connect_async(&hostname, io)
+            } else {
+                connector.danger_connect_async_without_providing_domain_for_certificate_verification_and_server_name_indication(io)
+            };
             return Box::new(ClientMultiplexBind {
                 state: ClientMultiplexState::First(io, proto),
             });
@@ -90,7 +98,11 @@ impl<I> ClientProto<I> for TlsClient
             })
             .and_then(move |stream| {
                 let orig_io = stream.upstream.into_inner();
-                let io = connector.connect_async(&hostname, orig_io);
+                let io = if !no_tls_verify {
+                    connector.connect_async(&hostname, orig_io)
+                } else {
+                    connector.danger_connect_async_without_providing_domain_for_certificate_verification_and_server_name_indication(orig_io)
+                };
                 ClientMultiplexBind {
                     state: ClientMultiplexState::First(io, proto),
                 }
