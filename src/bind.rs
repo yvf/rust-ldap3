@@ -43,7 +43,7 @@ impl Ldap {
         Box::new(fut)
     }
 
-    #[cfg(all(unix, not(feature = "minimal")))]
+    #[cfg(not(feature = "minimal"))]
     /// See [`LdapConn::sasl_external_bind()`](struct.LdapConn.html#method.sasl_external_bind).
     pub fn sasl_external_bind(&self) ->
             Box<Future<Item=LdapResult, Error=io::Error>> {

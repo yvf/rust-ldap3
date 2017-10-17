@@ -155,8 +155,9 @@ impl EntryStream {
 /// A connection is opened by calling [`new()`](#method.new). If successful, this returns
 /// a handle which is used for all subsequent operations on that connection. Authenticating
 /// the user can be done with [`simple_bind()`](#method.simple_bind) or [`sasl_external_bind()`]
-/// (#method.sasl_external_bind); the latter is available on Unix-like systems, and can only
-/// work on Unix domain socket connections.
+/// (#method.sasl_external_bind); the latter may be used when the underlying connection
+/// has already established the client's identity, as is the case with Unix domain sockets or
+/// TLS client certificates.
 ///
 /// Some connections need additional parameters, and providing many separate functions to initialize
 /// them, singly or in combination, would result in a confusing and cumbersome interface.
@@ -219,10 +220,11 @@ impl LdapConn {
         Ok(self.core.borrow_mut().run(self.inner.clone().simple_bind(bind_dn, bind_pw))?)
     }
 
-    #[cfg(all(unix, not(feature = "minimal")))]
-    /// Do a SASL EXTERNAL bind on the connection. Presently, it only makes sense
-    /// on Unix domain socket connections. The bind is made with the hardcoded
-    /// empty authzId value.
+    #[cfg(not(feature = "minimal"))]
+    /// Do a SASL EXTERNAL bind on the connection. The identity of the client
+    /// must have already been established by connection-specific methods, as
+    /// is the case for Unix domain sockets or TLS client certificates. The bind
+    /// is made with the hardcoded empty authzId value.
     pub fn sasl_external_bind(&self) -> io::Result<LdapResult> {
         Ok(self.core.borrow_mut().run(self.inner.clone().sasl_external_bind())?)
     }

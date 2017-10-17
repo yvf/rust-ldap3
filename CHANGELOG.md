@@ -1,5 +1,9 @@
 ## v0.6.0, unreleased
 
+* SASL EXTERNAL binds also work when authenticating with TLS
+  client certificates, so `Ldap::sasl_external_bind()` and its
+  sync adapter are no longer limited to Unix-like systems.
+
 * It's possible to set a custom hostname resolver with
   `LdapConnSettings::set_resolver()`. The intent is to enable
   asynchronous resolution when dealing with async connections.
