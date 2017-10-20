@@ -117,12 +117,13 @@ fn do_search() -> Result<(), Box<Error>> {
 
 All LDAP protocol operations are implemented, as well as the support for request
 and response controls. The driver still lacks automated handling of several common
-scenarios, such as referral chasing and paged results.
+scenarios, such as referral chasing and paged results, although the latter is
+availabale in the latest master.
 
 TLS support exists for the case of immediate negotiation (aka __ldaps://__).
 StartTLS is also supported in the latest master, but see the changelog for
 the list of breaking changes which might need accounting for in your code.
-On Unix-like systems, connecting through a Unix domain socket with the 
+On Unix-like systems, connecting through a Unix domain socket with the
 __ldapi://__ scheme is supported.
 
 Caveats:

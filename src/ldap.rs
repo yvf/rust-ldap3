@@ -341,7 +341,7 @@ impl LdapConnSettings {
     /// custom connector with backend-specific options _and_ setting
     /// this option to `true` may enable connections to servers with
     /// invalid certificates. One tested combination is OpenSSL with
-    /// a connector for which `SSL_VERIFY_NONE` option has been set.
+    /// a connector for which `SSL_VERIFY_NONE` has been set.
     pub fn set_no_tls_verify(mut self, no_tls_verify: bool) -> Self {
         self.no_tls_verify = no_tls_verify;
         self

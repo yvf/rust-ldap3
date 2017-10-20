@@ -70,7 +70,7 @@ impl IntoRawControlVec for Vec<RawControl> {
 
 /// Mark a control as critical.
 ///
-/// Most controls provided by this library implements this trait. All controls
+/// Most controls provided by this library implement this trait. All controls
 /// are instantiated as non-critical by default, unless dictated otherwise by
 /// their specification.
 pub trait MakeCritical {

@@ -1,5 +1,8 @@
 ## v0.6.0, unreleased
 
+* Searches can be automatically paged by using
+  `SearchOptions::autopage()`.
+
 * `LdapConnSettings::set_no_tls_verify()` can be used to
   request skipping certificate hostname checks. If supported
   by the platform TLS backend, this may be combined with a
