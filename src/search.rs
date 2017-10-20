@@ -18,7 +18,8 @@ use tokio_core::reactor::Timeout;
 use tokio_proto::multiplex::RequestId;
 use tokio_service::Service;
 
-use controls::Control;
+use controls::types;
+use controls::{Control, PagedResults, RawControl};
 use filter::parse;
 use ldap::{bundle, next_search_options, next_req_controls, next_timeout};
 use ldap::{Ldap, LdapOp, LdapResponse};
@@ -53,6 +54,9 @@ pub enum SearchItem {
     Entry(StructureTag),
     Referral(StructureTag),
     Done(RequestId, LdapResult, Vec<Control>),
+    NextId(RequestId),
+    Timeout(RequestId),
+    Error(io::Error),
 }
 
 #[derive(PartialEq, Eq)]
@@ -84,7 +88,7 @@ pub struct SearchStream {
     initial_timeout: bool,
     ldap: Ldap,
     bundle: Rc<RefCell<ProtoBundle>>,
-    _tx_i: mpsc::UnboundedSender<SearchItem>,
+    tx_i: mpsc::UnboundedSender<SearchItem>,
     rx_i: mpsc::UnboundedReceiver<SearchItem>,
     tx_r: Option<oneshot::Sender<LdapResult>>,
     rx_r: Option<oneshot::Receiver<LdapResult>>,
@@ -93,6 +97,9 @@ pub struct SearchStream {
     entry_timeout: Option<Timeout>,
     abandon_state: AbandonState,
     rx_a: Option<mpsc::UnboundedReceiver<()>>,
+    autopage: Option<i32>,
+    search_op: Option<Tag>,
+    search_controls: Option<Vec<RawControl>>,
 }
 
 impl SearchStream {
@@ -146,7 +153,7 @@ impl Stream for SearchStream {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        loop {
+        'poll_loop: loop {
             if self.initial_timeout {
                 self.update_maps(EndCause::InitialTimeout);
                 return Err(io::Error::new(io::ErrorKind::Other, "timeout"));
@@ -227,13 +234,70 @@ impl Stream for SearchStream {
             }
             let item = try_ready!(self.rx_i.poll().map_err(|_e| io::Error::new(io::ErrorKind::Other, "poll search stream")));
             match item {
-                Some(SearchItem::Done(_id, mut result, controls)) => {
+                Some(SearchItem::Done(_id, mut result, mut controls)) => {
+                    if let Some(pagesize) = self.autopage {
+                        let mut pr_index = None;
+                        for (cno, ctrl) in controls.iter().enumerate() {
+                            if let &Control(Some(types::PagedResults), ref raw) = ctrl {
+                                pr_index = Some(cno);
+                                let pr: PagedResults = raw.parse();
+                                if pr.cookie.is_empty() {
+                                    break;
+                                }
+                                self.update_maps(EndCause::Regular);
+                                if let Some(ref timeout) = self.timeout {
+                                    self.ldap.with_timeout(*timeout);
+                                }
+                                let mut next_controls = if let Some(ref ctrls) = self.search_controls {
+                                    ctrls.clone()
+                                } else {
+                                    panic!("no saved controls for autopage");
+                                };
+                                next_controls.push(PagedResults { size: pagesize, cookie: pr.cookie.clone() }.into());
+                                let next_req = if let Some(ref req) = self.search_op {
+                                    req.clone()
+                                } else {
+                                    panic!("no saved search op for autopage");
+                                };
+                                let cloned_tx = self.tx_i.clone();
+                                let next_search = self.ldap.call(LdapOp::Multi(next_req, self.tx_i.clone(), Some(next_controls))).then(move |res| {
+                                    let resp = match res {
+                                        Ok(res) => match res {
+                                            LdapResponse(Tag::Integer(Integer { inner, .. }), _) => SearchItem::NextId(inner as u64),
+                                            LdapResponse(Tag::Enumerated(Enumerated { inner, .. }), _) => SearchItem::Timeout(inner as u64),
+                                            _ => unimplemented!(),
+                                        },
+                                        Err(e) => SearchItem::Error(e),
+                                    };
+                                    cloned_tx.unbounded_send(resp).map_err(|_e| ())
+                                });
+                                let handle = self.bundle.borrow().handle.clone();
+                                handle.spawn(next_search);
+                                continue 'poll_loop;
+                            }
+                        }
+                        if let Some(pr_index) = pr_index {
+                            controls.remove(pr_index);
+                        }
+                    }
                     result.refs.extend(self.refs.drain(..));
                     self.update_maps(EndCause::Regular);
                     result.ctrls = controls;
                     let tx_r = self.tx_r.take().expect("oneshot tx");
                     tx_r.send(result).map_err(|_e| io::Error::new(io::ErrorKind::Other, "send result"))?;
                     return Ok(Async::Ready(None));
+                },
+                Some(SearchItem::NextId(id)) => {
+                    self.id = id;
+                    continue;
+                },
+                Some(SearchItem::Timeout(id)) => {
+                    self.id = id;
+                    self.update_maps(EndCause::InitialTimeout);
+                    return Err(io::Error::new(io::ErrorKind::Other, "timeout"));
+                },
+                Some(SearchItem::Error(e)) => {
+                    return Err(e);
                 },
                 Some(SearchItem::Entry(tag)) => {
                     self.entry_timeout.take();
@@ -333,6 +397,7 @@ pub struct SearchOptions {
     typesonly: bool,
     timelimit: i32,
     sizelimit: i32,
+    autopage: Option<i32>,
 }
 
 impl SearchOptions {
@@ -345,6 +410,7 @@ impl SearchOptions {
             typesonly: false,
             timelimit: 0,
             sizelimit: 0,
+            autopage: None,
         }
     }
 
@@ -372,6 +438,24 @@ impl SearchOptions {
     /// Set the size limit, in entries, for the whole search operation.
     pub fn sizelimit(mut self, sizelimit: i32) -> Self {
         self.sizelimit = sizelimit;
+        self
+    }
+
+    /// Set the page size for automatic PagedResults.
+    ///
+    /// If `pagesize` is greater than zero, use a PagedResults control with that
+    /// page size for the next search request, and keep issuing requests until
+    /// all results are returned, or an error or a timeout occur.
+    ///
+    /// Supplying another PagedResults control to the initial request is not allowed,
+    /// and will generate an error. Other controls may be specified, and are replicated
+    /// afresh in every subsequent search request. Care should be taken not to depend
+    /// on response controls, because intermediate search results are not returned
+    /// to the caller.
+    ///
+    /// Passing a `pagesize` less than or equal to zero will turn autopaging off.
+    pub fn autopage(mut self, pagesize: i32) -> Self {
+        self.autopage = Some(pagesize);
         self
     }
 }
@@ -458,6 +542,22 @@ impl Ldap {
             self.with_timeout(*timeout);
         }
         let ldap = self.clone();
+        let (saved_op, saved_controls) = if let Some(pagesize) = opts.autopage {
+            let mut controls = if let Some(controls) = next_req_controls(self) {
+                if controls.iter().filter(|&control| &control.ctype == "1.2.840.113556.1.4.319").count() > 0 {
+                    return Box::new(future::err(io::Error::new(io::ErrorKind::Other, "PagedResults control present together with autopage")));
+                }
+                controls
+            } else {
+                vec![]
+            };
+            let saved_controls = controls.clone();
+            controls.push(PagedResults { size: pagesize, cookie: Vec::new() }.into());
+            self.with_controls(controls);
+            (Some(req.clone()), Some(saved_controls))
+        } else {
+            (None, None)
+        };
         let fut = self.call(LdapOp::Multi(req, tx_i.clone(), next_req_controls(self))).and_then(move |res| {
             let (id, initial_timeout) = match res {
                 LdapResponse(Tag::Integer(Integer { inner, .. }), _) => (inner as u64, false),
@@ -469,7 +569,7 @@ impl Ldap {
                 initial_timeout: initial_timeout,
                 ldap: ldap,
                 bundle: bundle,
-                _tx_i: tx_i,
+                tx_i: tx_i,
                 rx_i: rx_i,
                 tx_r: Some(tx_r),
                 rx_r: Some(rx_r),
@@ -478,6 +578,9 @@ impl Ldap {
                 entry_timeout: None,
                 abandon_state: AbandonState::Idle,
                 rx_a: None,
+                autopage: opts.autopage,
+                search_op: saved_op,
+                search_controls: saved_controls,
             })
         });
 
