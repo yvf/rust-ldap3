@@ -201,7 +201,7 @@ impl Decoder for LdapCodec {
                     .. Default::default()
                 });
                 let mut bundle = self.bundle.borrow_mut();
-                let mut helper = match bundle.search_helpers.get_mut(&id) {
+                let helper = match bundle.search_helpers.get_mut(&id) {
                     Some(h) => h,
                     None => return Err(io::Error::new(io::ErrorKind::Other, format!("id mismatch: {}", id))),
                 };
