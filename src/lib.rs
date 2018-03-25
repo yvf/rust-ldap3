@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! [dependencies.ldap3]
-//! version = "0.5"
+//! version = "0.6"
 //! ```
 //!
 //! In the crate root (`src/lib.rs` or `src/main.rs`):
