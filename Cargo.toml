@@ -7,7 +7,7 @@ license = "MIT/Apache-2.0"
 name = "ldap3"
 readme = "README.md"
 repository = "https://github.com/inejge/ldap3"
-version = "0.5.1"
+version = "0.6.0"
 
 [dependencies]
 byteorder = "1.0.0"
@@ -29,7 +29,7 @@ tokio-uds-proto = "0.1"
 
 [dependencies.lber]
 path = "lber"
-version = "0.1.5"
+version = "0.1.6"
 
 [dependencies.tokio-tls]
 version = "0.1.3"

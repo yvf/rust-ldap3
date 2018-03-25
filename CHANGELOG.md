@@ -1,4 +1,4 @@
-## v0.6.0, unreleased
+## v0.6.0, 2018-03-25
 
 * Searches can be automatically paged by using
   `SearchOptions::autopage()`.
