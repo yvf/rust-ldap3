@@ -38,7 +38,7 @@ fn do_abandon() -> Result<LdapResult, io::Error> {
                 rx.map_err(|e| io::Error::new(io::ErrorKind::Other, e))
                     .join(strm.for_each(move |_tag|
                         if count == ENTRIES_BEFORE_ABANDON {
-                            a_chan.send(())
+                            a_chan.unbounded_send(())
                                 .map_err(|_e| io::Error::new(io::ErrorKind::Other, "a_chan send"))
                         } else {
                             count += 1;
