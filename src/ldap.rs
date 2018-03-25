@@ -53,8 +53,8 @@ enum ClientMap {
 /// a future which must be polled inside some futures chain to obtain the
 /// appropriate result. The synchronous interface provides methods with
 /// exactly the same name and parameters, and identical semantics. Differences
-/// in expected use are noted where they exist, such as the [`streaming_search()`]
-/// (#method.streaming_search) method.
+/// in expected use are noted where they exist, such as the
+/// [`streaming_search()`](#method.streaming_search) method.
 pub struct Ldap {
     inner: ClientMap,
     bundle: Rc<RefCell<ProtoBundle>>,

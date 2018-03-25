@@ -484,9 +484,9 @@ impl Ldap {
     /// The returned future resolves to a [`SearchStream`](struct.SearchStream.html),
     /// which should be iterated through to obtain results. Before starting the iteration,
     /// the receiver future, which will yield the overall result of the search after the stream
-    /// is drained, should be retrieved from the stream instance with [`get_result_rx()`]
-    /// (#method.get_result_rx). The stream and the receiver should be polled concurrently
-    /// with `Future::join()`.
+    /// is drained, should be retrieved from the stream instance with
+    /// [`get_result_rx()`](#method.get_result_rx). The stream and the receiver should be polled
+    /// concurrently with `Future::join()`.
     pub fn streaming_search<S: AsRef<str>>(&self, base: &str, scope: Scope, filter: &str, attrs: Vec<S>) ->
         Box<Future<Item=SearchStream, Error=io::Error>>
     {

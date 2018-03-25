@@ -154,10 +154,10 @@ impl EntryStream {
 ///
 /// A connection is opened by calling [`new()`](#method.new). If successful, this returns
 /// a handle which is used for all subsequent operations on that connection. Authenticating
-/// the user can be done with [`simple_bind()`](#method.simple_bind) or [`sasl_external_bind()`]
-/// (#method.sasl_external_bind); the latter may be used when the underlying connection
-/// has already established the client's identity, as is the case with Unix domain sockets or
-/// TLS client certificates.
+/// the user can be done with [`simple_bind()`](#method.simple_bind) or
+/// [`sasl_external_bind()`](#method.sasl_external_bind); the latter may be used when the
+/// underlying connection has already established the client's identity, as is the case with
+/// Unix domain sockets or TLS client certificates.
 ///
 /// Some connections need additional parameters, and providing many separate functions to initialize
 /// them, singly or in combination, would result in a confusing and cumbersome interface.
@@ -241,9 +241,9 @@ impl LdapConn {
     }
 
     /// Pass the provided request control(s) to the next LDAP operation.
-    /// Controls can be constructed by instantiating structs in the [`controls`]
-    /// (controls/index.html) module, and converted to the form needed by this
-    /// method by calling `into()` on the instances. Alternatively, a control
+    /// Controls can be constructed by instantiating structs in the
+    /// [`controls`](controls/index.html) module, and converted to the form needed
+    /// by this method by calling `into()` on the instances. Alternatively, a control
     /// struct may offer a constructor which will produce a `RawControl` instance
     /// itself. See the module-level documentation for the list of directly supported
     /// controls and procedures for defining custom controls.

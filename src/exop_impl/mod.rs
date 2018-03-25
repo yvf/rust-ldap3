@@ -23,9 +23,9 @@ pub struct Exop {
 impl Exop {
     /// Parse the generic exop into a exop-specific struct.
     ///
-    /// The parser will panic if the value is `None`. See [control parsing]
-    /// (../controls/struct.RawControl.html#method.parse), which behaves
-    /// analogously, for discussion and rationale.
+    /// The parser will panic if the value is `None`. See
+    /// [control parsing](../controls/struct.RawControl.html#method.parse),
+    /// which behaves analogously, for discussion and rationale.
     pub fn parse<T: ExopParser>(&self) -> T {
         T::parse(self.val.as_ref().expect("value"))
     }

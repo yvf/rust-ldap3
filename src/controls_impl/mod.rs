@@ -119,8 +119,9 @@ pub struct Control(pub Option<ControlType>, pub RawControl);
 ///
 /// This struct can be used both for request and response controls. For requests, an
 /// independently implemented control can produce an instance of this type and use it
-/// to provide an element of the vector passed to [`with_controls()`]
-/// (../struct.LdapConn.html#method.with_controls) by calling `into()` on the instance.
+/// to provide an element of the vector passed to
+/// [`with_controls()`](../struct.LdapConn.html#method.with_controls) by calling
+/// `into()` on the instance.
 ///
 /// For responses, an instance is packed into a [`Control`](struct.Control.html) and
 /// can be parsed by calling type-qualified [`parse()`](#method.parse) on that instance,

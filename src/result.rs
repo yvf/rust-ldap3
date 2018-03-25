@@ -25,9 +25,9 @@ use lber::structures::Tag;
 /// of outcome. It would be tempting to hide it behind an automatic `Result`-like
 /// interface, but there are scenarios where this would preclude intentional
 /// incorporation of error conditions into query design. Instead, the struct
-/// implements helper methods, [`success()`](#method.success) and [`non_error()`]
-/// (#method.non_error), which may be used for ergonomic error handling when
-/// simple condition checking suffices.
+/// implements helper methods, [`success()`](#method.success) and
+/// [`non_error()`](#method.non_error), which may be used for ergonomic error
+/// handling when simple condition checking suffices.
 #[derive(Clone, Debug)]
 pub struct LdapResult {
     /// Result code.
@@ -206,9 +206,10 @@ impl CompareResult {
 
 /// Wrapper for the result of an Extended operation.
 ///
-/// Similarly to [`SearchResult`](#struct.SearchResult.html), methods [`success()`]
-/// (#method.success) and [`non_error()`](#method.non_error) can be called on an instance,
-/// and will destructure the wrapper into an anonymous tuple of its components.
+/// Similarly to [`SearchResult`](#struct.SearchResult.html), methods
+/// [`success()`](#method.success) and [`non_error()`](#method.non_error) can be
+/// called on an instance, and will destructure the wrapper into an anonymous
+/// tuple of its components.
 #[derive(Clone, Debug)]
 pub struct ExopResult(pub Exop, pub LdapResult);
 
