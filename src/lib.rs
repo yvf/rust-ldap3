@@ -19,7 +19,7 @@
 //!
 //! The library provides both synchronous and asynchronous interfaces. The
 //! [`LdapConn`](struct.LdapConn.html) structure is the starting point for all synchronous operations.
-//! [`LdapConnAsync`](struct.LdapConnAsync) is its asynchronous analogue, and [`Ldap`](struct.Ldap) is
+//! [`LdapConnAsync`](struct.LdapConnAsync.html) is its asynchronous analogue, and [`Ldap`](struct.Ldap.html) is
 //! the low-level asynchronous connection handle used by both.
 //!
 //! In the [struct list](#structs), async-related structs have an asterisk (__*__) after

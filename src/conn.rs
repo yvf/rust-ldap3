@@ -137,7 +137,7 @@ impl EntryStream {
     /// indicating that the operation has been abandoned.
     ///
     /// This method can return an error if there is a problem with
-    /// [retrieving the channel](SearchStream.html#method.get_abandon_channel)
+    /// [retrieving the channel](struct.SearchStream.html#method.get_abandon_channel)
     /// from the stream instance or sending the signal over the channel.
     pub fn abandon(&mut self) -> io::Result<()> {
         if let Some(mut strm) = self.strm.take() {
@@ -173,7 +173,7 @@ impl EntryStream {
 ///
 /// The Search operation has many parameters, most of which are infrequently used. Those
 /// parameters can be specified by constructing a [`SearchOptions`](struct.SearchOptions.html)
-/// structure and passing it to [`with_search_options()`](#method.with_serach_options)
+/// structure and passing it to [`with_search_options()`](#method.with_search_options)
 /// called on the handle. This method can be combined with `with_controls()` and `with_timeout()`,
 /// described above.
 ///
@@ -343,7 +343,7 @@ impl LdapConn {
     }
 
     /// Perform an Extended operation given by `exop`. Extended operations are defined in the
-    /// [`exop`](exop.html) module. See the module-level documentation for the list of extended
+    /// [`exop`](exop/index.html) module. See the module-level documentation for the list of extended
     /// operations supported by this library and procedures for defining custom exops.
     pub fn extended<E>(&self, exop: E) -> io::Result<ExopResult>
         where E: Into<Exop>

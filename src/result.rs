@@ -1,6 +1,6 @@
 //! Operation result structures and helpers.
 //!
-//! Most LDAP operations return a [`LdapResult`](#struct.LdapResult). This module
+//! Most LDAP operations return a [`LdapResult`](struct.LdapResult.html). This module
 //! contains its definition, as well as that of a number of wrapper structs and
 //! helper methods, which adapt LDAP result and error handling to be a closer
 //! match to Rust conventions.
@@ -173,7 +173,7 @@ impl SearchResult {
     }
 }
 
-/// Wraper for the result of a Compare operation.
+/// Wrapper for the result of a Compare operation.
 ///
 /// Compare uniquely has two non-zero return codes to indicate the outcome of a successful
 /// comparison, while other return codes indicate errors, as usual (except 10 for referral).
@@ -206,7 +206,7 @@ impl CompareResult {
 
 /// Wrapper for the result of an Extended operation.
 ///
-/// Similarly to [`SearchResult`](#struct.SearchResult.html), methods
+/// Similarly to [`SearchResult`](struct.SearchResult.html), methods
 /// [`success()`](#method.success) and [`non_error()`](#method.non_error) can be
 /// called on an instance, and will destructure the wrapper into an anonymous
 /// tuple of its components.

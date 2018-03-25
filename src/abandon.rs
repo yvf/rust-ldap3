@@ -10,6 +10,7 @@ use ldap::{bundle, Ldap, LdapOp, next_req_controls};
 use protocol::LdapRequestId;
 
 impl Ldap {
+    #[doc(hidden)]
     /// Abandon the request identified by `msgid`. Since this requires knowing the
     /// `msgid` of an operation, it currently works only for streaming searches,
     /// invoked via methods on structures representing those searches. See
