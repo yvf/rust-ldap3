@@ -48,5 +48,8 @@ minimal = []
 env_logger = "0.4.2"
 maplit = "0.1.4"
 
+[target.'cfg(all(unix, not(target_os = "macos")))'.dev-dependencies]
+openssl = "0.9"
+
 [workspace]
 members = [".", "lber"]
