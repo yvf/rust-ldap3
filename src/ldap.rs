@@ -138,7 +138,9 @@ impl Ldap {
     /// is going to be immediate (ldaps://) or will follow a handshake (StartTLS).
     ///
     /// The `hostname` parameter contains the name used to check the validity of the
-    /// certificate offered by the server.
+    /// certificate offered by the server. This can be the string representation of an
+    /// IP address, in which case the server certificate should have a SubjectAltName
+    /// element containing that address in order to pass hostname checking.
     #[cfg(feature = "tls")]
     pub fn connect_ssl(addr: &SocketAddr, hostname: &str, handle: &Handle, settings: LdapConnSettings) ->
             Box<Future<Item=Ldap, Error=io::Error>> {

@@ -1,3 +1,7 @@
+## v0.6.1, unreleased
+
+* TLS connections can be made to an IP address.
+
 ## v0.6.0, 2018-03-25
 
 * Searches can be automatically paged by using
