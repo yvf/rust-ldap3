@@ -15,16 +15,10 @@ fn main() {
     }
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
 fn custom_connector() -> Result<TlsConnector, Box<Error>> {
     let mut builder = TlsConnector::builder();
     builder.danger_accept_invalid_certs(true);
     Ok(builder.build()?)
-}
-
-#[cfg(any(not(unix), target_os = "macos"))]
-fn custom_connector() -> Result<TlsConnector, Box<Error>> {
-    Ok(TlsConnector::builder()?.build()?)
 }
 
 fn do_tls_conn() -> Result<(), Box<Error>> {
