@@ -5,7 +5,7 @@ use futures::{Future, IntoFuture, Poll, Sink, Stream};
 use native_tls::TlsConnector;
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_proto::multiplex::ClientProto;
-use tokio_tls::{TlsStream, TlsConnectorExt, ConnectAsync};
+use tokio_tls::{self, TlsStream, Connect};
 
 use ldap::LdapOp;
 use exop_impl::construct_exop;
@@ -19,7 +19,6 @@ pub struct TlsClient {
     inner: LdapProto,
     connector: TlsConnector,
     do_handshake: bool,
-    no_tls_verify: bool,
     hostname: String,
 }
 
@@ -27,13 +26,11 @@ impl TlsClient {
     pub fn new(protocol: LdapProto,
                connector: TlsConnector,
                do_handshake: bool,
-               no_tls_verify: bool,
                hostname: &str) -> TlsClient {
         TlsClient {
             inner: protocol,
             connector: connector,
             do_handshake: do_handshake,
-            no_tls_verify: no_tls_verify,
             hostname: hostname.to_string(),
         }
     }
@@ -48,7 +45,7 @@ pub struct ClientMultiplexBind<I>
 enum ClientMultiplexState<I>
     where I: AsyncRead + AsyncWrite + 'static,
 {
-    First(ConnectAsync<I>, LdapProto),
+    First(Connect<I>, LdapProto),
     Next(<<LdapProto as ClientProto<TlsStream<I>>>::BindTransport as IntoFuture>::Future),
 }
 
@@ -64,13 +61,8 @@ impl<I> ClientProto<I> for TlsClient
         let hostname = self.hostname.clone();
         let connector = self.connector.clone();
         let proto = self.inner.clone();
-        let no_tls_verify = self.no_tls_verify;
         if !self.do_handshake {
-            let io = if !no_tls_verify {
-                connector.connect_async(&hostname, io)
-            } else {
-                connector.danger_connect_async_without_providing_domain_for_certificate_verification_and_server_name_indication(io)
-            };
+            let io = tokio_tls::TlsConnector::from(connector).connect(&hostname, io);
             return Box::new(ClientMultiplexBind {
                 state: ClientMultiplexState::First(io, proto),
             });
@@ -98,11 +90,7 @@ impl<I> ClientProto<I> for TlsClient
             })
             .and_then(move |stream| {
                 let orig_io = stream.upstream.into_inner();
-                let io = if !no_tls_verify {
-                    connector.connect_async(&hostname, orig_io)
-                } else {
-                    connector.danger_connect_async_without_providing_domain_for_certificate_verification_and_server_name_indication(orig_io)
-                };
+                let io = tokio_tls::TlsConnector::from(connector).connect(&hostname, orig_io);
                 ClientMultiplexBind {
                     state: ClientMultiplexState::First(io, proto),
                 }

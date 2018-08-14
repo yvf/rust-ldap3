@@ -1,7 +1,5 @@
 extern crate ldap3;
 extern crate native_tls;
-#[cfg(all(unix, not(target_os = "macos")))]
-extern crate openssl;
 extern crate env_logger;
 
 use std::error::Error;
@@ -19,11 +17,8 @@ fn main() {
 
 #[cfg(all(unix, not(target_os = "macos")))]
 fn custom_connector() -> Result<TlsConnector, Box<Error>> {
-    use native_tls::backend::openssl::TlsConnectorBuilderExt;
-    use openssl::ssl::SSL_VERIFY_NONE;
-
-    let mut builder = TlsConnector::builder()?;
-    builder.builder_mut().builder_mut().set_verify(SSL_VERIFY_NONE);
+    let mut builder = TlsConnector::builder();
+    builder.danger_accept_invalid_certs(true);
     Ok(builder.build()?)
 }
 

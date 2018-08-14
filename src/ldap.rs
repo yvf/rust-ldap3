@@ -148,12 +148,19 @@ impl Ldap {
         let bundle = proto.bundle();
         let connector = match settings.connector {
             Some(connector) => connector,
-            None => TlsConnector::builder().expect("tls_builder").build().expect("connector"),
+            None => {
+                let mut builder = TlsConnector::builder();
+
+                if settings.no_tls_verify {
+                    builder.danger_accept_invalid_certs(true);
+                }
+
+                builder.build().expect("connector")
+            },
         };
         let wrapper = TlsClient::new(proto,
             connector,
             settings.starttls,
-            settings.no_tls_verify,
             hostname);
         let ret = TcpClient::new(wrapper)
             .connect(addr, handle)
