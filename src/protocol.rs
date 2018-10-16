@@ -8,7 +8,7 @@ use bytes::BytesMut;
 use futures::sync::mpsc;
 use futures::{self, Async, Poll, StartSend, Stream};
 use tokio_core::reactor::Handle;
-use tokio_io::codec::{Decoder, Encoder, Framed};
+use tokio_codec::{Decoder, Encoder, Framed};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_proto::multiplex::{ClientProto, RequestId};
 
@@ -361,7 +361,7 @@ impl<T: AsyncRead + AsyncWrite + 'static> ClientProto<T> for LdapProto {
             bundle: self.bundle.clone(),
         };
         Ok(ResponseFilter {
-            upstream: io.framed(ldapcodec),
+            upstream: Framed::new(io, ldapcodec),
             bundle: self.bundle.clone(),
         })
     }

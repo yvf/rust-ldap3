@@ -17,6 +17,7 @@ lazy_static = "1.1"
 log = "0.4"
 native-tls = { version = "0.2", optional = true }
 nom = "2.0"
+tokio-codec = "0.1"
 tokio-core = "0.1"
 tokio-io = "0.1.1"
 tokio-proto = "0.1"

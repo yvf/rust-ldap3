@@ -125,6 +125,7 @@ extern crate log;
 extern crate native_tls;
 #[macro_use]
 extern crate nom;
+extern crate tokio_codec;
 extern crate tokio_core;
 extern crate tokio_io;
 extern crate tokio_proto;

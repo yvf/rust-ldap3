@@ -3,6 +3,7 @@ use std::u64;
 
 use futures::{Future, IntoFuture, Poll, Sink, Stream};
 use native_tls::TlsConnector;
+use tokio_codec::Framed;
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_proto::multiplex::ClientProto;
 use tokio_tls::{self, TlsStream, Connect};
@@ -71,7 +72,7 @@ impl<I> ClientProto<I> for TlsClient
             bundle: proto.bundle(),
         };
         let handshake = ResponseFilter {
-            upstream: io.framed(ldapcodec),
+            upstream: Framed::new(io, ldapcodec),
             bundle: proto.bundle(),
         };
         let stls = Tag::Sequence(Sequence {
