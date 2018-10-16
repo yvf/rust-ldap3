@@ -1,4 +1,10 @@
-## v0.6.1, unreleased
+## v0.6.1, 2018-10-16
+
+* A number of dependencies have been updated to avoid
+  deprecation warnings when compiling.
+
+* Skipping all TLS checks is simplified, being abstracted
+  by native-tls.
 
 * TLS connections can be made to an IP address.
 
