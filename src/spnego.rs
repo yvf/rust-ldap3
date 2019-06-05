@@ -10,7 +10,9 @@ pub struct Client {
 impl Client {
     pub fn new(username: &str, password: &str) -> Self {
         let credentials = sspi::Credentials::new(username.to_string(), password.to_string(), None);
-        let sspi_module = sspi::ntlm::Ntlm::new(Some(credentials));
+        let mut sspi_module = sspi::ntlm::Ntlm::new(Some(credentials));
+        sspi_module.set_confidentiality(false);
+        sspi_module.set_integrity(false);
 
         Client {
             sspi_module: sspi_module,
