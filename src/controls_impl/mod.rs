@@ -9,7 +9,7 @@ pub mod types {
     //!
     //! Variants are individually reexported from the private submodule
     //! to inhibit exhaustive matching.
-    pub use self::inner::_ControlType::{PagedResults, PostReadResp, PreReadResp, BindResponse};
+    pub use self::inner::_ControlType::{PagedResults, PostReadResp, PreReadResp};
 
     /// Recognized control types. Variants can't be named in the namespace
     /// of this type; they must be used through module-level reexports.
@@ -20,7 +20,6 @@ pub mod types {
             PagedResults,
             PostReadResp,
             PreReadResp,
-            BindResponse,
             #[doc(hidden)]
             _Nonexhaustive,
         }
@@ -203,26 +202,6 @@ pub fn parse_controls(t: StructureTag) -> Vec<Control> {
             None => None,
         };
         ctrls.push(Control(known_type, RawControl { ctype: ctype, crit: crit, val: val }));
-    }
-    ctrls
-}
-
-use lber::common::TagClass;
-pub const SPNEGO_MECH_OID: &'static str = "1.3.6.1.5.5.2";
-
-pub fn parse_bind_response(t: StructureTag) -> Vec<Control> {
-    let mut ctrls = Vec::new();
-    let tags = t.clone().expect_constructed().expect("result sequence").into_iter();
-    for tag in tags {
-        if tag.class == TagClass::Context && tag.id == 7 {
-            // serverSaslCreds    [7] OCTET STRING OPTIONAL
-            let token = tag.expect_primitive().unwrap().clone();
-            ctrls.push(Control(Some(types::BindResponse), RawControl {
-                ctype: SPNEGO_MECH_OID.to_string(),
-                crit: false,
-                val: Some(token.clone())
-            }));
-        }
     }
     ctrls
 }

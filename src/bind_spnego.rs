@@ -7,6 +7,7 @@ use futures::{Future};
 use tokio_service::Service;
 
 use ldap::{Ldap, LdapOp, next_req_controls};
+use protocol::LdapResultExt;
 use result::LdapResult;
 
 use spnego;
@@ -47,7 +48,8 @@ fn create_bind_request(token: Vec<u8>) -> Tag {
 impl Ldap {
     /// See [`LdapConn::sasl_spnego_bind()`](struct.LdapConn.html#method.sasl_spnego_bind).
     pub fn sasl_spnego_bind(&self, username: &str, password: &str) ->
-    Box<Future<Item=LdapResult, Error=io::Error>> {
+        Box<Future<Item=LdapResult, Error=io::Error>>
+    {
         let mut spnego_client = spnego::Client::new(username, password);
 
         let input = Vec::new();
@@ -58,11 +60,10 @@ impl Ldap {
         let ldap = self.clone();
         let fut = self.call(LdapOp::Single(req, next_req_controls(self)))
             .and_then(move |response| {
-
-                let (mut result, controls) = (LdapResult::from(response.0), response.1);
+                let (ldap_ext, controls) = (LdapResultExt::from(response.0), response.1);
+                let (mut result, sasl_creds) = (ldap_ext.0, (ldap_ext.2).0.unwrap_or_else(|| vec![]));
                 result.ctrls = controls;
-
-                let input = result.get_bind_token().unwrap();
+                let input = sasl_creds;
                 let mut output = Vec::new();
                 let _sspi_status = spnego_client.authenticate(input.as_slice(), &mut output).unwrap();
                 let req = create_bind_request(output.clone());

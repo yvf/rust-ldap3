@@ -22,7 +22,7 @@ use lber::universal::Types;
 use lber::write;
 
 use controls::Control;
-use controls_impl::{parse_controls, parse_bind_response, build_tag};
+use controls_impl::{parse_controls, build_tag};
 use exop::Exop;
 use ldap::LdapOp;
 use result::LdapResult;
@@ -69,7 +69,10 @@ impl SearchHelper {
 }
 
 #[derive(Clone, Debug)]
-pub struct LdapResultExt(pub LdapResult, pub Exop);
+pub(crate) struct ServerSaslCreds(pub Option<Vec<u8>>);
+
+#[derive(Clone, Debug)]
+pub(crate) struct LdapResultExt(pub LdapResult, pub Exop, pub ServerSaslCreds);
 
 impl From<Tag> for LdapResultExt {
     fn from(t: Tag) -> LdapResultExt {
@@ -93,6 +96,7 @@ impl From<Tag> for LdapResultExt {
         let mut refs = Vec::new();
         let mut exop_name = None;
         let mut exop_val = None;
+        let mut sasl_creds = None;
         loop {
             match tags.next() {
                 None => break,
@@ -108,6 +112,9 @@ impl From<Tag> for LdapResultExt {
                             .map(|s| s.expect("uri"))
                             .collect());
                     },
+                    7 => {
+                        sasl_creds = Some(comp.expect_primitive().expect("octet string"));
+                    }
                     10 => {
                         exop_name = Some(String::from_utf8(comp.expect_primitive().expect("octet string")).expect("exop name"));
                     }
@@ -129,7 +136,9 @@ impl From<Tag> for LdapResultExt {
             Exop {
                 name: exop_name,
                 val: exop_val
-            })
+            },
+            ServerSaslCreds(sasl_creds),
+        )
     }
 }
 
@@ -217,11 +226,6 @@ impl Decoder for LdapCodec {
                     helper.seen = true;
                     Ok(Some((id, (id_tag, vec![]))))
                 }
-            },
-            1 => {
-                let controls = parse_bind_response(protoop.clone());
-                self.bundle.borrow_mut().id_map.remove(&msgid);
-                Ok(Some((id, (Tag::StructureTag(protoop), controls))))
             },
             _ => {
                 self.bundle.borrow_mut().id_map.remove(&msgid);
