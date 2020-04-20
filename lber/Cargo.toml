@@ -11,5 +11,5 @@ version = "0.1.6"
 
 [dependencies]
 byteorder = "1.0.0"
-bytes = "0.4.1"
+bytes = "0.5"
 nom = "2.0.1"
