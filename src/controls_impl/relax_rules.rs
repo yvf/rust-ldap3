@@ -8,7 +8,7 @@ pub struct RelaxRules;
 
 pub const RELAX_RULES_OID: &'static str = "1.3.6.1.4.1.4203.666.5.12";
 
-impl MakeCritical for RelaxRules { }
+impl MakeCritical for RelaxRules {}
 
 impl From<RelaxRules> for RawControl {
     fn from(_rr: RelaxRules) -> RawControl {

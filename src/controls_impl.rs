@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
-use lber::structure::{PL, StructureTag};
+use lber::structure::{StructureTag, PL};
 use lber::structures::{ASNTag, Boolean, OctetString, Sequence, Tag};
 use lber::universal::Types;
+
+use lazy_static::lazy_static;
 
 pub mod types {
     //! Control type enum and variant names.
@@ -76,10 +78,11 @@ impl IntoRawControlVec for Vec<RawControl> {
 pub trait MakeCritical {
     /// Mark the control instance as critical. This operation consumes the control,
     /// and is irreversible.
-    fn critical(self) -> CriticalControl<Self> where Self: Sized {
-        CriticalControl {
-            control: self,
-        }
+    fn critical(self) -> CriticalControl<Self>
+    where
+        Self: Sized,
+    {
+        CriticalControl { control: self }
     }
 }
 
@@ -88,11 +91,12 @@ pub trait MakeCritical {
 /// The wrapper ensures that the criticality of the control will be set to
 /// true when the control is encoded.
 pub struct CriticalControl<T> {
-    control: T
+    control: T,
 }
 
 impl<T> From<CriticalControl<T>> for RawControl
-    where T: Into<RawControl>
+where
+    T: Into<RawControl>,
 {
     fn from(cc: CriticalControl<T>) -> RawControl {
         let mut rc = cc.control.into();
@@ -150,29 +154,28 @@ impl RawControl {
     }
 }
 
-pub fn build_tag(rc: RawControl)-> StructureTag {
-    let mut seq = vec![
-        Tag::OctetString(OctetString {
-            inner: Vec::from(rc.ctype.as_bytes()),
-            .. Default::default()
-        })
-    ];
+pub fn build_tag(rc: RawControl) -> StructureTag {
+    let mut seq = vec![Tag::OctetString(OctetString {
+        inner: Vec::from(rc.ctype.as_bytes()),
+        ..Default::default()
+    })];
     if rc.crit {
         seq.push(Tag::Boolean(Boolean {
             inner: true,
-            .. Default::default()
+            ..Default::default()
         }));
     }
     if let Some(val) = rc.val {
         seq.push(Tag::OctetString(OctetString {
             inner: val,
-            .. Default::default()
+            ..Default::default()
         }));
     }
     Tag::Sequence(Sequence {
         inner: seq,
-        .. Default::default()
-    }).into_structure()
+        ..Default::default()
+    })
+    .into_structure()
 }
 
 pub fn parse_controls(t: StructureTag) -> Vec<Control> {
@@ -180,16 +183,27 @@ pub fn parse_controls(t: StructureTag) -> Vec<Control> {
     let mut ctrls = Vec::new();
     for ctrl in tags {
         let mut components = ctrl.expect_constructed().expect("components").into_iter();
-        let ctype = String::from_utf8(components.next().expect("element").expect_primitive().expect("octet string")).expect("control type");
+        let ctype = String::from_utf8(
+            components
+                .next()
+                .expect("element")
+                .expect_primitive()
+                .expect("octet string"),
+        )
+        .expect("control type");
         let next = components.next();
         let (crit, maybe_val) = match next {
             None => (false, None),
             Some(c) => match c {
-                StructureTag { id, ref payload, .. } if id == Types::Boolean as u64 => match *payload {
+                StructureTag {
+                    id, ref payload, ..
+                } if id == Types::Boolean as u64 => match *payload {
                     PL::P(ref v) => (v[0] != 0, components.next()),
                     PL::C(_) => panic!("decoding error"),
                 },
-                StructureTag { id, .. } if id == Types::OctetString as u64 => (false, Some(c.clone())),
+                StructureTag { id, .. } if id == Types::OctetString as u64 => {
+                    (false, Some(c.clone()))
+                }
                 _ => panic!("decoding error"),
             },
         };
@@ -201,7 +215,14 @@ pub fn parse_controls(t: StructureTag) -> Vec<Control> {
             Some(val) => Some(*val),
             None => None,
         };
-        ctrls.push(Control(known_type, RawControl { ctype: ctype, crit: crit, val: val }));
+        ctrls.push(Control(
+            known_type,
+            RawControl {
+                ctype: ctype,
+                crit: crit,
+                val: val,
+            },
+        ));
     }
     ctrls
 }

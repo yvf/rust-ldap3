@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use bytes::BytesMut;
 
-use lber::parse::parse_tag;
-use lber::{IResult, write};
-use lber::structures::{ASNTag, OctetString, Sequence, Tag};
-use search::{ResultEntry, SearchEntry};
 use super::{ControlParser, MakeCritical, RawControl};
+use crate::search::{ResultEntry, SearchEntry};
+use lber::parse::parse_tag;
+use lber::structures::{ASNTag, OctetString, Sequence, Tag};
+use lber::{write, IResult};
 
 pub const PRE_READ_OID: &'static str = "1.3.6.1.1.13.1";
 pub const POST_READ_OID: &'static str = "1.3.6.1.1.13.2";
@@ -41,16 +41,17 @@ pub struct PreRead<S>(ReadEntry<S>);
 impl<S: AsRef<str>> PreRead<S> {
     /// Create a new control instance with the specified list of attribute names/OIDs.
     // RawControl is returned in order to avoid an into() at the call site
-    #[cfg_attr(feature="cargo-clippy", allow(new_ret_no_self))]
+    #[cfg_attr(feature = "cargo-clippy", allow(new_ret_no_self))]
     pub fn new(attrs: Vec<S>) -> RawControl {
         PreRead(ReadEntry {
             attrs: attrs,
             oid: PRE_READ_OID,
-        }).into()
+        })
+        .into()
     }
 }
 
-impl<S> MakeCritical for PreRead<S> { }
+impl<S> MakeCritical for PreRead<S> {}
 
 impl<S: AsRef<str>> From<PreRead<S>> for RawControl {
     fn from(pr: PreRead<S>) -> RawControl {
@@ -61,17 +62,18 @@ impl<S: AsRef<str>> From<PreRead<S>> for RawControl {
 /// Post-Read request control ([RFC 4527](https://tools.ietf.org/html/rfc4527)).
 pub struct PostRead<S>(ReadEntry<S>);
 
-impl<S> MakeCritical for PostRead<S> { }
+impl<S> MakeCritical for PostRead<S> {}
 
 impl<S: AsRef<str>> PostRead<S> {
     /// Create a new control instance with the specified list of attribute names/OIDs.
     // RawControl is returned in order to avoid an into() at the call site
-    #[cfg_attr(feature="cargo-clippy", allow(new_ret_no_self))]
+    #[cfg_attr(feature = "cargo-clippy", allow(new_ret_no_self))]
     pub fn new(attrs: Vec<S>) -> RawControl {
         PostRead(ReadEntry {
             attrs: attrs,
             oid: POST_READ_OID,
-        }).into()
+        })
+        .into()
     }
 }
 
@@ -95,7 +97,8 @@ fn from_read_entry<S: AsRef<str>>(re: ReadEntry<S>) -> RawControl {
     let cval = Tag::Sequence(Sequence {
         inner: attr_vec,
         ..Default::default()
-    }).into_structure();
+    })
+    .into_structure();
     let mut buf = BytesMut::with_capacity(enc_size_est);
     write::encode_into(&mut buf, cval).expect("encoded");
     RawControl {
@@ -118,4 +121,3 @@ impl ControlParser for ReadEntryResp {
         }
     }
 }
-

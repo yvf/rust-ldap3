@@ -1,5 +1,5 @@
 [package]
-authors = ["Ivan Nejgebauer <inejge@gmail.com>", "Gregor Reitzenstein <dean4devil@paranoidlabs.org>"]
+authors = ["Ivan Nejgebauer <inejge@gmail.com>"]
 description = "Pure-Rust LDAPv3 Client"
 documentation = "https://docs.rs/ldap3"
 keywords = ["ldap", "client", "tokio", "async"]
@@ -7,43 +7,25 @@ license = "MIT/Apache-2.0"
 name = "ldap3"
 readme = "README.md"
 repository = "https://github.com/inejge/ldap3"
-version = "0.6.1"
+version = "0.7.0-alpha.1"
+edition = "2018"
 
 [dependencies]
-byteorder = "1.0.0"
-bytes = "0.4.1"
-futures = "0.1.15"
-lazy_static = "1.1"
-log = "0.4"
-native-tls = { version = "0.2", optional = true }
-nom = "2.0"
-tokio-codec = "0.1"
-tokio-core = "0.1"
-tokio-io = "0.1.1"
-tokio-proto = "0.1"
-tokio-service = "0.1"
-url = "1.4.0"
-
-[target.'cfg(all(unix, not(feature = "minimal")))'.dependencies]
-tokio-uds = "0.1.4" 
-tokio-uds-proto = "0.1"
+tokio = { version = "0.2", features = ["macros", "io-util", "rt-core", "stream", "sync", "time", "uds"] }
+tokio-util = { version = "0.3", features = ["codec"] }
+bytes = "0.5"
+nom = "2"
+url = "2"
+futures = "0.3.4"
+percent-encoding = "2.1.0"
+futures-util = "0.3.4"
+log = "0.4.8"
+lazy_static = "1.4.0"
+thiserror = "1.0.15"
 
 [dependencies.lber]
 path = "lber"
-version = "0.1.6"
-
-[dependencies.tokio-tls]
-version = "0.2"
-optional = true
-
-[features]
-default = ["tls"]
-tls = ["native-tls", "tokio-tls"]
-minimal = []
-
-[dev-dependencies]
-env_logger = "0.5"
-maplit = "1.0"
+version = "0.1.7"
 
 [workspace]
 members = [".", "lber"]

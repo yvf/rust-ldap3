@@ -4,8 +4,10 @@ use lber::structures::{OctetString, Tag};
 mod whoami;
 pub use self::whoami::{WhoAmI, WhoAmIResp};
 
+/*
 mod starttls;
 pub use self::starttls::StartTLS;
+*/
 
 /// Generic extended operation.
 ///
@@ -39,18 +41,16 @@ pub trait ExopParser {
 
 pub fn construct_exop(exop: Exop) -> Vec<Tag> {
     assert!(exop.name.is_some());
-    let mut seq = vec![
-        Tag::OctetString(OctetString {
-            id: 0,
-            class: TagClass::Context,
-            inner: exop.name.unwrap().into_bytes()
-        })
-    ];
+    let mut seq = vec![Tag::OctetString(OctetString {
+        id: 0,
+        class: TagClass::Context,
+        inner: exop.name.unwrap().into_bytes(),
+    })];
     if let Some(val) = exop.val {
         seq.push(Tag::OctetString(OctetString {
             id: 1,
             class: TagClass::Context,
-            inner: val
+            inner: val,
         }));
     }
     seq

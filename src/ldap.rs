@@ -1,288 +1,133 @@
-use std::cell::RefCell;
-use std::{io, mem};
-use std::net::{SocketAddr, ToSocketAddrs};
-#[cfg(all(unix, not(feature = "minimal")))]
-use std::path::Path;
-use std::rc::Rc;
+use std::collections::{HashMap, HashSet};
+use std::pin::Pin;
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::future::{self, Either};
-use futures::{Future, IntoFuture};
-use futures::sync::mpsc;
-#[cfg(feature = "tls")]
-use native_tls::TlsConnector;
-use tokio_core::net::TcpStream;
-use tokio_core::reactor::{Handle, Timeout};
-use tokio_proto::TcpClient;
-use tokio_proto::multiplex::ClientService;
-use tokio_service::Service;
-#[cfg(all(unix, not(feature = "minimal")))]
-use tokio_uds::UnixStream;
-#[cfg(all(unix, not(feature = "minimal")))]
-use tokio_uds_proto::UnixClient;
+use crate::controls_impl::IntoRawControlVec;
+use crate::exop::Exop;
+use crate::exop_impl::construct_exop;
+use crate::protocol::{ItemSender, LdapCodec, LdapOp, MaybeControls, ResultSender};
+use crate::result::{ExopResult, LdapResult};
+use crate::search::{SearchItem, SearchOptions, SearchStream};
+use crate::RequestId;
 
-use controls::{Control, RawControl};
-use controls_impl::IntoRawControlVec;
-use protocol::{LdapProto, ProtoBundle};
-use search::{SearchItem, SearchOptions};
-#[cfg(feature = "tls")]
-use tls_client::TlsClient;
+use lber::common::TagClass;
+use lber::parse::parse_uint;
+use lber::structures::{Integer, Null, OctetString, Sequence, Tag};
+use lber::universal::Types;
+use lber::IResult;
 
-use lber::structures::{Enumerated, Tag};
+use futures_util::sink::SinkExt;
+use log::warn;
+use percent_encoding::percent_decode;
+use thiserror::Error;
+use tokio::io::{self, AsyncRead, AsyncWrite};
+use tokio::net::UnixStream;
+use tokio::stream::StreamExt;
+use tokio::sync::{mpsc, oneshot};
+use tokio::time;
+use tokio_util::codec::{Decoder, Framed};
 
-#[derive(Clone)]
-enum ClientMap {
-    Plain(ClientService<TcpStream, LdapProto>),
-    #[cfg(feature = "tls")]
-    Tls(ClientService<TcpStream, TlsClient>),
-    #[cfg(all(unix, not(feature = "minimal")))]
-    Unix(ClientService<UnixStream, LdapProto>),
+pub type Result<T> = std::result::Result<T, LdapError>;
+
+#[derive(Debug, Error)]
+pub enum LdapError {
+    #[error("empty Unix domain socket path")]
+    EmptyUnixPath,
+    #[error("the port must be empty in the ldapi scheme")]
+    PortInUnixPath,
+    #[error("I/O error: {source}")]
+    Io {
+        #[from]
+        source: io::Error,
+    },
+    #[error("send error: {source}")]
+    SendError {
+        #[from]
+        source: mpsc::error::SendError<(RequestId, LdapOp, Tag, MaybeControls, ResultSender)>,
+    },
+    #[error("recv error: {source}")]
+    RecvError {
+        #[from]
+        source: oneshot::error::RecvError,
+    },
+    #[error("timeout: {elapsed}")]
+    Timeout {
+        #[from]
+        elapsed: time::Elapsed,
+    },
+    #[error("filter parse error")]
+    FilterParseError,
+    #[error("premature end of search stream")]
+    EndOfStream,
 }
 
-#[derive(Clone)]
-/// LDAP connection. __*__
-///
-/// This is a low-level structure representing an LDAP connection, which
-/// provides methods returning futures of various LDAP operations. Inherent
-/// methods for opening a connection themselves return futures which,
-/// if successfully resolved, yield the structure instance. That instance
-/// can be `clone()`d if the connection should be reused for multiple
-/// operations.
-///
-/// All methods on an instance of this structure, except `with_*`, return
-/// a future which must be polled inside some futures chain to obtain the
-/// appropriate result. The synchronous interface provides methods with
-/// exactly the same name and parameters, and identical semantics. Differences
-/// in expected use are noted where they exist, such as the
-/// [`streaming_search()`](#method.streaming_search) method.
-pub struct Ldap {
-    inner: ClientMap,
-    bundle: Rc<RefCell<ProtoBundle>>,
-    next_search_options: Rc<RefCell<Option<SearchOptions>>>,
-    next_req_controls: Rc<RefCell<Option<Vec<RawControl>>>>,
-    next_timeout: Rc<RefCell<Option<Duration>>>,
-}
-
-pub fn bundle(ldap: &Ldap) -> Rc<RefCell<ProtoBundle>> {
-    ldap.bundle.clone()
-}
-
-pub fn next_search_options(ldap: &Ldap) -> Option<SearchOptions> {
-    ldap.next_search_options.borrow_mut().take()
-}
-
-pub fn next_req_controls(ldap: &Ldap) -> Option<Vec<RawControl>> {
-    ldap.next_search_options.borrow_mut().take();
-    ldap.next_req_controls.borrow_mut().take()
-}
-
-pub fn next_timeout(ldap: &Ldap) -> Option<Duration> {
-    ldap.next_timeout.borrow_mut().take()
-}
-
-pub enum LdapOp {
-    Single(Tag, Option<Vec<RawControl>>),
-    Multi(Tag, mpsc::UnboundedSender<SearchItem>, Option<Vec<RawControl>>),
-    Solo(Tag, Option<Vec<RawControl>>),
-}
-
-pub struct LdapResponse(pub Tag, pub Vec<Control>);
-
-fn connect_with_timeout(timeout: Option<Duration>, fut: Box<Future<Item=Ldap, Error=io::Error>>, handle: &Handle)
-    -> Box<Future<Item=Ldap, Error=io::Error>>
-{
-    if let Some(timeout) = timeout {
-        let timeout = Timeout::new(timeout, handle)
-            .into_future()
-            .flatten()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
-        let result = fut.select2(timeout).then(|res| {
-            match res {
-                Ok(Either::A((resp, _))) => future::ok(resp),
-                Ok(Either::B((_, _))) => future::err(io::Error::new(io::ErrorKind::Other, "timeout")),
-                Err(Either::A((e, _))) | Err(Either::B((e, _))) => future::err(e),
-            }
-        });
-        Box::new(result)
-    } else {
-        fut
-    }
-}
-
-impl Ldap {
-    /// Connect to an LDAP server without using TLS, using an IP address/port number
-    /// in `addr`, and an event loop handle in `handle`. The `settings` struct can specify
-    /// additional parameters, such as connection timeout.
-    pub fn connect(addr: &SocketAddr, handle: &Handle, settings: LdapConnSettings) ->
-            Box<Future<Item=Ldap, Error=io::Error>> {
-        let proto = LdapProto::new(handle.clone());
-        let bundle = proto.bundle();
-        let ret = TcpClient::new(proto)
-            .connect(addr, handle)
-            .map(|client_proxy| {
-                Ldap {
-                    inner: ClientMap::Plain(client_proxy),
-                    bundle: bundle,
-                    next_search_options: Rc::new(RefCell::new(None)),
-                    next_req_controls: Rc::new(RefCell::new(None)),
-                    next_timeout: Rc::new(RefCell::new(None)),
-                }
-            });
-        connect_with_timeout(settings.conn_timeout, Box::new(ret), handle)
-    }
-
-    /// Connect to an LDAP server using an IP address/port number in `addr` and an
-    /// event loop handle in `handle`, with an attempt to negotiate TLS after establishing
-    /// the TCP connection. The `settings` struct can specify additional parameters, such
-    /// as connection timeout and, specifically for this function, whether TLS negotiation
-    /// is going to be immediate (ldaps://) or will follow a handshake (StartTLS).
-    ///
-    /// The `hostname` parameter contains the name used to check the validity of the
-    /// certificate offered by the server. This can be the string representation of an
-    /// IP address, in which case the server certificate should have a SubjectAltName
-    /// element containing that address in order to pass hostname checking.
-    #[cfg(feature = "tls")]
-    pub fn connect_ssl(addr: &SocketAddr, hostname: &str, handle: &Handle, settings: LdapConnSettings) ->
-            Box<Future<Item=Ldap, Error=io::Error>> {
-        let proto = LdapProto::new(handle.clone());
-        let bundle = proto.bundle();
-        let connector = match settings.connector {
-            Some(connector) => connector,
-            None => {
-                let mut builder = TlsConnector::builder();
-
-                if settings.no_tls_verify {
-                    builder.danger_accept_invalid_certs(true);
-                }
-
-                builder.build().expect("connector")
-            },
-        };
-        let wrapper = TlsClient::new(proto,
-            connector,
-            settings.starttls,
-            hostname);
-        let ret = TcpClient::new(wrapper)
-            .connect(addr, handle)
-            .map(|client_proxy| {
-                Ldap {
-                    inner: ClientMap::Tls(client_proxy),
-                    bundle: bundle,
-                    next_search_options: Rc::new(RefCell::new(None)),
-                    next_req_controls: Rc::new(RefCell::new(None)),
-                    next_timeout: Rc::new(RefCell::new(None)),
-                }
-            });
-        connect_with_timeout(settings.conn_timeout, Box::new(ret), handle)
-    }
-
-    /// Connect to an LDAP server through a Unix domain socket, using the path
-    /// in `path`, and an event loop handle in `handle`. The `settings` struct
-    /// is presently unused.
-    #[cfg(all(unix, not(feature = "minimal")))]
-    pub fn connect_unix<P: AsRef<Path>>(path: P, handle: &Handle, settings: LdapConnSettings) ->
-            Box<Future<Item=Ldap, Error=io::Error>> {
-        let _ = settings;
-        let proto = LdapProto::new(handle.clone());
-        let bundle = proto.bundle();
-        let client = UnixClient::new(proto)
-            .connect(path, handle)
-            .map(|client_proxy| {
-                Ldap {
-                    inner: ClientMap::Unix(client_proxy),
-                    bundle: bundle,
-                    next_search_options: Rc::new(RefCell::new(None)),
-                    next_req_controls: Rc::new(RefCell::new(None)),
-                    next_timeout: Rc::new(RefCell::new(None)),
-                }
-            });
-        Box::new(match client {
-            Ok(ldap) => future::ok(ldap),
-            Err(e) => future::err(e),
-        })
-    }
-
-    /// See [`LdapConn::with_search_options()`](struct.LdapConn.html#method.with_search_options).
-    pub fn with_search_options(&self, opts: SearchOptions) -> &Self {
-        mem::replace(&mut *self.next_search_options.borrow_mut(), Some(opts));
-        self
-    }
-
-    /// See [`LdapConn::with_controls()`](struct.LdapConn.html#method.with_controls).
-    pub fn with_controls<V: IntoRawControlVec>(&self, ctrls: V) -> &Self {
-        mem::replace(&mut *self.next_req_controls.borrow_mut(), Some(ctrls.into()));
-        self
-    }
-
-    /// See [`LdapConn::with_timeout()`](struct.LdapConn.html#method.with_timeout).
-    pub fn with_timeout(&self, duration: Duration) -> &Self {
-        mem::replace(&mut *self.next_timeout.borrow_mut(), Some(duration));
-        self
-    }
-}
-
-impl Service for Ldap {
-    type Request = LdapOp;
-    type Response = LdapResponse;
-    type Error = io::Error;
-    type Future = Box<Future<Item=Self::Response, Error=io::Error>>;
-
-    fn call(&self, req: Self::Request) -> Self::Future {
-        if let Some(timeout) = next_timeout(self) {
-            let timeout = Timeout::new(timeout, &self.bundle.borrow().handle)
-                .into_future()
-                .flatten()
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
-            let (is_search, is_solo) = match req {
-                LdapOp::Multi(_, _, _) => (true, false),
-                LdapOp::Solo(_, _,) => (false, true),
-                _ => (false, false),
-            };
-            let assigned_msgid = Rc::new(RefCell::new(0));
-            let closure_assigned_msgid = assigned_msgid.clone();
-            let bundle = self.bundle.clone();
-            let result = self.inner.call((req, Box::new(move |msgid| *closure_assigned_msgid.borrow_mut() = msgid))).select2(timeout).then(move |res| {
-                match res {
-                    Ok(Either::A((resp, _))) => future::ok(LdapResponse(resp.0, resp.1)),
-                    Ok(Either::B((_, _))) => {
-                        if is_search {
-                            let tag = Tag::Enumerated(Enumerated {
-                                inner: *bundle.borrow().id_map.get(&*assigned_msgid.borrow()).expect("id from id_map") as i64,
-                                ..Default::default()
-                            });
-                            future::ok(LdapResponse(tag, Vec::new()))
-                        } else {
-                            // we piggyback on solo_ops because timed-out ops are handled in the same way
-                            // (unless the request was solo to begin with)
-                            if !is_solo {
-                                bundle.borrow_mut().solo_ops.push_back(*assigned_msgid.borrow());
-                            }
-                            future::err(io::Error::new(io::ErrorKind::Other, "timeout"))
-                        }
-                    },
-                    Err(Either::A((e, _))) | Err(Either::B((e, _))) => future::err(e),
-                }
-            });
-            Box::new(result)
-        } else {
-            Box::new(self.inner.call((req, Box::new(|_msgid| ()))).and_then(|(tag, vec)| Ok(LdapResponse(tag, vec))))
+impl From<LdapError> for io::Error {
+    fn from(le: LdapError) -> io::Error {
+        match le {
+            LdapError::Io { source, .. } => source,
+            _ => io::Error::new(io::ErrorKind::Other, format!("{}", le)),
         }
     }
 }
 
-impl Service for ClientMap {
-    type Request = (LdapOp, Box<Fn(i32)>);
-    type Response = (Tag, Vec<Control>);
-    type Error = io::Error;
-    type Future = Box<Future<Item=Self::Response, Error=io::Error>>;
+#[derive(Debug)]
+pub struct Ldap {
+    pub(crate) msgmap: Arc<Mutex<(i32, HashSet<i32>)>>,
+    pub(crate) tx: mpsc::UnboundedSender<(RequestId, LdapOp, Tag, MaybeControls, ResultSender)>,
+    pub(crate) last_id: i32,
+    pub(crate) timeout: Option<Duration>,
+    pub(crate) controls: MaybeControls,
+    pub(crate) search_opts: Option<SearchOptions>,
+}
 
-    fn call(&self, req: Self::Request) -> Self::Future {
-        match *self {
-            ClientMap::Plain(ref p) => Box::new(p.call(req)),
-            #[cfg(feature = "tls")]
-            ClientMap::Tls(ref t) => Box::new(t.call(req)),
-            #[cfg(all(unix, not(feature = "minimal")))]
-            ClientMap::Unix(ref u) => Box::new(u.call(req)),
+impl Clone for Ldap {
+    fn clone(&self) -> Self {
+        Ldap {
+            msgmap: self.msgmap.clone(),
+            tx: self.tx.clone(),
+            last_id: 0,
+            timeout: None,
+            controls: None,
+            search_opts: None,
+        }
+    }
+}
+
+#[derive(Debug)]
+enum ConnType {
+    Unix(UnixStream),
+}
+
+impl AsyncRead for ConnType {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>> {
+        match self.get_mut() {
+            ConnType::Unix(us) => Pin::new(us).poll_read(cx, buf),
+        }
+    }
+}
+
+impl AsyncWrite for ConnType {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context, buf: &[u8]) -> Poll<io::Result<usize>> {
+        match self.get_mut() {
+            ConnType::Unix(us) => Pin::new(us).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
+        match self.get_mut() {
+            ConnType::Unix(us) => Pin::new(us).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
+        match self.get_mut() {
+            ConnType::Unix(us) => Pin::new(us).poll_shutdown(cx),
         }
     }
 }
@@ -293,15 +138,14 @@ impl Service for ClientMap {
 /// default values is constructed by [`new()`](#method.new), and all
 /// available settings can be replaced through a builder-like interface,
 /// by calling the appropriate functions.
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct LdapConnSettings {
     conn_timeout: Option<Duration>,
-    #[cfg(feature = "tls")]
+    /* #[cfg(feature = "tls")]
     connector: Option<TlsConnector>,
     #[cfg(feature = "tls")]
     starttls: bool,
-    no_tls_verify: bool,
-    resolver: Option<Rc<Fn(&str) -> Box<Future<Item=SocketAddr, Error=io::Error>>>>,
+    no_tls_verify: bool, */
 }
 
 impl LdapConnSettings {
@@ -321,7 +165,7 @@ impl LdapConnSettings {
         self
     }
 
-    #[cfg(feature = "tls")]
+    /* #[cfg(feature = "tls")]
     /// Set a custom TLS connector, which enables setting various options
     /// when establishing a secure connection. See the documentation for
     /// [native_tls](https://docs.rs/native-tls/0.1.4/native_tls/).
@@ -354,74 +198,375 @@ impl LdapConnSettings {
     pub fn set_no_tls_verify(mut self, no_tls_verify: bool) -> Self {
         self.no_tls_verify = no_tls_verify;
         self
+    } */
+}
+
+pub struct LdapConnAsync {
+    msgmap: Arc<Mutex<(i32, HashSet<i32>)>>,
+    resultmap: HashMap<i32, ResultSender>,
+    searchmap: HashMap<i32, ItemSender>,
+    rx: mpsc::UnboundedReceiver<(RequestId, LdapOp, Tag, MaybeControls, ResultSender)>,
+    stream: Framed<ConnType, LdapCodec>,
+}
+
+impl LdapConnAsync {
+    pub async fn new(url: &str) -> Result<(Self, Ldap)> {
+        if !url.starts_with("ldapi://") {
+            //LdapConnAsync::new_tcp(url, handle, LdapConnSettings::new())
+            todo!();
+        } else {
+            Ok(LdapConnAsync::new_unix(url, LdapConnSettings::new()).await?)
+        }
     }
 
-    /// Set a custom resolver for translating a _hostname_&#8239;:&#8239;_port_
-    /// string into its numeric representation. As the string is passed from
-    /// internal URL-parsing routines, it is guaranteed to be in this format
-    /// and have a non-numeric hostname part.
-    ///
-    /// Since the return value of the closure is a future, the intended use is
-    /// to set up an asynchronous resolver running on the same event loop as
-    /// the LDAP connection.
-    ///
-    /// If the resolver is not explicitly set, the system, usually synchronous,
-    /// resolver will be used.
-    ///
-    /// ### Example
-    ///
-    /// This is just an illustration of the mechanics of constructing the
-    /// appropriate closure, since the "resolver" will translate every hostname
-    /// and port into a fixed result.
-    ///
-    /// ```rust,no_run
-    /// # extern crate futures;
-    /// # extern crate ldap3;
-    /// # fn main() {
-    /// # use std::io;
-    /// # use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-    /// # use std::rc::Rc;
-    /// # use futures::future;
-    /// use ldap3::LdapConnSettings;
-    ///
-    /// # fn _x() -> io::Result<()> {
-    /// let settings = LdapConnSettings::new()
-    ///     .set_resolver(Rc::new(|_s| Box::new(
-    ///         future::ok(SocketAddr::new(
-    ///             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-    ///             2389
-    ///         ))
-    ///     )));
-    /// # Ok(())
-    /// # }
-    /// # }
-    /// ```
-    pub fn set_resolver(mut self, resolver: Rc<Fn(&str) -> Box<Future<Item=SocketAddr, Error=io::Error>>>) -> Self {
-        self.resolver = Some(resolver);
+    pub async fn drive(mut self) -> Result<()> {
+        loop {
+            tokio::select! {
+                op_tuple = self.rx.recv() => {
+                    if let Some((id, op, tag, controls, tx)) = op_tuple {
+                        if let &LdapOp::Search(ref search_tx) = &op {
+                            self.searchmap.insert(id, search_tx.clone());
+                        }
+                        if let Err(e) = self.stream.send((id, tag, controls)).await {
+                            warn!("socket send error: {}", e);
+                            break;
+                        } else {
+                            match op {
+                                LdapOp::Single => {
+                                    self.resultmap.insert(id, tx);
+                                    continue;
+                                },
+                                LdapOp::Search(_) => (),
+                                LdapOp::Abandon(msgid) => {
+                                    let mut msgmap = self.msgmap.lock().expect("msgmap mutex (abandon)");
+                                    msgmap.1.remove(&id);
+                                    self.resultmap.remove(&msgid);
+                                    self.searchmap.remove(&msgid);
+                                },
+                                LdapOp::Unbind => {
+                                    if let Err(e) = self.stream.close().await {
+                                        warn!("socket shutdown error: {}", e);
+                                    }
+                                    break;
+                                },
+                            }
+                            if let Err(e) = tx.send((Tag::Null(Null { ..Default::default() }), vec![])) {
+                                warn!("ldap null result send error: {:?}", e);
+                            }
+                        }
+                    }
+                },
+                resp = self.stream.next() => {
+                    let (id, (tag, controls)) = match resp {
+                        None => break,
+                        Some(Err(e)) => {
+                            warn!("socket receive error: {}", e);
+                            break;
+                        },
+                        Some(Ok(resp)) => resp,
+                    };
+                    if let Some(tx) = self.searchmap.get(&id) {
+                        let protoop = if let Tag::StructureTag(protoop) = tag {
+                            protoop
+                        } else {
+                            panic!("unmatched tag structure: {:?}", tag);
+                        };
+                        let (item, mut remove) = match protoop.id {
+                            4 | 25 => (SearchItem::Entry(protoop), false),
+                            5 => (SearchItem::Done(Tag::StructureTag(protoop).into(), controls), true),
+                            19 => (SearchItem::Referral(protoop), false),
+                            _ => panic!("unrecognized op id: {}", protoop.id),
+                        };
+                        if let Err(e) = tx.send(item) {
+                            warn!("ldap search item send error, op={}: {:?}", id, e);
+                            remove = true;
+                        }
+                        if remove {
+                            self.searchmap.remove(&id);
+                        }
+                    } else if let Some(tx) = self.resultmap.remove(&id) {
+                        let mut msgmap = self.msgmap.lock().expect("msgmap mutex (stream rx)");
+                        msgmap.1.remove(&id);
+                        if let Err(e) = tx.send((tag, controls)) {
+                            warn!("ldap result send error: {:?}", e);
+                        }
+                    } else {
+                        warn!("unmatched id: {}", id);
+                    }
+                },
+            };
+        }
+        Ok(())
+    }
+
+    async fn new_unix(url: &str, _settings: LdapConnSettings) -> Result<(Self, Ldap)> {
+        let path = url.split('/').nth(2).unwrap();
+        if path.is_empty() {
+            return Err(LdapError::EmptyUnixPath);
+        }
+        if path.contains(':') {
+            return Err(LdapError::PortInUnixPath);
+        }
+        let dec_path = percent_decode(path.as_bytes()).decode_utf8_lossy();
+        let stream = UnixStream::connect(dec_path.as_ref()).await?;
+        let codec = LdapCodec;
+        let (tx, rx) = mpsc::unbounded_channel();
+        let lca = LdapConnAsync {
+            msgmap: Arc::new(Mutex::new((0, HashSet::new()))),
+            resultmap: HashMap::new(),
+            searchmap: HashMap::new(),
+            rx: rx,
+            stream: codec.framed(ConnType::Unix(stream)),
+        };
+        let ldap = Ldap {
+            msgmap: lca.msgmap.clone(),
+            tx: tx,
+            last_id: 0,
+            timeout: None,
+            controls: None,
+            search_opts: None,
+        };
+        Ok((lca, ldap))
+    }
+}
+
+impl Ldap {
+    fn next_msgid(&mut self) -> i32 {
+        let mut msgmap = self.msgmap.lock().expect("msgmap mutex (inc id)");
+        let last_ldap_id = msgmap.0;
+        let mut next_ldap_id = last_ldap_id;
+        loop {
+            if next_ldap_id == std::i32::MAX {
+                next_ldap_id = 1;
+            } else {
+                next_ldap_id += 1;
+            }
+            if !msgmap.1.contains(&next_ldap_id) {
+                break;
+            }
+            assert_ne!(
+                next_ldap_id, last_ldap_id,
+                "LDAP message id wraparound with no free slots"
+            );
+        }
+        msgmap.0 = next_ldap_id;
+        msgmap.1.insert(next_ldap_id);
+        next_ldap_id
+    }
+
+    pub(crate) async fn op_call(&mut self, op: LdapOp, req: Tag) -> Result<(LdapResult, Exop)> {
+        let id = self.next_msgid();
+        self.last_id = id;
+        let (tx, rx) = oneshot::channel();
+        self.tx.send((id, op, req, self.controls.take(), tx))?;
+        let response = if let Some(timeout) = self.timeout.take() {
+            time::timeout(timeout, rx).await?
+        } else {
+            rx.await
+        }?;
+        let (ldap_ext, controls) = (LdapResultExt::from(response.0), response.1);
+        let (mut result, exop) = (ldap_ext.0, ldap_ext.1);
+        result.ctrls = controls;
+        Ok((result, exop))
+    }
+
+    pub fn last_id(&mut self) -> RequestId {
+        self.last_id
+    }
+
+    /// See [`LdapConn::with_search_options()`](struct.LdapConn.html#method.with_search_options).
+    pub fn with_search_options(&mut self, opts: SearchOptions) -> &mut Self {
+        self.search_opts = Some(opts);
         self
     }
+
+    /// See [`LdapConn::with_controls()`](struct.LdapConn.html#method.with_controls).
+    pub fn with_controls<V: IntoRawControlVec>(&mut self, ctrls: V) -> &mut Self {
+        self.controls = Some(ctrls.into());
+        self
+    }
+
+    /// See [`LdapConn::with_timeout()`](struct.LdapConn.html#method.with_timeout).
+    pub fn with_timeout(&mut self, duration: Duration) -> &mut Self {
+        self.timeout = Some(duration);
+        self
+    }
+
+    /// See [`LdapConn::simple_bind()`](struct.LdapConn.html#method.simple_bind).
+    pub async fn simple_bind(&mut self, bind_dn: &str, bind_pw: &str) -> Result<LdapResult> {
+        let req = Tag::Sequence(Sequence {
+            id: 0,
+            class: TagClass::Application,
+            inner: vec![
+                Tag::Integer(Integer {
+                    inner: 3,
+                    ..Default::default()
+                }),
+                Tag::OctetString(OctetString {
+                    inner: Vec::from(bind_dn),
+                    ..Default::default()
+                }),
+                Tag::OctetString(OctetString {
+                    id: 0,
+                    class: TagClass::Context,
+                    inner: Vec::from(bind_pw),
+                }),
+            ],
+        });
+        Ok(self.op_call(LdapOp::Single, req).await?.0)
+    }
+
+    /// See [`LdapConn::sasl_external_bind()`](struct.LdapConn.html#method.sasl_external_bind).
+    pub async fn sasl_external_bind(&mut self) -> Result<LdapResult> {
+        let req = Tag::Sequence(Sequence {
+            id: 0,
+            class: TagClass::Application,
+            inner: vec![
+                Tag::Integer(Integer {
+                    inner: 3,
+                    ..Default::default()
+                }),
+                Tag::OctetString(OctetString {
+                    inner: Vec::new(),
+                    ..Default::default()
+                }),
+                Tag::Sequence(Sequence {
+                    id: 3,
+                    class: TagClass::Context,
+                    inner: vec![
+                        Tag::OctetString(OctetString {
+                            inner: Vec::from("EXTERNAL"),
+                            ..Default::default()
+                        }),
+                        Tag::OctetString(OctetString {
+                            inner: Vec::new(),
+                            ..Default::default()
+                        }),
+                    ],
+                }),
+            ],
+        });
+        Ok(self.op_call(LdapOp::Single, req).await?.0)
+    }
+
+    /// See [`LdapConn::extended()`](struct.LdapConn.html#method.extended).
+    pub async fn extended<E>(&mut self, exop: E) -> Result<ExopResult>
+    where
+        E: Into<Exop>,
+    {
+        let req = Tag::Sequence(Sequence {
+            id: 23,
+            class: TagClass::Application,
+            inner: construct_exop(exop.into()),
+        });
+
+        self.op_call(LdapOp::Single, req)
+            .await
+            .map(|et| ExopResult(et.1, et.0))
+    }
+
+    pub fn into_search_stream(self) -> SearchStream {
+        SearchStream::new(self)
+    }
 }
 
-#[cfg(feature = "tls")]
-pub fn is_starttls(settings: &LdapConnSettings) -> bool {
-    settings.starttls
-}
+#[derive(Clone, Debug)]
+pub struct LdapResultExt(pub LdapResult, pub Exop);
 
-#[cfg(not(feature = "tls"))]
-pub fn is_starttls(_settings: &LdapConnSettings) -> bool {
-    false
-}
-
-pub fn resolve_addr(addr: &str, settings: &LdapConnSettings) -> Box<Future<Item=SocketAddr, Error=io::Error>> {
-    if let Some(ref resolver) = settings.resolver {
-        resolver(addr)
-    } else {
-        Box::new(match addr.to_socket_addrs() {
-            Ok(mut addrs) => match addrs.next() {
-                Some(addr) => future::ok(addr),
-                None => future::err(io::Error::new(io::ErrorKind::Other, format!("empty address list for: {}", addr))),
+impl From<Tag> for LdapResultExt {
+    fn from(t: Tag) -> LdapResultExt {
+        let t = match t {
+            Tag::StructureTag(t) => t,
+            Tag::Null(_) => {
+                return LdapResultExt(
+                    LdapResult {
+                        rc: 0,
+                        matched: String::from(""),
+                        text: String::from(""),
+                        refs: vec![],
+                        ctrls: vec![],
+                    },
+                    Exop {
+                        name: None,
+                        val: None,
+                    },
+                )
+            }
+            _ => unimplemented!(),
+        };
+        let mut tags = t.expect_constructed().expect("result sequence").into_iter();
+        let rc = match parse_uint(
+            tags.next()
+                .expect("element")
+                .match_class(TagClass::Universal)
+                .and_then(|t| t.match_id(Types::Enumerated as u64))
+                .and_then(|t| t.expect_primitive())
+                .expect("result code")
+                .as_slice(),
+        ) {
+            IResult::Done(_, rc) => rc as u32,
+            _ => panic!("failed to parse result code"),
+        };
+        let matched = String::from_utf8(
+            tags.next()
+                .expect("element")
+                .expect_primitive()
+                .expect("octet string"),
+        )
+        .expect("matched dn");
+        let text = String::from_utf8(
+            tags.next()
+                .expect("element")
+                .expect_primitive()
+                .expect("octet string"),
+        )
+        .expect("diagnostic message");
+        let mut refs = Vec::new();
+        let mut exop_name = None;
+        let mut exop_val = None;
+        loop {
+            match tags.next() {
+                None => break,
+                Some(comp) => match comp.id {
+                    3 => {
+                        let raw_refs = match comp.expect_constructed() {
+                            Some(rr) => rr,
+                            None => panic!("failed to parse referrals"),
+                        };
+                        refs.push(
+                            raw_refs
+                                .into_iter()
+                                .map(|t| t.expect_primitive().expect("octet string"))
+                                .map(String::from_utf8)
+                                .map(|s| s.expect("uri"))
+                                .collect(),
+                        );
+                    }
+                    10 => {
+                        exop_name = Some(
+                            String::from_utf8(comp.expect_primitive().expect("octet string"))
+                                .expect("exop name"),
+                        );
+                    }
+                    11 => {
+                        exop_val = Some(comp.expect_primitive().expect("octet string"));
+                    }
+                    _ => (),
+                },
+            }
+        }
+        LdapResultExt(
+            LdapResult {
+                rc: rc,
+                matched: matched,
+                text: text,
+                refs: refs,
+                ctrls: vec![],
             },
-            Err(e) => future::err(e),
-        })
+            Exop {
+                name: exop_name,
+                val: exop_val,
+            },
+        )
     }
 }

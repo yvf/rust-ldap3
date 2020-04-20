@@ -2,24 +2,53 @@
 
 A pure-Rust LDAP library using the Tokio stack.
 
-The library can be used either synchronously or asynchronously. The aim is to
-offer essentially the same call interface for both flavors, with the necessary
-differences in interaction and return values according to the nature of I/O.
+### Attention!
+
+The port to async/await and Tokio 0.2 is in progress. What you can see here
+is a very early and very rough draft of the next version of the library.
+Currently working are:
+
+* Async connection and operations.
+
+* Only Unix domain sockets are operative.
+
+* Simple Bind, SASL EXTERNAL Bind, streaming Search and Extended operations.
+
+* Controls should work, but haven't been tested.
+
+Not working:
+
+* Synchronous connection/client.
+
+* TCP sockets.
+
+* TLS.
+
+* The rest of the operations.
+
+* Automatic paging.
+
+TCP, TLS and the remaining LDAP operations shouldn't be too difficult.
+Synchronous operation will come next. Automatic paging is not a priority.
+
+Old examples have all been deleted to avoid confusion. As the code solidifies,
+most of them will be ported back. There are two new examples, very much WIP.
+
+The documentation is in disarray, and will be tackled once the interfaces
+stabilize. Most of it exists in the previous version of the library, but will
+have to be reworked according to the new layout of the code.
+
+The library heavily depends on Tokio. Async-std support is not planned.
 
 ### Documentation
 
-- [Version 0.6.x (current)](https://docs.rs/ldap3/)
-- [Version 0.5.1](https://docs.rs/ldap3/0.5.1/ldap3/)
-
-### Attention!
-
-Version 0.6 has changed the signatures of low-level connection functions to
-accomodate a single struct parameter which stores various connection options.
-As part of this makeover, the `LdapConnBuilder` struct was removed and
-`LdapConnSettings` added. Consult the current changelog and crate documentation
-for detauls.
+- [Version 0.6.x (old-stable)](https://docs.rs/ldap3/)
 
 ## Usage
+
+The library can be used either synchronously or asynchronously. The aim is to
+offer essentially the same call interface for both flavors, with the necessary
+differences in interaction and return values according to the nature of I/O.
 
 First, add this to your `Cargo.toml`:
 

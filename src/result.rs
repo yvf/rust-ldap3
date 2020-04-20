@@ -11,10 +11,10 @@ use std::fmt;
 use std::io;
 use std::result::Result;
 
-use controls::Control;
-use exop::Exop;
-use protocol::LdapResultExt;
-use search::ResultEntry;
+use crate::controls::Control;
+use crate::exop::Exop;
+use crate::ldap::LdapResultExt;
+use crate::search::ResultEntry;
 
 use lber::structures::Tag;
 
@@ -58,62 +58,63 @@ impl From<Tag> for LdapResult {
     }
 }
 
-impl Error for LdapResult {
-    fn description(&self) -> &'static str {
-	match self.rc {
-	    0 => "success",
-	    1 => "operationsError",
-	    2 => "protocolError",
-	    3 => "timeLimitExceeded",
-	    4 => "sizeLimitExceeded",
-	    5 => "compareFalse",
-	    6 => "compareTrue",
-	    7 => "authMethodNotSupported",
-	    8 => "strongerAuthRequired",
-	    10 => "referral",
-	    11 => "adminLimitExceeded",
-	    12 => "unavailableCriticalExtension",
-	    13 => "confidentialityRequired",
-	    14 => "saslBindInProgress",
-	    16 => "noSuchAttribute",
-	    17 => "undefinedAttributeType",
-	    18 => "inappropriateMatching",
-	    19 => "constraintViolation",
-	    20 => "attributeOrValueExists",
-	    21 => "invalidAttributeSyntax",
-	    32 => "noSuchObject",
-	    33 => "aliasProblem",
-	    34 => "invalidDNSyntax",
-	    36 => "aliasDereferencingProblem",
-	    48 => "inappropriateAuthentication",
-	    49 => "invalidCredentials",
-	    50 => "insufficientAccessRights",
-	    51 => "busy",
-	    52 => "unavailable",
-	    53 => "unwillingToPerform",
-	    54 => "loopDetect",
-	    64 => "namingViolation",
-	    65 => "objectClassViolation",
-	    66 => "notAllowedOnNonLeaf",
-	    67 => "notAllowedOnRDN",
-	    68 => "entryAlreadyExists",
-	    69 => "objectClassModsProhibited",
-	    71 => "affectsMultipleDSAs",
-	    80 => "other",
-	    88 => "abandoned",
-	    122 => "assertionFailed",
-	    _ => "unknown",
-	}
-    }
-}
+impl Error for LdapResult {}
 
 impl fmt::Display for LdapResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-	write!(f,
-	    "rc={} ({}), dn: \"{}\", text: \"{}\"",
-	    self.rc,
-	    self.description(),
-	    self.matched,
+        fn description(this: &LdapResult) -> &'static str {
+            match this.rc {
+                0 => "success",
+                1 => "operationsError",
+                2 => "protocolError",
+                3 => "timeLimitExceeded",
+                4 => "sizeLimitExceeded",
+                5 => "compareFalse",
+                6 => "compareTrue",
+                7 => "authMethodNotSupported",
+                8 => "strongerAuthRequired",
+                10 => "referral",
+                11 => "adminLimitExceeded",
+                12 => "unavailableCriticalExtension",
+                13 => "confidentialityRequired",
+                14 => "saslBindInProgress",
+                16 => "noSuchAttribute",
+                17 => "undefinedAttributeType",
+                18 => "inappropriateMatching",
+                19 => "constraintViolation",
+                20 => "attributeOrValueExists",
+                21 => "invalidAttributeSyntax",
+                32 => "noSuchObject",
+                33 => "aliasProblem",
+                34 => "invalidDNSyntax",
+                36 => "aliasDereferencingProblem",
+                48 => "inappropriateAuthentication",
+                49 => "invalidCredentials",
+                50 => "insufficientAccessRights",
+                51 => "busy",
+                52 => "unavailable",
+                53 => "unwillingToPerform",
+                54 => "loopDetect",
+                64 => "namingViolation",
+                65 => "objectClassViolation",
+                66 => "notAllowedOnNonLeaf",
+                67 => "notAllowedOnRDN",
+                68 => "entryAlreadyExists",
+                69 => "objectClassModsProhibited",
+                71 => "affectsMultipleDSAs",
+                80 => "other",
+                88 => "abandoned",
+                122 => "assertionFailed",
+                _ => "unknown",
+            }
+        }
+
+        write!(
+            f,
+            "rc={} ({}), dn: \"{}\", text: \"{}\"",
+            self.rc,
+            description(self),
+            self.matched,
             self.text
         )
     }
@@ -131,7 +132,7 @@ impl LdapResult {
     }
 
     /// If the result code is 0 or 10 (referral), return the instance
-    /// itself wrapped in `Ok()`, otherwise wrap the instance in an 
+    /// itself wrapped in `Ok()`, otherwise wrap the instance in an
     /// `io::Error`.
     pub fn non_error(self) -> Result<Self, io::Error> {
         if self.rc == 0 || self.rc == 10 {
@@ -189,7 +190,7 @@ impl CompareResult {
         match self.0.rc {
             5 => Ok(false),
             6 => Ok(true),
-            _ => Err(io::Error::new(io::ErrorKind::Other, self.0))
+            _ => Err(io::Error::new(io::ErrorKind::Other, self.0)),
         }
     }
 
