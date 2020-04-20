@@ -7,9 +7,9 @@ license = "MIT"
 name = "lber"
 repository = "https://github.com/inejge/ldap3"
 documentation = "https://docs.rs/ldap3"
-version = "0.1.6"
+version = "0.1.7"
 
 [dependencies]
-byteorder = "1.0.0"
+byteorder = "1"
 bytes = "0.5"
-nom = "2.0.1"
+nom = "2"
