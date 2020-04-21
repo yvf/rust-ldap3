@@ -1,15 +1,15 @@
-use structure::{StructureTag, PL};
-use common::TagStructure;
 use common::TagClass;
+use common::TagStructure;
+use structure::{StructureTag, PL};
 
 use nom;
-use nom::InputLength;
-use nom::IResult;
 use nom::Consumer;
 use nom::ConsumerState;
 use nom::ConsumerState::*;
+use nom::IResult;
 use nom::Input;
 use nom::Input::*;
+use nom::InputLength;
 use nom::Move;
 
 named!(class_bits<(&[u8], usize), TagClass>,
@@ -76,11 +76,10 @@ pub fn parse_uint(i: &[u8]) -> nom::IResult<&[u8], u64> {
 
 /// Parse raw BER data into a serializable structure.
 pub fn parse_tag(i: &[u8]) -> nom::IResult<&[u8], StructureTag> {
-    let (mut i, ((class, structure, id),len)) = try_parse!(i, do_parse!(
-        hdr: parse_type_header >>
-        len: parse_length >>
-        ((hdr, len))
-    ));
+    let (mut i, ((class, structure, id), len)) = try_parse!(
+        i,
+        do_parse!(hdr: parse_type_header >> len: parse_length >> ((hdr, len)))
+    );
 
     let pl: PL = match structure {
         TagStructure::Primitive => {
@@ -105,11 +104,14 @@ pub fn parse_tag(i: &[u8]) -> nom::IResult<&[u8], StructureTag> {
         }
     };
 
-    nom::IResult::Done(i, StructureTag {
-        class: class,
-        id: id,
-        payload: pl,
-    })
+    nom::IResult::Done(
+        i,
+        StructureTag {
+            class: class,
+            id: id,
+            payload: pl,
+        },
+    )
 }
 
 pub struct Parser {
@@ -118,7 +120,9 @@ pub struct Parser {
 
 impl Parser {
     pub fn new() -> Parser {
-        Parser { state: Continue(Move::Consume(0)) }
+        Parser {
+            state: Continue(Move::Consume(0)),
+        }
     }
 }
 
@@ -129,19 +133,14 @@ impl<'a> Consumer<&'a [u8], StructureTag, (), Move> for Parser {
             Empty | Eof(None) => self.state(),
             Element(data) | Eof(Some(data)) => {
                 self.state = match parse_tag(data) {
-                    IResult::Incomplete(n) => {
-                        Continue(Move::Await(n))
-                    },
+                    IResult::Incomplete(n) => Continue(Move::Await(n)),
                     IResult::Error(_) => Error(()),
-                    IResult::Done(i, o) => {
-                        Done(Move::Consume(data.offset(i)), o)
-                    }
+                    IResult::Done(i, o) => Done(Move::Consume(data.offset(i)), o),
                 };
 
                 &self.state
             }
         }
-
     }
 
     fn state(&self) -> &ConsumerState<StructureTag, (), Move> {
@@ -152,8 +151,8 @@ impl<'a> Consumer<&'a [u8], StructureTag, (), Move> for Parser {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nom::IResult;
     use common::{TagClass, TagStructure};
+    use nom::IResult;
     use structure::{StructureTag, PL};
 
     #[test]
@@ -162,7 +161,7 @@ mod test {
         let result_tag = StructureTag {
             class: TagClass::Universal,
             id: 2u64,
-            payload: PL::P( vec![255,127] )
+            payload: PL::P(vec![255, 127]),
         };
         let rest_tag: Vec<u8> = vec![];
 
@@ -173,14 +172,16 @@ mod test {
 
     #[test]
     fn test_constructed() {
-        let bytes: Vec<u8> = vec![48,14,12,12,72,101,108,108,111,32,87,111,114,108,100,33];
+        let bytes: Vec<u8> = vec![
+            48, 14, 12, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33,
+        ];
         let result_tag = StructureTag {
             class: TagClass::Universal,
             id: 16u64,
             payload: PL::C(vec![StructureTag {
                 class: TagClass::Universal,
                 id: 12u64,
-                payload: PL::P(vec![72,101,108,108,111,32,87,111,114,108,100,33]),
+                payload: PL::P(vec![72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]),
             }]),
         };
         let rest_tag: Vec<u8> = vec![];
@@ -193,93 +194,63 @@ mod test {
     #[test]
     fn test_long_length() {
         let bytes: Vec<u8> = vec![
-            0x30, 0x82, 0x01, 0x01,
-            0x80, 0x0C, 0x4A, 0x75,
-            0x73, 0x74, 0x41, 0x4C,
-            0x6F, 0x6E, 0x67, 0x54,
-            0x61, 0x67, 0x81, 0x81,
-            0xF0, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67, 0x4A, 0x75, 0x73,
-            0x74, 0x41, 0x4C, 0x6F,
-            0x6E, 0x67, 0x54, 0x61,
-            0x67,
+            0x30, 0x82, 0x01, 0x01, 0x80, 0x0C, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E,
+            0x67, 0x54, 0x61, 0x67, 0x81, 0x81, 0xF0, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67,
+            0x54, 0x61, 0x67, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A,
+            0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A, 0x75, 0x73, 0x74, 0x41,
+            0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67,
+            0x54, 0x61, 0x67, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A,
+            0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A, 0x75, 0x73, 0x74, 0x41,
+            0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F,
+            0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67,
+            0x54, 0x61, 0x67, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61,
+            0x67, 0x4A, 0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A,
+            0x75, 0x73, 0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61, 0x67, 0x4A, 0x75, 0x73,
+            0x74, 0x41, 0x4C, 0x6F, 0x6E, 0x67, 0x54, 0x61, 0x67,
         ];
 
         let result_tag = StructureTag {
             class: TagClass::Universal,
             id: 16u64,
-            payload: PL::C(vec![StructureTag {
-                class: TagClass::Context,
-                id: 0,
-                payload: PL::P(vec![74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103])
-            },
-            StructureTag {
-                class: TagClass::Context,
-                id: 1,
-                payload: PL::P(vec![74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103])
-            }]),
+            payload: PL::C(vec![
+                StructureTag {
+                    class: TagClass::Context,
+                    id: 0,
+                    payload: PL::P(vec![74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103]),
+                },
+                StructureTag {
+                    class: TagClass::Context,
+                    id: 1,
+                    payload: PL::P(vec![
+                        74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116,
+                        65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110,
+                        103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103,
+                        74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116,
+                        65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110,
+                        103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103,
+                        74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116,
+                        65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110,
+                        103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103,
+                        74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116,
+                        65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110,
+                        103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103,
+                        74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116,
+                        65, 76, 111, 110, 103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110,
+                        103, 84, 97, 103, 74, 117, 115, 116, 65, 76, 111, 110, 103, 84, 97, 103,
+                    ]),
+                },
+            ]),
         };
 
         let rest_tag = Vec::new();
 
         let tag = parse_tag(&bytes[..]);
         assert_eq!(tag, IResult::Done(&rest_tag[..], result_tag));
-
     }
 }

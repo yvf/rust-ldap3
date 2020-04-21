@@ -1,6 +1,6 @@
 use std::default;
-use universal;
 use structure;
+use universal;
 
 use super::ASNTag;
 use common::TagClass;

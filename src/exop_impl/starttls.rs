@@ -8,14 +8,14 @@ pub const STARTTLS_OID: &'static str = "1.3.6.1.4.1.1466.20037";
 /// connection-establishment routines when the StartTLS mechanism of securing the
 /// connection is requested by the user.
 // "StartTLS" is the form used in the RFCs; no need to change it or rename the struct
-#[cfg_attr(feature="cargo-clippy", allow(doc_markdown))]
+#[cfg_attr(feature = "cargo-clippy", allow(doc_markdown))]
 pub struct StartTLS;
 
 impl From<StartTLS> for Exop {
     fn from(_s: StartTLS) -> Exop {
         Exop {
             name: Some(STARTTLS_OID.to_owned()),
-            val: None
+            val: None,
         }
     }
 }

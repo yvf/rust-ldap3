@@ -1,7 +1,7 @@
-use common::TagClass;
 use super::ASNTag;
-use universal;
+use common::TagClass;
 use structure;
+use universal;
 
 use std::default;
 
@@ -26,7 +26,11 @@ pub struct Enumerated {
 fn i_e_into_structure(id: u64, class: TagClass, inner: i64) -> structure::StructureTag {
     let mut count = 0u8;
     let mut rem: i64 = if inner >= 0 { inner } else { inner * -1 };
-    while {count += 1; rem >>= 8; rem > 0 }{}
+    while {
+        count += 1;
+        rem >>= 8;
+        rem > 0
+    } {}
 
     // Ensure that the most significant bit is always 0, because BER uses signed numbers.
     // We shift away all but the most significant bit and check that.

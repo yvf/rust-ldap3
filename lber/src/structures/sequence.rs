@@ -1,6 +1,6 @@
 use std::default;
-use universal;
 use structure;
+use universal;
 
 use super::{ASNTag, Tag};
 use common::TagClass;
@@ -104,7 +104,6 @@ impl<T: ASNTag + Sized> ASNTag for SetOf<T> {
         }
     }
 }
-
 
 impl<T: ASNTag + Sized> default::Default for SetOf<T> {
     fn default() -> Self {

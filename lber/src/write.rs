@@ -1,6 +1,6 @@
 //! BER encoding support.
-use bytes::BytesMut;
 use byteorder::{BigEndian, WriteBytesExt};
+use bytes::BytesMut;
 use common::{TagClass, TagStructure};
 use structure::{StructureTag, PL};
 
@@ -25,7 +25,7 @@ fn encode_inner(buf: &mut Vec<u8>, tag: StructureTag) -> io::Result<()> {
         PL::P(v) => {
             write_length(buf, v.len());
             buf.extend(v);
-        },
+        }
         PL::C(tags) => {
             let mut tmp = Vec::new();
             for tag in tags {
@@ -77,10 +77,8 @@ fn write_type(w: &mut dyn Write, class: TagClass, structure: TagStructure, id: u
 
     let _ = w.write_u8(type_byte);
 
-    if let Some(mut ext_bytes) = extended_tag
-    {
-        for _ in 0..ext_bytes.len()-1
-        {
+    if let Some(mut ext_bytes) = extended_tag {
+        for _ in 0..ext_bytes.len() - 1 {
             let mut byte = ext_bytes.pop().unwrap();
 
             // Set the first bit
@@ -97,17 +95,18 @@ fn write_type(w: &mut dyn Write, class: TagClass, structure: TagStructure, id: u
 // Yes I know you could overflow the length in theory. But, do you have 2^64 bytes of memory?
 fn write_length(w: &mut dyn Write, length: usize) {
     // Short form
-    if length < 128
-    {
+    if length < 128 {
         let _ = w.write_u8(length as u8);
     }
     // Long form
-    else
-    {
+    else {
         let mut count = 0u8;
         let mut len = length;
-        while {count += 1; len >>= 8; len > 0 }{}
-
+        while {
+            count += 1;
+            len >>= 8;
+            len > 0
+        } {}
 
         let _ = w.write_u8(count | 0x80);
         let _ = w.write_uint::<BigEndian>(length as u64, count as usize);
@@ -120,14 +119,14 @@ mod tests {
 
     use bytes::BytesMut;
 
-    use structures::*;
     use common::TagClass::*;
+    use structures::*;
 
     #[test]
     fn encode_simple_tag() {
         let tag = Tag::Integer(Integer {
-            inner: 1616, 
-            .. Default::default()
+            inner: 1616,
+            ..Default::default()
         });
 
         let mut buf = BytesMut::new();
@@ -137,63 +136,59 @@ mod tests {
     }
 
     #[test]
-    fn encode_constructed_tag()
-    {
+    fn encode_constructed_tag() {
         let tag = Tag::Sequence(Sequence {
-            inner: vec![
-                Tag::OctetString(OctetString {
-                    inner: String::from("Hello World!").into_bytes(),
-                    .. Default::default()
-                })
-            ],
-            .. Default::default()
+            inner: vec![Tag::OctetString(OctetString {
+                inner: String::from("Hello World!").into_bytes(),
+                ..Default::default()
+            })],
+            ..Default::default()
         });
 
         let mut buf = BytesMut::new();
         super::encode_into(&mut buf, tag.into_structure()).unwrap();
 
-        assert_eq!(buf, vec![48,14,4,12,72,101,108,108,111,32,87,111,114,108,100,33]);
+        assert_eq!(
+            buf,
+            vec![48, 14, 4, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]
+        );
     }
 
     #[test]
-    fn complex_tag()
-    {
+    fn complex_tag() {
         let tag = Tag::Sequence(Sequence {
             inner: vec![
                 Tag::Integer(Integer {
                     inner: 1,
-                    .. Default::default()
+                    ..Default::default()
                 }),
                 Tag::Sequence(Sequence {
                     id: 0,
                     class: Application,
                     inner: vec![
-                           Tag::Integer(Integer {
-                               inner: 3,
-                                .. Default::default()
-                           }),
-                           Tag::OctetString(OctetString {
-                               inner: String::from("cn=root,dc=plabs").into_bytes(),
-                                .. Default::default()
-                           }),
-                           Tag::OctetString(OctetString {
-                               id: 0,
-                               class: Context,
-                               inner: String::from("asdf").into_bytes(),
-                           })
-                    ]
-                })
+                        Tag::Integer(Integer {
+                            inner: 3,
+                            ..Default::default()
+                        }),
+                        Tag::OctetString(OctetString {
+                            inner: String::from("cn=root,dc=plabs").into_bytes(),
+                            ..Default::default()
+                        }),
+                        Tag::OctetString(OctetString {
+                            id: 0,
+                            class: Context,
+                            inner: String::from("asdf").into_bytes(),
+                        }),
+                    ],
+                }),
             ],
-            .. Default::default()
+            ..Default::default()
         });
 
         let expected = vec![
-            0x30, 0x20,
-                0x02, 0x01, 0x01,
-                0x60, 0x1B,
-                    0x02, 0x01, 0x03,
-                    0x04, 0x10, 0x63, 0x6e, 0x3d, 0x72, 0x6f, 0x6f, 0x74, 0x2c, 0x64, 0x63, 0x3d, 0x70, 0x6c, 0x61, 0x62, 0x73,
-                    0x80, 0x04, 0x61, 0x73, 0x64, 0x66
+            0x30, 0x20, 0x02, 0x01, 0x01, 0x60, 0x1B, 0x02, 0x01, 0x03, 0x04, 0x10, 0x63, 0x6e,
+            0x3d, 0x72, 0x6f, 0x6f, 0x74, 0x2c, 0x64, 0x63, 0x3d, 0x70, 0x6c, 0x61, 0x62, 0x73,
+            0x80, 0x04, 0x61, 0x73, 0x64, 0x66,
         ];
 
         let mut buf = BytesMut::new();

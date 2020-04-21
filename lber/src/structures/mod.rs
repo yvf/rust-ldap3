@@ -1,19 +1,19 @@
 use structure;
 
-pub mod integer;
-pub mod sequence;
-pub mod octetstring;
 pub mod boolean;
-pub mod null;
 pub mod explicit;
+pub mod integer;
+pub mod null;
+pub mod octetstring;
+pub mod sequence;
 
 // Reexport everything
-pub use self::integer::{Enumerated, Integer};
-pub use self::sequence::{Sequence, SequenceOf, Set, SetOf};
-pub use self::octetstring::OctetString;
 pub use self::boolean::Boolean;
-pub use self::null::Null;
 pub use self::explicit::ExplicitTag;
+pub use self::integer::{Enumerated, Integer};
+pub use self::null::Null;
+pub use self::octetstring::OctetString;
+pub use self::sequence::{Sequence, SequenceOf, Set, SetOf};
 
 /// Conversion of a tag into a serializable form.
 pub trait ASNTag {
@@ -52,15 +52,15 @@ pub enum Tag {
 impl ASNTag for Tag {
     fn into_structure(self) -> structure::StructureTag {
         match self {
-            Tag::Integer(i)      => i.into_structure(),
-            Tag::Enumerated(i)   => i.into_structure(),
-            Tag::Sequence(i)     => i.into_structure(),
-            Tag::Set(i)          => i.into_structure(),
-            Tag::OctetString(i)  => i.into_structure(),
-            Tag::Boolean(i)      => i.into_structure(),
-            Tag::Null(i)         => i.into_structure(),
-            Tag::ExplicitTag(i)  => i.into_structure(),
-            Tag::StructureTag(s) => s
+            Tag::Integer(i) => i.into_structure(),
+            Tag::Enumerated(i) => i.into_structure(),
+            Tag::Sequence(i) => i.into_structure(),
+            Tag::Set(i) => i.into_structure(),
+            Tag::OctetString(i) => i.into_structure(),
+            Tag::Boolean(i) => i.into_structure(),
+            Tag::Null(i) => i.into_structure(),
+            Tag::ExplicitTag(i) => i.into_structure(),
+            Tag::StructureTag(s) => s,
         }
     }
 }

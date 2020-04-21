@@ -9,7 +9,7 @@ impl TagStructure {
         match n {
             0 => Some(TagStructure::Primitive),
             1 => Some(TagStructure::Constructed),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -30,7 +30,7 @@ impl TagClass {
             1 => Some(TagClass::Application),
             2 => Some(TagClass::Context),
             3 => Some(TagClass::Private),
-            _ => None
+            _ => None,
         }
     }
 }
