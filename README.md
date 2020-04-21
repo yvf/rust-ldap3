@@ -8,13 +8,11 @@ The port to async/await and Tokio 0.2 is in progress. What you can see here
 is a very early and very rough draft of the next version of the library.
 Currently working are:
 
-* Async connection and operations.
-
-* Only Unix domain sockets are operative.
+* Async connection and operations (Unix domain sockets only).
 
 * Simple Bind, SASL EXTERNAL Bind, streaming Search and Extended operations.
 
-* Controls should work, but haven't been tested.
+* Controls (not tested).
 
 Not working:
 
