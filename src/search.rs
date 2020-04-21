@@ -300,7 +300,7 @@ impl SearchStream {
                 }),
                 match parse_filter(filter) {
                     Ok(filter) => filter,
-                    _ => return Err(LdapError::FilterParseError),
+                    _ => return Err(LdapError::FilterParsing),
                 },
                 Tag::Sequence(Sequence {
                     inner: attrs

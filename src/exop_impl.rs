@@ -4,10 +4,8 @@ use lber::structures::{OctetString, Tag};
 mod whoami;
 pub use self::whoami::{WhoAmI, WhoAmIResp};
 
-/*
 mod starttls;
 pub use self::starttls::StartTLS;
-*/
 
 /// Generic extended operation.
 ///
