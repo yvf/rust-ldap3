@@ -58,15 +58,18 @@ pub trait IntoRawControlVec {
     fn into(self) -> Vec<RawControl>;
 }
 
-impl IntoRawControlVec for RawControl {
-    fn into(self) -> Vec<RawControl> {
-        vec![self]
-    }
-}
-
 impl IntoRawControlVec for Vec<RawControl> {
     fn into(self) -> Vec<RawControl> {
         self
+    }
+}
+
+impl<R> IntoRawControlVec for R
+where
+    RawControl: From<R>,
+{
+    fn into(self) -> Vec<RawControl> {
+        vec![std::convert::Into::into(self)]
     }
 }
 
