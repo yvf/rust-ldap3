@@ -261,6 +261,17 @@ pub struct LdapConnAsync {
     stream: Framed<ConnType, LdapCodec>,
 }
 
+#[macro_export]
+macro_rules! drive {
+    ($conn:expr) => {
+        tokio::spawn(async move {
+            if let Err(e) = $conn.drive().await {
+                log::warn!("LDAP connection error: {}", e);
+            }
+        });
+    };
+}
+
 impl LdapConnAsync {
     pub async fn with_settings(settings: LdapConnSettings, url: &str) -> Result<(Self, Ldap)> {
         if url.starts_with("ldapi://") {
