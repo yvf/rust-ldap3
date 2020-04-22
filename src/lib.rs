@@ -80,5 +80,5 @@ pub mod result;
 mod search;
 
 pub use filter::parse as parse_filter;
-pub use ldap::{Ldap, LdapConnAsync, LdapConnSettings};
+pub use ldap::{Ldap, LdapConnAsync, LdapConnSettings, LdapError};
 pub use search::{Scope, SearchEntry, SearchStream};

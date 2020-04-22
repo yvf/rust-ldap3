@@ -323,8 +323,7 @@ impl LdapConnAsync {
         match scheme {
             "ldap" => (),
             #[cfg(feature = "tls")]
-            "ldaps" | "starttls" => {
-                let starttls = settings.starttls();
+            s @ "ldaps" | s @ "starttls" => {
                 let connector = match settings.connector {
                     Some(connector) => connector,
                     None => {
@@ -335,7 +334,7 @@ impl LdapConnAsync {
                         builder.build().expect("connector")
                     }
                 };
-                if starttls {
+                if s == "starttls" {
                     let (tx, rx) = oneshot::channel();
                     tokio::spawn(async move {
                         conn.single_op(tx).await;
