@@ -79,9 +79,11 @@ mod ldap;
 mod protocol;
 pub mod result;
 mod search;
+mod sync;
 
 pub use conn::{LdapConnAsync, LdapConnSettings};
 pub use filter::parse as parse_filter;
 pub use ldap::Ldap;
 pub use result::{LdapError, LdapResult};
 pub use search::{Scope, SearchEntry, SearchStream};
+pub use sync::LdapConn;
