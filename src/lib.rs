@@ -19,6 +19,7 @@ pub mod asn1 {
     pub use lber::write;
     pub use lber::IResult;
 }
+mod conn;
 pub mod controls {
     //! Control construction and parsing.
     //!
@@ -79,6 +80,8 @@ mod protocol;
 pub mod result;
 mod search;
 
+pub use conn::{LdapConnAsync, LdapConnSettings};
 pub use filter::parse as parse_filter;
-pub use ldap::{Ldap, LdapConnAsync, LdapConnSettings, LdapError};
+pub use ldap::Ldap;
+pub use result::{LdapError, LdapResult};
 pub use search::{Scope, SearchEntry, SearchStream};

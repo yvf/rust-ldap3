@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::controls::Control;
-use crate::ldap::{Ldap, LdapError, Result};
+use crate::ldap::Ldap;
 use crate::parse_filter;
 use crate::protocol::LdapOp;
-use crate::result::LdapResult;
+use crate::result::{LdapError, LdapResult, Result};
 
 use tokio::sync::mpsc;
 use tokio::time;

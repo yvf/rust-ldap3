@@ -9,14 +9,83 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
 use std::io;
-use std::result::Result;
+use std::result::Result as StdResult;
 
 use crate::controls::Control;
 use crate::exop::Exop;
-use crate::ldap::LdapResultExt;
+use crate::protocol::{LdapOp, MaybeControls, ResultSender};
 use crate::search::ResultEntry;
+use crate::RequestId;
 
+use lber::common::TagClass;
+use lber::parse::parse_uint;
 use lber::structures::Tag;
+use lber::universal::Types;
+use lber::IResult;
+
+use thiserror::Error;
+use tokio::sync::{mpsc, oneshot};
+use tokio::time;
+
+pub type Result<T> = std::result::Result<T, LdapError>;
+
+#[derive(Debug, Error)]
+pub enum LdapError {
+    #[error("empty Unix domain socket path")]
+    EmptyUnixPath,
+    #[error("the port must be empty in the ldapi scheme")]
+    PortInUnixPath,
+    #[error("I/O error: {source}")]
+    Io {
+        #[from]
+        source: io::Error,
+    },
+    #[error("op send error: {source}")]
+    OpSend {
+        #[from]
+        source: mpsc::error::SendError<(RequestId, LdapOp, Tag, MaybeControls, ResultSender)>,
+    },
+    #[error("result recv error: {source}")]
+    ResultRecv {
+        #[from]
+        source: oneshot::error::RecvError,
+    },
+    #[error("timeout: {elapsed}")]
+    Timeout {
+        #[from]
+        elapsed: time::Elapsed,
+    },
+    #[error("filter parse error")]
+    FilterParsing,
+    #[error("premature end of search stream")]
+    EndOfStream,
+    #[error("url parse error: {source}")]
+    UrlParsing {
+        #[from]
+        source: url::ParseError,
+    },
+    #[error("unknown LDAP URL scheme: {0}")]
+    UnknownScheme(String),
+    #[error("native TLS error: {source}")]
+    NativeTLS {
+        #[from]
+        source: native_tls::Error,
+    },
+    #[error("LDAP operation result: {result}")]
+    LdapResult {
+        #[from]
+        result: LdapResult,
+    },
+}
+
+impl From<LdapError> for io::Error {
+    fn from(le: LdapError) -> io::Error {
+        match le {
+            LdapError::Io { source, .. } => source,
+            _ => io::Error::new(io::ErrorKind::Other, format!("{}", le)),
+        }
+    }
+}
 
 /// Common components of an LDAP operation result.
 ///
@@ -61,7 +130,7 @@ impl From<Tag> for LdapResult {
 impl Error for LdapResult {}
 
 impl fmt::Display for LdapResult {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> StdResult<(), fmt::Error> {
         fn description(this: &LdapResult) -> &'static str {
             match this.rc {
                 0 => "success",
@@ -123,23 +192,124 @@ impl fmt::Display for LdapResult {
 impl LdapResult {
     /// If the result code is zero, return the instance itself wrapped
     /// in `Ok()`, otherwise wrap the instance in an `io::Error`.
-    pub fn success(self) -> Result<Self, io::Error> {
+    pub fn success(self) -> Result<Self> {
         if self.rc == 0 {
             Ok(self)
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, self))
+            Err(LdapError::from(self))
         }
     }
 
     /// If the result code is 0 or 10 (referral), return the instance
     /// itself wrapped in `Ok()`, otherwise wrap the instance in an
     /// `io::Error`.
-    pub fn non_error(self) -> Result<Self, io::Error> {
+    pub fn non_error(self) -> Result<Self> {
         if self.rc == 0 || self.rc == 10 {
             Ok(self)
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, self))
+            Err(LdapError::from(self))
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct LdapResultExt(pub LdapResult, pub Exop);
+
+impl From<Tag> for LdapResultExt {
+    fn from(t: Tag) -> LdapResultExt {
+        let t = match t {
+            Tag::StructureTag(t) => t,
+            Tag::Null(_) => {
+                return LdapResultExt(
+                    LdapResult {
+                        rc: 0,
+                        matched: String::from(""),
+                        text: String::from(""),
+                        refs: vec![],
+                        ctrls: vec![],
+                    },
+                    Exop {
+                        name: None,
+                        val: None,
+                    },
+                )
+            }
+            _ => unimplemented!(),
+        };
+        let mut tags = t.expect_constructed().expect("result sequence").into_iter();
+        let rc = match parse_uint(
+            tags.next()
+                .expect("element")
+                .match_class(TagClass::Universal)
+                .and_then(|t| t.match_id(Types::Enumerated as u64))
+                .and_then(|t| t.expect_primitive())
+                .expect("result code")
+                .as_slice(),
+        ) {
+            IResult::Done(_, rc) => rc as u32,
+            _ => panic!("failed to parse result code"),
+        };
+        let matched = String::from_utf8(
+            tags.next()
+                .expect("element")
+                .expect_primitive()
+                .expect("octet string"),
+        )
+        .expect("matched dn");
+        let text = String::from_utf8(
+            tags.next()
+                .expect("element")
+                .expect_primitive()
+                .expect("octet string"),
+        )
+        .expect("diagnostic message");
+        let mut refs = Vec::new();
+        let mut exop_name = None;
+        let mut exop_val = None;
+        loop {
+            match tags.next() {
+                None => break,
+                Some(comp) => match comp.id {
+                    3 => {
+                        let raw_refs = match comp.expect_constructed() {
+                            Some(rr) => rr,
+                            None => panic!("failed to parse referrals"),
+                        };
+                        refs.push(
+                            raw_refs
+                                .into_iter()
+                                .map(|t| t.expect_primitive().expect("octet string"))
+                                .map(String::from_utf8)
+                                .map(|s| s.expect("uri"))
+                                .collect(),
+                        );
+                    }
+                    10 => {
+                        exop_name = Some(
+                            String::from_utf8(comp.expect_primitive().expect("octet string"))
+                                .expect("exop name"),
+                        );
+                    }
+                    11 => {
+                        exop_val = Some(comp.expect_primitive().expect("octet string"));
+                    }
+                    _ => (),
+                },
+            }
+        }
+        LdapResultExt(
+            LdapResult {
+                rc: rc,
+                matched: matched,
+                text: text,
+                refs: refs,
+                ctrls: vec![],
+            },
+            Exop {
+                name: exop_name,
+                val: exop_val,
+            },
+        )
     }
 }
 
@@ -155,21 +325,21 @@ pub struct SearchResult(pub Vec<ResultEntry>, pub LdapResult);
 impl SearchResult {
     /// If the result code is zero, return an anonymous tuple of component structs
     /// wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
-    pub fn success(self) -> Result<(Vec<ResultEntry>, LdapResult), io::Error> {
+    pub fn success(self) -> Result<(Vec<ResultEntry>, LdapResult)> {
         if self.1.rc == 0 {
             Ok((self.0, self.1))
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, self.1))
+            Err(LdapError::from(self.1))
         }
     }
 
     /// If the result code is 0 or 10 (referral), return an anonymous tuple of component
     /// structs wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
-    pub fn non_error(self) -> Result<(Vec<ResultEntry>, LdapResult), io::Error> {
+    pub fn non_error(self) -> Result<(Vec<ResultEntry>, LdapResult)> {
         if self.1.rc == 0 || self.1.rc == 10 {
             Ok((self.0, self.1))
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, self.1))
+            Err(LdapError::from(self.1))
         }
     }
 }
@@ -186,21 +356,21 @@ pub struct CompareResult(pub LdapResult);
 impl CompareResult {
     /// If the result code is 5 (compareFalse) or 6 (compareTrue), return the corresponding
     /// boolean value wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
-    pub fn equal(self) -> Result<bool, io::Error> {
+    pub fn equal(self) -> Result<bool> {
         match self.0.rc {
             5 => Ok(false),
             6 => Ok(true),
-            _ => Err(io::Error::new(io::ErrorKind::Other, self.0)),
+            _ => Err(LdapError::from(self.0)),
         }
     }
 
     /// If the result code is 5 (compareFalse), 6 (compareTrue),  or 10 (referral), return
     /// the inner `LdapResult`, otherwise rewrap `LdapResult` in an `io::Error`.
-    pub fn non_error(self) -> Result<LdapResult, io::Error> {
+    pub fn non_error(self) -> Result<LdapResult> {
         if self.0.rc == 5 || self.0.rc == 6 || self.0.rc == 10 {
             Ok(self.0)
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, self.0))
+            Err(LdapError::from(self.0))
         }
     }
 }
@@ -217,21 +387,21 @@ pub struct ExopResult(pub Exop, pub LdapResult);
 impl ExopResult {
     /// If the result code is zero, return an anonymous tuple of component structs
     /// wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
-    pub fn success(self) -> Result<(Exop, LdapResult), io::Error> {
+    pub fn success(self) -> Result<(Exop, LdapResult)> {
         if self.1.rc == 0 {
             Ok((self.0, self.1))
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, self.1))
+            Err(LdapError::from(self.1))
         }
     }
 
     /// If the result code is 0 or 10 (referral), return an anonymous tuple of component
     /// structs wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
-    pub fn non_error(self) -> Result<(Exop, LdapResult), io::Error> {
+    pub fn non_error(self) -> Result<(Exop, LdapResult)> {
         if self.1.rc == 0 || self.1.rc == 10 {
             Ok((self.0, self.1))
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, self.1))
+            Err(LdapError::from(self.1))
         }
     }
 }
