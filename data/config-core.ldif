@@ -4,6 +4,8 @@ cn: config
 olcPidFile: db/run/db.pid
 olcArgsFile: db/run/db.args
 olcAuthzPolicy: to
+olcTLSCertificateFile: tls/cert.pem
+olcTLSCertificateKeyFile: tls/key.pem
 
 dn: olcDatabase=config,cn=config
 objectClass: olcDatabaseConfig
@@ -23,4 +25,8 @@ olcModuleLoad: back_mdb
 dn: olcBackend=mdb,cn=config
 objectClass: olcBackendConfig
 olcBackend: mdb
+
+dn: olcBackend=monitor,cn=config
+objectClass: olcBackendConfig
+olcBackend: monitor
 

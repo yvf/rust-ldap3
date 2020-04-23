@@ -15,3 +15,11 @@ olcAccess: {0}to attrs=userPassword
   by * none
 olcAccess: {1}to * by * read
 
+dn: olcDatabase={2}monitor,cn=config
+objectClass: olcMonitorConfig
+objectClass: olcDatabaseConfig
+olcDatabase: {2}monitor
+olcAccess: {0}to *
+  by dn.exact="cn=Manager,dc=example,dc=org" write
+  by * none
+
