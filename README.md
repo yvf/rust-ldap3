@@ -10,23 +10,20 @@ Currently working are:
 
 * Async connection and operations (TCP, TLS + StartTLS, Unix domain sockets).
 
+* Synchronous connection/client.
+
 * Simple Bind, SASL EXTERNAL Bind, streaming Search and Extended operations.
 
-* Controls (not tested).
+* Controls.
 
 Not working:
 
-* Synchronous connection/client.
-
 * The rest of the operations.
 
-* Automatic paging.
-
-The remaining LDAP operations shouldn't be too difficult.  Synchronous operation
-will come next. Automatic paging is not a priority.
+* Automatic paging (not a priority).
 
 Old examples have all been deleted to avoid confusion. As the code solidifies,
-most of them will be ported back. There are three new examples, very much WIP.
+most of them will be ported back.
 
 The documentation is in disarray, and will be tackled once the interfaces
 stabilize. Most of it exists in the previous version of the library, but will
