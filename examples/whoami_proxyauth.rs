@@ -1,9 +1,15 @@
-use ldap3::{LdapConnAsync, LdapError};
+// Demonstrates:
+//
+// 1. Simple Bind;
+// 2. "Who Am I?" Extended operation with a Proxied Authorization control.
+
 use ldap3::controls::ProxyAuth;
 use ldap3::exop::{WhoAmI, WhoAmIResp};
+use ldap3::result::Result;
+use ldap3::LdapConnAsync;
 
 #[tokio::main]
-async fn main() -> Result<(), LdapError> {
+async fn main() -> Result<()> {
     let (conn, mut ldap) = LdapConnAsync::new("ldapi://ldapi").await?;
     ldap3::drive!(conn);
     ldap.simple_bind("cn=proxy,dc=example,dc=org", "topsecret")
