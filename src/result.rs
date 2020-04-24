@@ -66,6 +66,7 @@ pub enum LdapError {
     },
     #[error("unknown LDAP URL scheme: {0}")]
     UnknownScheme(String),
+    #[cfg(feature = "tls")]
     #[error("native TLS error: {source}")]
     NativeTLS {
         #[from]
@@ -76,6 +77,8 @@ pub enum LdapError {
         #[from]
         result: LdapResult,
     },
+    #[error("empty value set for Add")]
+    AddNoValues,
 }
 
 impl From<LdapError> for io::Error {

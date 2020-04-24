@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::hash::Hash;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -6,15 +7,29 @@ use crate::controls_impl::IntoRawControlVec;
 use crate::exop::Exop;
 use crate::exop_impl::construct_exop;
 use crate::protocol::{LdapOp, MaybeControls, ResultSender};
-use crate::result::{ExopResult, LdapResult, LdapResultExt, Result};
+use crate::result::{CompareResult, ExopResult, LdapError, LdapResult, LdapResultExt, Result};
 use crate::search::{SearchOptions, SearchStream};
 use crate::RequestId;
 
 use lber::common::TagClass;
-use lber::structures::{Integer, OctetString, Sequence, Tag};
+use lber::structures::{Boolean, Enumerated, Integer, Null, OctetString, Sequence, Set, Tag};
 
+use maplit::hashset;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time;
+
+/// Possible sub-operations for the Modify operation.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Mod<S: AsRef<[u8]> + Eq + Hash> {
+    /// Add an attribute, with at least one value.
+    Add(S, HashSet<S>),
+    /// Delete the entire attribute, or the given values of an attribute.
+    Delete(S, HashSet<S>),
+    /// Replace an existing attribute, setting its values to those in the set, or delete it if no values are given.
+    Replace(S, HashSet<S>),
+    /// Increment the attribute by the given value.
+    Increment(S, S),
+}
 
 #[derive(Debug)]
 pub struct Ldap {
@@ -77,10 +92,6 @@ impl Ldap {
         let (mut result, exop) = (ldap_ext.0, ldap_ext.1);
         result.ctrls = controls;
         Ok((result, exop))
-    }
-
-    pub fn last_id(&mut self) -> RequestId {
-        self.last_id
     }
 
     /// See [`LdapConn::with_search_options()`](struct.LdapConn.html#method.with_search_options).
@@ -158,6 +169,218 @@ impl Ldap {
         Ok(self.op_call(LdapOp::Single, req).await?.0)
     }
 
+    pub fn into_search_stream(self) -> SearchStream {
+        SearchStream::new(self)
+    }
+
+    /// See [`LdapConn::add()`](struct.LdapConn.html#method.add).
+    pub async fn add<S: AsRef<[u8]> + Eq + Hash>(
+        &mut self,
+        dn: &str,
+        attrs: Vec<(S, HashSet<S>)>,
+    ) -> Result<LdapResult> {
+        let mut any_empty = false;
+        let req = Tag::Sequence(Sequence {
+            id: 8,
+            class: TagClass::Application,
+            inner: vec![
+                Tag::OctetString(OctetString {
+                    inner: Vec::from(dn.as_bytes()),
+                    ..Default::default()
+                }),
+                Tag::Sequence(Sequence {
+                    inner: attrs
+                        .into_iter()
+                        .map(|(name, vals)| {
+                            if vals.is_empty() {
+                                any_empty = true;
+                            }
+                            Tag::Sequence(Sequence {
+                                inner: vec![
+                                    Tag::OctetString(OctetString {
+                                        inner: Vec::from(name.as_ref()),
+                                        ..Default::default()
+                                    }),
+                                    Tag::Set(Set {
+                                        inner: vals
+                                            .into_iter()
+                                            .map(|v| {
+                                                Tag::OctetString(OctetString {
+                                                    inner: Vec::from(v.as_ref()),
+                                                    ..Default::default()
+                                                })
+                                            })
+                                            .collect(),
+                                        ..Default::default()
+                                    }),
+                                ],
+                                ..Default::default()
+                            })
+                        })
+                        .collect(),
+                    ..Default::default()
+                }),
+            ],
+        });
+        if any_empty {
+            return Err(LdapError::AddNoValues);
+        }
+        Ok(self.op_call(LdapOp::Single, req).await?.0)
+    }
+
+    /// See [`LdapConn::compare()`](struct.LdapConn.html#method.compare).
+    pub async fn compare<B: AsRef<[u8]>>(
+        &mut self,
+        dn: &str,
+        attr: &str,
+        val: B,
+    ) -> Result<CompareResult> {
+        let req = Tag::Sequence(Sequence {
+            id: 14,
+            class: TagClass::Application,
+            inner: vec![
+                Tag::OctetString(OctetString {
+                    inner: Vec::from(dn.as_bytes()),
+                    ..Default::default()
+                }),
+                Tag::Sequence(Sequence {
+                    inner: vec![
+                        Tag::OctetString(OctetString {
+                            inner: Vec::from(attr.as_bytes()),
+                            ..Default::default()
+                        }),
+                        Tag::OctetString(OctetString {
+                            inner: Vec::from(val.as_ref()),
+                            ..Default::default()
+                        }),
+                    ],
+                    ..Default::default()
+                }),
+            ],
+        });
+        Ok(CompareResult(self.op_call(LdapOp::Single, req).await?.0))
+    }
+
+    /// See [`LdapConn::delete()`](struct.LdapConn.html#method.delete).
+    pub async fn delete(&mut self, dn: &str) -> Result<LdapResult> {
+        let req = Tag::OctetString(OctetString {
+            id: 10,
+            class: TagClass::Application,
+            inner: Vec::from(dn.as_bytes()),
+        });
+        Ok(self.op_call(LdapOp::Single, req).await?.0)
+    }
+
+    /// See [`LdapConn::modify()`](struct.LdapConn.html#method.modify).
+    pub async fn modify<S: AsRef<[u8]> + Eq + Hash>(
+        &mut self,
+        dn: &str,
+        mods: Vec<Mod<S>>,
+    ) -> Result<LdapResult> {
+        let mut any_add_empty = false;
+        let req = Tag::Sequence(Sequence {
+            id: 6,
+            class: TagClass::Application,
+            inner: vec![
+                Tag::OctetString(OctetString {
+                    inner: Vec::from(dn.as_bytes()),
+                    ..Default::default()
+                }),
+                Tag::Sequence(Sequence {
+                    inner: mods
+                        .into_iter()
+                        .map(|m| {
+                            let mut is_add = false;
+                            let (num, attr, set) = match m {
+                                Mod::Add(attr, set) => {
+                                    is_add = true;
+                                    (0, attr, set)
+                                }
+                                Mod::Delete(attr, set) => (1, attr, set),
+                                Mod::Replace(attr, set) => (2, attr, set),
+                                Mod::Increment(attr, val) => (3, attr, hashset! { val }),
+                            };
+                            if set.is_empty() && is_add {
+                                any_add_empty = true;
+                            }
+                            let op = Tag::Enumerated(Enumerated {
+                                inner: num,
+                                ..Default::default()
+                            });
+                            let part_attr = Tag::Sequence(Sequence {
+                                inner: vec![
+                                    Tag::OctetString(OctetString {
+                                        inner: Vec::from(attr.as_ref()),
+                                        ..Default::default()
+                                    }),
+                                    Tag::Set(Set {
+                                        inner: set
+                                            .into_iter()
+                                            .map(|val| {
+                                                Tag::OctetString(OctetString {
+                                                    inner: Vec::from(val.as_ref()),
+                                                    ..Default::default()
+                                                })
+                                            })
+                                            .collect(),
+                                        ..Default::default()
+                                    }),
+                                ],
+                                ..Default::default()
+                            });
+                            Tag::Sequence(Sequence {
+                                inner: vec![op, part_attr],
+                                ..Default::default()
+                            })
+                        })
+                        .collect(),
+                    ..Default::default()
+                }),
+            ],
+        });
+        if any_add_empty {
+            return Err(LdapError::AddNoValues);
+        }
+        Ok(self.op_call(LdapOp::Single, req).await?.0)
+    }
+
+    /// See [`LdapConn::modifydn()`](struct.LdapConn.html#method.modifydn).
+    pub async fn modifydn(
+        &mut self,
+        dn: &str,
+        rdn: &str,
+        delete_old: bool,
+        new_sup: Option<&str>,
+    ) -> Result<LdapResult> {
+        let mut params = vec![
+            Tag::OctetString(OctetString {
+                inner: Vec::from(dn.as_bytes()),
+                ..Default::default()
+            }),
+            Tag::OctetString(OctetString {
+                inner: Vec::from(rdn.as_bytes()),
+                ..Default::default()
+            }),
+            Tag::Boolean(Boolean {
+                inner: delete_old,
+                ..Default::default()
+            }),
+        ];
+        if let Some(new_sup) = new_sup {
+            params.push(Tag::OctetString(OctetString {
+                id: 0,
+                class: TagClass::Context,
+                inner: Vec::from(new_sup.as_bytes()),
+            }));
+        }
+        let req = Tag::Sequence(Sequence {
+            id: 12,
+            class: TagClass::Application,
+            inner: params,
+        });
+        Ok(self.op_call(LdapOp::Single, req).await?.0)
+    }
+
     /// See [`LdapConn::extended()`](struct.LdapConn.html#method.extended).
     pub async fn extended<E>(&mut self, exop: E) -> Result<ExopResult>
     where
@@ -168,13 +391,34 @@ impl Ldap {
             class: TagClass::Application,
             inner: construct_exop(exop.into()),
         });
-
         self.op_call(LdapOp::Single, req)
             .await
             .map(|et| ExopResult(et.1, et.0))
     }
 
-    pub fn into_search_stream(self) -> SearchStream {
-        SearchStream::new(self)
+    /// See [`LdapConn::unbind()`](struct.LdapConn.html#method.unbind).
+    pub async fn unbind(&mut self) -> Result<()> {
+        let req = Tag::Null(Null {
+            id: 2,
+            class: TagClass::Application,
+            inner: (),
+        });
+        Ok(self.op_call(LdapOp::Unbind, req).await.map(|_| ())?)
+    }
+
+    pub fn last_id(&mut self) -> RequestId {
+        self.last_id
+    }
+
+    pub async fn abandon(&mut self, msgid: RequestId) -> Result<()> {
+        let req = Tag::Integer(Integer {
+            id: 16,
+            class: TagClass::Application,
+            inner: msgid as i64,
+        });
+        Ok(self
+            .op_call(LdapOp::Abandon(msgid), req)
+            .await
+            .map(|_| ())?)
     }
 }

@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::time::Duration;
 
+#[cfg(feature = "tls")]
 use crate::exop_impl::StartTLS;
 use crate::ldap::Ldap;
 use crate::protocol::{ItemSender, LdapCodec, LdapOp, MaybeControls, ResultSender};
@@ -13,16 +14,20 @@ use crate::RequestId;
 
 use lber::structures::{Null, Tag};
 
+#[cfg(feature = "tls")]
 use futures_util::future::TryFutureExt;
 use futures_util::sink::SinkExt;
-use log::warn;
 #[cfg(feature = "tls")]
 use native_tls::TlsConnector;
 use percent_encoding::percent_decode;
 use tokio::io::{self, AsyncRead, AsyncWrite};
-use tokio::net::{TcpStream, UnixStream};
+use tokio::net::TcpStream;
+#[cfg(unix)]
+use tokio::net::UnixStream;
 use tokio::stream::StreamExt;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
+#[cfg(feature = "tls")]
+use tokio::sync::oneshot;
 #[cfg(feature = "tls")]
 use tokio_tls::{TlsConnector as TokioTlsConnector, TlsStream};
 use tokio_util::codec::{Decoder, Framed};
@@ -33,6 +38,7 @@ enum ConnType {
     Tcp(TcpStream),
     #[cfg(feature = "tls")]
     Tls(TlsStream<TcpStream>),
+    #[cfg(unix)]
     Unix(UnixStream),
 }
 
@@ -46,6 +52,7 @@ impl AsyncRead for ConnType {
             ConnType::Tcp(ts) => Pin::new(ts).poll_read(cx, buf),
             #[cfg(feature = "tls")]
             ConnType::Tls(tls) => Pin::new(tls).poll_read(cx, buf),
+            #[cfg(unix)]
             ConnType::Unix(us) => Pin::new(us).poll_read(cx, buf),
         }
     }
@@ -57,6 +64,7 @@ impl AsyncWrite for ConnType {
             ConnType::Tcp(ts) => Pin::new(ts).poll_write(cx, buf),
             #[cfg(feature = "tls")]
             ConnType::Tls(tls) => Pin::new(tls).poll_write(cx, buf),
+            #[cfg(unix)]
             ConnType::Unix(us) => Pin::new(us).poll_write(cx, buf),
         }
     }
@@ -66,6 +74,7 @@ impl AsyncWrite for ConnType {
             ConnType::Tcp(ts) => Pin::new(ts).poll_flush(cx),
             #[cfg(feature = "tls")]
             ConnType::Tls(tls) => Pin::new(tls).poll_flush(cx),
+            #[cfg(unix)]
             ConnType::Unix(us) => Pin::new(us).poll_flush(cx),
         }
     }
@@ -75,6 +84,7 @@ impl AsyncWrite for ConnType {
             ConnType::Tcp(ts) => Pin::new(ts).poll_shutdown(cx),
             #[cfg(feature = "tls")]
             ConnType::Tls(tls) => Pin::new(tls).poll_shutdown(cx),
+            #[cfg(unix)]
             ConnType::Unix(us) => Pin::new(us).poll_shutdown(cx),
         }
     }
@@ -164,6 +174,7 @@ impl LdapConnSettings {
 }
 
 enum LoopMode {
+    #[allow(dead_code)]
     SingleOp,
     Continuous,
 }
@@ -181,7 +192,7 @@ macro_rules! drive {
     ($conn:expr) => {
         tokio::spawn(async move {
             if let Err(e) = $conn.drive().await {
-                log::warn!("LDAP connection error: {}", e);
+                $crate::log::warn!("LDAP connection error: {}", e);
             }
         });
     };
@@ -204,6 +215,7 @@ impl LdapConnAsync {
         }
     }
 
+    #[cfg(unix)]
     async fn new_unix(url: &str, _settings: LdapConnSettings) -> Result<(Self, Ldap)> {
         let path = url.split('/').nth(2).unwrap();
         if path.is_empty() {
@@ -217,6 +229,12 @@ impl LdapConnAsync {
         Ok(Self::conn_pair(ConnType::Unix(stream)))
     }
 
+    #[cfg(not(unix))]
+    async fn new_unix(_url: &str, _settings: LdapConnSettings) -> Result<(Self, Ldap)> {
+        unimplemented!("no Unix domain sockets on non-Unix platforms");
+    }
+
+    #[allow(unused_mut)]
     async fn new_tcp(url: &str, mut settings: LdapConnSettings) -> Result<(Self, Ldap)> {
         let url = Url::parse(url)?;
         let mut port = 389;
@@ -317,6 +335,7 @@ impl LdapConnAsync {
         self.turn(LoopMode::Continuous).await.map(|_| ())
     }
 
+    #[cfg(feature = "tls")]
     pub(crate) async fn single_op(self, tx: oneshot::Sender<Result<Self>>) {
         if let Err(_) = tx.send(self.turn(LoopMode::SingleOp).await) {
             warn!("single op send error");

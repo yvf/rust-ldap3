@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate nom;
+#[macro_use]
+pub extern crate log;
 
 pub type RequestId = i32;
 
@@ -79,11 +81,13 @@ mod ldap;
 mod protocol;
 pub mod result;
 mod search;
+#[cfg(feature = "sync")]
 mod sync;
 
 pub use conn::{LdapConnAsync, LdapConnSettings};
 pub use filter::parse as parse_filter;
-pub use ldap::Ldap;
+pub use ldap::{Ldap, Mod};
 pub use result::{LdapError, LdapResult};
 pub use search::{Scope, SearchEntry, SearchStream};
+#[cfg(feature = "sync")]
 pub use sync::LdapConn;
