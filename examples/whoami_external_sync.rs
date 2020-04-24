@@ -2,6 +2,10 @@
 //
 // 1. SASL EXTERNAL bind;
 // 2. "Who Am I?" Extended operation.
+//
+// Uses the synchronous client.
+//
+// Notice: only works on Unix (uses Unix domain sockets)
 
 use ldap3::exop::{WhoAmI, WhoAmIResp};
 use ldap3::result::Result;

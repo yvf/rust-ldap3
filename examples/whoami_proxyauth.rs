@@ -10,7 +10,7 @@ use ldap3::LdapConnAsync;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let (conn, mut ldap) = LdapConnAsync::new("ldapi://ldapi").await?;
+    let (conn, mut ldap) = LdapConnAsync::new("ldap://localhost:2389").await?;
     ldap3::drive!(conn);
     ldap.simple_bind("cn=proxy,dc=example,dc=org", "topsecret")
         .await?
