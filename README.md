@@ -5,20 +5,18 @@ A pure-Rust LDAP library using the Tokio stack.
 ### Attention!
 
 The port to async/await and Tokio 0.2 is in progress. What you can see here
-is a very early and very rough draft of the next version of the library.
-Currently working are:
+is a work-in-progress snapshot of the next version of the library. Currently
+working are:
 
 * Async connection and operations (TCP, TLS + StartTLS, Unix domain sockets).
 
 * Synchronous connection/client.
 
-* Simple Bind, SASL EXTERNAL Bind, streaming Search and Extended operations.
+* All standard LDAP operations.
 
 * Controls.
 
 Not working:
-
-* The rest of the operations.
 
 * Automatic paging (not a priority).
 
