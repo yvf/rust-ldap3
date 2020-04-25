@@ -30,6 +30,7 @@ use tokio::sync::mpsc;
 #[cfg(feature = "tls")]
 use tokio::sync::oneshot;
 #[cfg(feature = "tls")]
+use tokio::time;
 use tokio_tls::{TlsConnector as TokioTlsConnector, TlsStream};
 use tokio_util::codec::{Decoder, Framed};
 use url::{self, Url};
@@ -200,20 +201,22 @@ macro_rules! drive {
 }
 
 impl LdapConnAsync {
-    pub async fn with_settings(settings: LdapConnSettings, url: &str) -> Result<(Self, Ldap)> {
+    pub async fn with_settings(mut settings: LdapConnSettings, url: &str) -> Result<(Self, Ldap)> {
         if url.starts_with("ldapi://") {
             Ok(LdapConnAsync::new_unix(url, settings).await?)
         } else {
-            Ok(LdapConnAsync::new_tcp(url, settings).await?)
+            let timeout = settings.conn_timeout.take();
+            let conn_future = LdapConnAsync::new_tcp(url, settings);
+            Ok(if let Some(timeout) = timeout {
+                time::timeout(timeout, conn_future).await?
+            } else {
+                conn_future.await
+            }?)
         }
     }
 
     pub async fn new(url: &str) -> Result<(Self, Ldap)> {
-        if url.starts_with("ldapi://") {
-            Ok(LdapConnAsync::new_unix(url, LdapConnSettings::new()).await?)
-        } else {
-            Ok(LdapConnAsync::new_tcp(url, LdapConnSettings::new()).await?)
-        }
+        Self::with_settings(LdapConnSettings::new(), url).await
     }
 
     #[cfg(unix)]
