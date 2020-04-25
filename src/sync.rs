@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::hash::Hash;
 
-use crate::conn::LdapConnAsync;
+use crate::conn::{LdapConnAsync, LdapConnSettings};
 use crate::exop::Exop;
 use crate::ldap::{Ldap, Mod};
 use crate::result::{CompareResult, ExopResult, LdapResult, Result};
@@ -16,12 +16,16 @@ pub struct LdapConn {
 
 impl LdapConn {
     pub fn new(url: &str) -> Result<Self> {
+        Self::with_settings(LdapConnSettings::new(), url)
+    }
+
+    pub fn with_settings(settings: LdapConnSettings, url: &str) -> Result<Self> {
         let mut rt = runtime::Builder::new()
             .basic_scheduler()
             .enable_all()
             .build()?;
         let ldap = rt.block_on(async move {
-            let (conn, ldap) = match LdapConnAsync::new(url).await {
+            let (conn, ldap) = match LdapConnAsync::with_settings(settings, url).await {
                 Ok((conn, ldap)) => (conn, ldap),
                 Err(e) => return Err(e),
             };
