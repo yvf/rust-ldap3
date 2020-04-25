@@ -21,10 +21,10 @@ async fn main() -> Result<()> {
     let mut search = ldap.into_search_stream();
     search
         .start(
-            "cn=MailACLs, o=local",
+            "ou=Places,dc=example,dc=org",
             Scope::Subtree,
-            "cn:dn:=MailACLs",
-            vec!["*"],
+            "objectClass=locality",
+            vec!["l"],
         )
         .await?;
     while let Some(entry) = search.next().await? {

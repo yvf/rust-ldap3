@@ -55,8 +55,7 @@ required-features = ["sync"]
 [features]
 default = ["sync", "tls"]
 tls = ["native-tls", "tokio-tls"]
-#sync = ["tokio/rt-core"]
-sync = ["tokio/time"]
+sync = ["tokio/rt-core"]
 
 [dev-dependencies]
 env_logger = "0.7"

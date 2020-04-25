@@ -19,6 +19,7 @@ use futures_util::future::TryFutureExt;
 use futures_util::sink::SinkExt;
 #[cfg(feature = "tls")]
 use native_tls::TlsConnector;
+#[cfg(unix)]
 use percent_encoding::percent_decode;
 use tokio::io::{self, AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
