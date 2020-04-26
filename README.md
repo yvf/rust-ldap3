@@ -5,20 +5,12 @@ A pure-Rust LDAP library using the Tokio stack.
 ### Attention!
 
 The port to async/await and Tokio 0.2 is in progress. What you can see here
-is a work-in-progress snapshot of the next version of the library. Currently
-working are:
-
-* Async connection and operations (TCP, TLS + StartTLS, Unix domain sockets).
-
-* Synchronous connection/client.
-
-* All standard LDAP operations.
-
-* Controls.
-
-Not working:
-
-* Automatic paging (not a priority).
+is a snapshot of the next version of the library. Compared to the old version,
+the features are roughly at parity, and the API has been preserved wherever
+possible. Notably, the synchronous API differs only in the error type, with
+automatic conversion to the old type for compatibility. One feature that will
+not be reintroduced is automatic paging with the PagedResults control, since
+it complicates the code for a rather niche use case.
 
 Old examples have all been deleted to avoid confusion. As the code solidifies,
 most of them will be ported back.
@@ -28,6 +20,8 @@ stabilize. Most of it exists in the previous version of the library, but will
 have to be reworked according to the new layout of the code.
 
 The library heavily depends on Tokio. Async-std support is not planned.
+
+*Everything below describes the old version.*
 
 ### Documentation
 
