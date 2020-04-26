@@ -92,3 +92,4 @@ pub use result::{LdapError, LdapResult};
 pub use search::{Scope, SearchEntry, SearchStream};
 #[cfg(feature = "sync")]
 pub use sync::LdapConn;
+pub use util::{dn_escape, ldap_escape};
