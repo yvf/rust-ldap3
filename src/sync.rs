@@ -192,4 +192,8 @@ impl EntryStream {
     pub fn result(self) -> LdapResult {
         self.stream.finish()
     }
+
+    pub fn last_id(&mut self) -> RequestId {
+        self.stream.last_id()
+    }
 }

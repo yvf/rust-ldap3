@@ -6,6 +6,7 @@ use crate::ldap::Ldap;
 use crate::parse_filter;
 use crate::protocol::LdapOp;
 use crate::result::{LdapError, LdapResult, Result};
+use crate::RequestId;
 
 use tokio::sync::mpsc;
 use tokio::time;
@@ -323,7 +324,7 @@ impl SearchStream {
         let item = if let Some(ref timeout) = self.timeout {
             let res = time::timeout(*timeout, self.rx.as_mut().unwrap().recv()).await;
             if let Err(_) = res {
-                let last_id = self.ldap.last_id();
+                let last_id = self.ldap.last_id;
                 self.ldap.id_scrub_tx.send(last_id)?;
             }
             res?
@@ -359,6 +360,10 @@ impl SearchStream {
             refs: vec![],
             ctrls: vec![],
         })
+    }
+
+    pub fn last_id(&mut self) -> RequestId {
+        self.ldap.last_id()
     }
 }
 
