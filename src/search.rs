@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use crate::controls::Control;
@@ -11,8 +11,11 @@ use tokio::sync::mpsc;
 use tokio::time;
 
 use lber::common::TagClass;
-use lber::structure::StructureTag;
+use lber::parse::parse_tag;
+use lber::structure::{StructureTag, PL};
 use lber::structures::{Boolean, Enumerated, Integer, OctetString, Sequence, Tag};
+use lber::universal::Types;
+use lber::IResult;
 
 /// Possible values for search scope.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -47,12 +50,20 @@ pub enum SearchItem {
 
 /// Wrapper for the internal structure of a result entry.
 #[derive(Debug, Clone)]
-pub struct ResultEntry(StructureTag);
+pub struct ResultEntry(pub(crate) StructureTag);
 
 impl ResultEntry {
     #[doc(hidden)]
     pub fn new(st: StructureTag) -> ResultEntry {
         ResultEntry(st)
+    }
+
+    pub fn is_ref(&self) -> bool {
+        self.0.id == 19
+    }
+
+    pub fn is_intermediate(&self) -> bool {
+        self.0.id == 25
     }
 }
 
@@ -364,4 +375,123 @@ impl SearchStream {
             ctrls: vec![],
         })
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum SyncInfo {
+    NewCookie(Vec<u8>),
+    RefreshDelete {
+        cookie: Option<Vec<u8>>,
+        refresh_done: bool,
+    },
+    RefreshPresent {
+        cookie: Option<Vec<u8>>,
+        refresh_done: bool,
+    },
+    SyncIdSet {
+        cookie: Option<Vec<u8>>,
+        refresh_deletes: bool,
+        sync_uuids: HashSet<Vec<u8>>,
+    },
+}
+
+pub fn parse_syncinfo<V: AsRef<[u8]>>(raw: V) -> SyncInfo {
+    let syncinfo_val = match parse_tag(raw.as_ref()) {
+        IResult::Done(_, tag) => tag,
+        _ => panic!("syncinfo_val: not a tag"),
+    };
+    match syncinfo_val {
+        StructureTag { id, class, payload } if class == TagClass::Context && id < 4 => match id {
+            0 => {
+                let cookie = match payload {
+                    PL::P(payload) => payload,
+                    PL::C(_) => panic!(),
+                };
+                SyncInfo::NewCookie(cookie)
+            }
+            1 | 2 | 3 => {
+                let mut syncinfo_val = match payload {
+                    PL::C(payload) => payload,
+                    PL::P(_) => panic!(),
+                }
+                .into_iter();
+                let mut sync_cookie = None;
+                let mut flag = id != 3;
+                let mut uuids = HashSet::new();
+                let mut pass = 1;
+                'it: loop {
+                    match syncinfo_val.next() {
+                        None => break 'it,
+                        Some(comp) => match comp {
+                            StructureTag {
+                                id,
+                                class,
+                                payload: _,
+                            } if class == TagClass::Universal
+                                && id == Types::OctetString as u64
+                                && pass <= 1 =>
+                            {
+                                sync_cookie = comp.expect_primitive();
+                            }
+                            StructureTag {
+                                id,
+                                class,
+                                payload: _,
+                            } if class == TagClass::Universal
+                                && id == Types::Boolean as u64
+                                && pass <= 2 =>
+                            {
+                                flag = !(comp.expect_primitive().expect("octet string")[0] == 0);
+                            }
+                            StructureTag {
+                                id,
+                                class,
+                                payload: _,
+                            } if class == TagClass::Universal
+                                && id == Types::Set as u64
+                                && pass <= 3 =>
+                            {
+                                uuids = comp
+                                    .expect_constructed()
+                                    .expect("uuid set")
+                                    .into_iter()
+                                    .map(|u| u.expect_primitive().expect("octet string"))
+                                    .collect();
+                            }
+                            _ => panic!(),
+                        },
+                    }
+                    pass += 1;
+                }
+                match id {
+                    1 => SyncInfo::RefreshDelete {
+                        cookie: sync_cookie,
+                        refresh_done: flag,
+                    },
+                    2 => SyncInfo::RefreshPresent {
+                        cookie: sync_cookie,
+                        refresh_done: flag,
+                    },
+                    3 => SyncInfo::SyncIdSet {
+                        cookie: sync_cookie,
+                        refresh_deletes: flag,
+                        sync_uuids: uuids,
+                    },
+                    _ => panic!(),
+                }
+            }
+            _ => panic!(),
+        },
+        _ => panic!("syncinfo id not 0-3"),
+    }
+}
+
+pub fn parse_refs(t: StructureTag) -> Vec<String> {
+    t.expect_constructed()
+        .expect("referrals")
+        .into_iter()
+        .map(|t| t.expect_primitive().expect("octet string"))
+        .map(String::from_utf8)
+        .map(|s| s.expect("uri"))
+        .collect()
 }

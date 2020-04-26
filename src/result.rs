@@ -5,7 +5,6 @@
 //! helper methods, which adapt LDAP result and error handling to be a closer
 //! match to Rust conventions.
 
-use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
 use std::io;
@@ -15,6 +14,7 @@ use crate::controls::Control;
 use crate::exop::Exop;
 use crate::protocol::{LdapOp, MaybeControls, ResultSender};
 use crate::search::ResultEntry;
+use crate::search::parse_refs;
 use crate::RequestId;
 
 use lber::common::TagClass;
@@ -116,7 +116,7 @@ pub struct LdapResult {
     ///
     /// In the current implementation, all referrals received during a Search
     /// operation will be accumulated in this vector.
-    pub refs: Vec<HashSet<String>>,
+    pub refs: Vec<String>,
     /// Response controls.
     ///
     /// Missing and empty controls are both represented by an empty vector.
@@ -274,28 +274,17 @@ impl From<Tag> for LdapResultExt {
                 None => break,
                 Some(comp) => match comp.id {
                     3 => {
-                        let raw_refs = match comp.expect_constructed() {
-                            Some(rr) => rr,
-                            None => panic!("failed to parse referrals"),
-                        };
-                        refs.push(
-                            raw_refs
-                                .into_iter()
-                                .map(|t| t.expect_primitive().expect("octet string"))
-                                .map(String::from_utf8)
-                                .map(|s| s.expect("uri"))
-                                .collect(),
-                        );
-                    }
+                        refs.extend(parse_refs(comp));
+                    },
                     10 => {
                         exop_name = Some(
                             String::from_utf8(comp.expect_primitive().expect("octet string"))
                                 .expect("exop name"),
                         );
-                    }
+                    },
                     11 => {
                         exop_val = Some(comp.expect_primitive().expect("octet string"));
-                    }
+                    },
                     _ => (),
                 },
             }

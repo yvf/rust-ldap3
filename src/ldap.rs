@@ -11,6 +11,7 @@ use crate::result::{
     CompareResult, ExopResult, LdapError, LdapResult, LdapResultExt, Result, SearchResult,
 };
 use crate::search::{Scope, SearchOptions, SearchStream};
+use crate::search::parse_refs;
 use crate::RequestId;
 
 use lber::common::TagClass;
@@ -180,10 +181,20 @@ impl Ldap {
     ) -> Result<SearchResult> {
         let mut stream = self.streaming_search(base, scope, filter, attrs).await?;
         let mut re_vec = vec![];
+        let mut refs = vec![];
         while let Some(entry) = stream.next().await? {
+            if entry.is_intermediate() {
+                continue;
+            }
+            if entry.is_ref() {
+                refs.extend(parse_refs(entry.0));
+                continue;
+            }
             re_vec.push(entry);
         }
-        Ok(SearchResult(re_vec, stream.finish()))
+        let mut res = stream.finish();
+        res.refs.extend(refs);
+        Ok(SearchResult(re_vec, res))
     }
 
     pub async fn streaming_search<S: AsRef<str>>(

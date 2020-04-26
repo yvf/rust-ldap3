@@ -84,12 +84,14 @@ pub mod result;
 mod search;
 #[cfg(feature = "sync")]
 mod sync;
+mod util;
 
 pub use conn::{LdapConnAsync, LdapConnSettings};
 pub use filter::parse as parse_filter;
 pub use ldap::{Ldap, Mod};
 pub use result::{LdapError, LdapResult};
-pub use search::{Scope, SearchEntry, SearchStream};
+pub use search::parse_syncinfo;
+pub use search::{Scope, SearchEntry, SearchStream, SyncInfo};
 #[cfg(feature = "sync")]
 pub use sync::LdapConn;
 pub use util::{dn_escape, ldap_escape};
