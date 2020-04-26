@@ -35,7 +35,10 @@ impl LdapConn {
             super::drive!(conn);
             Ok(ldap)
         })?;
-        Ok(LdapConn { ldap, rt: Arc::new(rt) })
+        Ok(LdapConn {
+            ldap,
+            rt: Arc::new(rt),
+        })
     }
 
     pub fn simple_bind(&mut self, bind_dn: &str, bind_pw: &str) -> Result<LdapResult> {
@@ -71,7 +74,8 @@ impl LdapConn {
     ) -> Result<EntryStream> {
         let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
-        let stream = rt.block_on(async move { ldap.streaming_search(base, scope, filter, attrs).await })?;
+        let stream =
+            rt.block_on(async move { ldap.streaming_search(base, scope, filter, attrs).await })?;
         Ok(EntryStream {
             stream,
             rt: self.rt.clone(),

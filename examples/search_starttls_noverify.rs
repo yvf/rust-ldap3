@@ -18,13 +18,14 @@ async fn main() -> Result<()> {
     )
     .await?;
     ldap3::drive!(conn);
-    let mut search = ldap.streaming_search(
-        "ou=Places,dc=example,dc=org",
-        Scope::Subtree,
-        "(&(l=ma*)(objectClass=locality))",
-        vec!["l"],
-    )
-    .await?;
+    let mut search = ldap
+        .streaming_search(
+            "ou=Places,dc=example,dc=org",
+            Scope::Subtree,
+            "(&(l=ma*)(objectClass=locality))",
+            vec!["l"],
+        )
+        .await?;
     while let Some(entry) = search.next().await? {
         let entry = SearchEntry::construct(entry);
         println!("{:?}", entry);

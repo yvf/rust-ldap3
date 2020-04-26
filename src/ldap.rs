@@ -7,7 +7,9 @@ use crate::controls_impl::IntoRawControlVec;
 use crate::exop::Exop;
 use crate::exop_impl::construct_exop;
 use crate::protocol::{LdapOp, MaybeControls, ResultSender};
-use crate::result::{CompareResult, ExopResult, LdapError, LdapResult, LdapResultExt, Result, SearchResult};
+use crate::result::{
+    CompareResult, ExopResult, LdapError, LdapResult, LdapResultExt, Result, SearchResult,
+};
 use crate::search::{Scope, SearchOptions, SearchStream};
 use crate::RequestId;
 
@@ -191,7 +193,9 @@ impl Ldap {
         filter: &str,
         attrs: Vec<S>,
     ) -> Result<SearchStream> {
-        SearchStream::new(self.clone()).start(base, scope, filter, attrs).await
+        SearchStream::new(self.clone())
+            .start(base, scope, filter, attrs)
+            .await
     }
 
     /// See [`LdapConn::add()`](struct.LdapConn.html#method.add).
