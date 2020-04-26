@@ -10,8 +10,8 @@ use crate::protocol::{LdapOp, MaybeControls, ResultSender};
 use crate::result::{
     CompareResult, ExopResult, LdapError, LdapResult, LdapResultExt, Result, SearchResult,
 };
-use crate::search::{Scope, SearchOptions, SearchStream};
 use crate::search::parse_refs;
+use crate::search::{Scope, SearchOptions, SearchStream};
 use crate::RequestId;
 
 use lber::common::TagClass;

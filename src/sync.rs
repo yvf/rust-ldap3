@@ -1,12 +1,14 @@
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::conn::{LdapConnAsync, LdapConnSettings};
+use crate::controls_impl::IntoRawControlVec;
 use crate::exop::Exop;
 use crate::ldap::{Ldap, Mod};
 use crate::result::{CompareResult, ExopResult, LdapResult, Result, SearchResult};
-use crate::search::{ResultEntry, Scope, SearchStream};
+use crate::search::{ResultEntry, Scope, SearchOptions, SearchStream};
 use crate::RequestId;
 
 use tokio::runtime::{self, Runtime};
@@ -39,6 +41,24 @@ impl LdapConn {
             ldap,
             rt: Arc::new(rt),
         })
+    }
+
+    /// See [`LdapConn::with_search_options()`](struct.LdapConn.html#method.with_search_options).
+    pub fn with_search_options(&mut self, opts: SearchOptions) -> &mut Self {
+        self.ldap.search_opts = Some(opts);
+        self
+    }
+
+    /// See [`LdapConn::with_controls()`](struct.LdapConn.html#method.with_controls).
+    pub fn with_controls<V: IntoRawControlVec>(&mut self, ctrls: V) -> &mut Self {
+        self.ldap.controls = Some(ctrls.into());
+        self
+    }
+
+    /// See [`LdapConn::with_timeout()`](struct.LdapConn.html#method.with_timeout).
+    pub fn with_timeout(&mut self, duration: Duration) -> &mut Self {
+        self.ldap.timeout = Some(duration);
+        self
     }
 
     pub fn simple_bind(&mut self, bind_dn: &str, bind_pw: &str) -> Result<LdapResult> {

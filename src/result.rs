@@ -13,8 +13,8 @@ use std::result::Result as StdResult;
 use crate::controls::Control;
 use crate::exop::Exop;
 use crate::protocol::{LdapOp, MaybeControls, ResultSender};
-use crate::search::ResultEntry;
 use crate::search::parse_refs;
+use crate::search::ResultEntry;
 use crate::RequestId;
 
 use lber::common::TagClass;
@@ -275,16 +275,16 @@ impl From<Tag> for LdapResultExt {
                 Some(comp) => match comp.id {
                     3 => {
                         refs.extend(parse_refs(comp));
-                    },
+                    }
                     10 => {
                         exop_name = Some(
                             String::from_utf8(comp.expect_primitive().expect("octet string"))
                                 .expect("exop name"),
                         );
-                    },
+                    }
                     11 => {
                         exop_val = Some(comp.expect_primitive().expect("octet string"));
-                    },
+                    }
                     _ => (),
                 },
             }
