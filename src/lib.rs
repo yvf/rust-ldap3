@@ -18,6 +18,7 @@ pub mod asn1 {
     pub use lber::structures::{
         ASNTag, Boolean, Enumerated, ExplicitTag, Integer, Null, OctetString, Sequence, Set, Tag,
     };
+    pub use lber::universal::Types;
     pub use lber::write;
     pub use lber::IResult;
 }
