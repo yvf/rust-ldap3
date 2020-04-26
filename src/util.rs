@@ -60,9 +60,15 @@ pub fn ldap_escape<'a, S: Into<Cow<'a, str>>>(lit: S) -> Cow<'a, str> {
 pub fn dn_escape<'a, S: Into<Cow<'a, str>>>(val: S) -> Cow<'a, str> {
     #[inline]
     fn always_escape(c: u8) -> bool {
-        c == b'"' || c == b'+' || c == b',' || c == b';' ||
-        c == b'<' || c == b'=' || c == b'>' || c == b'\\' ||
-        c == 0
+        c == b'"'
+            || c == b'+'
+            || c == b','
+            || c == b';'
+            || c == b'<'
+            || c == b'='
+            || c == b'>'
+            || c == b'\\'
+            || c == 0
     }
 
     #[inline]
@@ -83,7 +89,10 @@ pub fn dn_escape<'a, S: Into<Cow<'a, str>>>(val: S) -> Cow<'a, str> {
     let val = val.into();
     let mut output = None;
     for (i, &c) in val.as_bytes().iter().enumerate() {
-        if always_escape(c) || i == 0 && escape_leading(c) || i + 1 == val.len() && escape_trailing(c) {
+        if always_escape(c)
+            || i == 0 && escape_leading(c)
+            || i + 1 == val.len() && escape_trailing(c)
+        {
             if output.is_none() {
                 output = Some(Vec::with_capacity(val.len() + 12)); // guess: up to 4 escaped chars
                 output.as_mut().unwrap().extend(val[..i].as_bytes());
