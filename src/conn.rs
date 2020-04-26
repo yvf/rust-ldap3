@@ -186,6 +186,7 @@ pub struct LdapConnAsync {
     resultmap: HashMap<i32, ResultSender>,
     searchmap: HashMap<i32, ItemSender>,
     rx: mpsc::UnboundedReceiver<(RequestId, LdapOp, Tag, MaybeControls, ResultSender)>,
+    id_scrub_rx: mpsc::UnboundedReceiver<RequestId>,
     stream: Framed<ConnType, LdapCodec>,
 }
 
@@ -317,16 +318,19 @@ impl LdapConnAsync {
     fn conn_pair(ctype: ConnType) -> (Self, Ldap) {
         let codec = LdapCodec;
         let (tx, rx) = mpsc::unbounded_channel();
+        let (id_scrub_tx, id_scrub_rx) = mpsc::unbounded_channel();
         let conn = LdapConnAsync {
             msgmap: Arc::new(Mutex::new((0, HashSet::new()))),
             resultmap: HashMap::new(),
             searchmap: HashMap::new(),
             rx: rx,
+            id_scrub_rx: id_scrub_rx,
             stream: codec.framed(ctype),
         };
         let ldap = Ldap {
             msgmap: conn.msgmap.clone(),
             tx: tx,
+            id_scrub_tx: id_scrub_tx,
             last_id: 0,
             timeout: None,
             controls: None,
@@ -349,6 +353,14 @@ impl LdapConnAsync {
     async fn turn(mut self, mode: LoopMode) -> Result<Self> {
         loop {
             tokio::select! {
+                req_id = self.id_scrub_rx.recv() => {
+                    if let Some(req_id) = req_id {
+                        self.resultmap.remove(&req_id);
+                        self.searchmap.remove(&req_id);
+                        let mut msgmap = self.msgmap.lock().expect("msgmap mutex (id_scrub)");
+                        msgmap.1.remove(&req_id);
+                    }
+                },
                 op_tuple = self.rx.recv() => {
                     if let Some((id, op, tag, controls, tx)) = op_tuple {
                         if let &LdapOp::Search(ref search_tx) = &op {
@@ -365,10 +377,10 @@ impl LdapConnAsync {
                                 },
                                 LdapOp::Search(_) => (),
                                 LdapOp::Abandon(msgid) => {
-                                    let mut msgmap = self.msgmap.lock().expect("msgmap mutex (abandon)");
-                                    msgmap.1.remove(&id);
                                     self.resultmap.remove(&msgid);
                                     self.searchmap.remove(&msgid);
+                                    let mut msgmap = self.msgmap.lock().expect("msgmap mutex (abandon)");
+                                    msgmap.1.remove(&id);
                                 },
                                 LdapOp::Unbind => {
                                     if let Err(e) = self.stream.close().await {
@@ -412,11 +424,11 @@ impl LdapConnAsync {
                             self.searchmap.remove(&id);
                         }
                     } else if let Some(tx) = self.resultmap.remove(&id) {
-                        let mut msgmap = self.msgmap.lock().expect("msgmap mutex (stream rx)");
-                        msgmap.1.remove(&id);
                         if let Err(e) = tx.send((tag, controls)) {
                             warn!("ldap result send error: {:?}", e);
                         }
+                        let mut msgmap = self.msgmap.lock().expect("msgmap mutex (stream rx)");
+                        msgmap.1.remove(&id);
                     } else {
                         warn!("unmatched id: {}", id);
                     }

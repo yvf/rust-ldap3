@@ -36,9 +36,10 @@ pub enum Mod<S: AsRef<[u8]> + Eq + Hash> {
 
 #[derive(Debug)]
 pub struct Ldap {
-    pub(crate) msgmap: Arc<Mutex<(i32, HashSet<i32>)>>,
+    pub(crate) msgmap: Arc<Mutex<(RequestId, HashSet<RequestId>)>>,
     pub(crate) tx: mpsc::UnboundedSender<(RequestId, LdapOp, Tag, MaybeControls, ResultSender)>,
-    pub(crate) last_id: i32,
+    pub(crate) id_scrub_tx: mpsc::UnboundedSender<RequestId>,
+    pub(crate) last_id: RequestId,
     pub(crate) timeout: Option<Duration>,
     pub(crate) controls: MaybeControls,
     pub(crate) search_opts: Option<SearchOptions>,
@@ -49,6 +50,7 @@ impl Clone for Ldap {
         Ldap {
             msgmap: self.msgmap.clone(),
             tx: self.tx.clone(),
+            id_scrub_tx: self.id_scrub_tx.clone(),
             last_id: 0,
             timeout: None,
             controls: None,
@@ -87,7 +89,11 @@ impl Ldap {
         let (tx, rx) = oneshot::channel();
         self.tx.send((id, op, req, self.controls.take(), tx))?;
         let response = if let Some(timeout) = self.timeout.take() {
-            time::timeout(timeout, rx).await?
+            let res = time::timeout(timeout, rx).await;
+            if let Err(_) = res {
+                self.id_scrub_tx.send(self.last_id)?;
+            }
+            res?
         } else {
             rx.await
         }?;

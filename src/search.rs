@@ -321,7 +321,12 @@ impl SearchStream {
             return Ok(None);
         }
         let item = if let Some(ref timeout) = self.timeout {
-            time::timeout(*timeout, self.rx.as_mut().unwrap().recv()).await?
+            let res = time::timeout(*timeout, self.rx.as_mut().unwrap().recv()).await;
+            if let Err(_) = res {
+                let last_id = self.ldap.last_id();
+                self.ldap.id_scrub_tx.send(last_id)?;
+            }
+            res?
         } else {
             self.rx.as_mut().unwrap().recv().await
         };

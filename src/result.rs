@@ -50,6 +50,11 @@ pub enum LdapError {
         #[from]
         source: oneshot::error::RecvError,
     },
+    #[error("id scrub send error: {source}")]
+    IdScrubSend {
+        #[from]
+        source: mpsc::error::SendError<RequestId>,
+    },
     #[error("timeout: {elapsed}")]
     Timeout {
         #[from]
