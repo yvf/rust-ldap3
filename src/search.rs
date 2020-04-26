@@ -74,7 +74,6 @@ pub struct SearchOptions {
     pub(crate) typesonly: bool,
     pub(crate) timelimit: i32,
     pub(crate) sizelimit: i32,
-    pub(crate) autopage: Option<i32>,
 }
 
 impl SearchOptions {
@@ -85,7 +84,6 @@ impl SearchOptions {
             typesonly: false,
             timelimit: 0,
             sizelimit: 0,
-            autopage: None,
         }
     }
 
@@ -113,24 +111,6 @@ impl SearchOptions {
     /// Set the size limit, in entries, for the whole search operation.
     pub fn sizelimit(mut self, sizelimit: i32) -> Self {
         self.sizelimit = sizelimit;
-        self
-    }
-
-    /// Set the page size for automatic PagedResults.
-    ///
-    /// If `pagesize` is greater than zero, use a PagedResults control with that
-    /// page size for the next search request, and keep issuing requests until
-    /// all results are returned, or an error or a timeout occur.
-    ///
-    /// Supplying another PagedResults control to the initial request is not allowed,
-    /// and will generate an error. Other controls may be specified, and are replicated
-    /// afresh in every subsequent search request. Care should be taken not to depend
-    /// on response controls, because intermediate search results are not returned
-    /// to the caller.
-    ///
-    /// Passing a `pagesize` less than or equal to zero will turn autopaging off.
-    pub fn autopage(mut self, pagesize: i32) -> Self {
-        self.autopage = Some(pagesize);
         self
     }
 }
