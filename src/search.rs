@@ -258,13 +258,13 @@ impl SearchStream {
     /// is drained, should be retrieved from the stream instance with
     /// [`get_result_rx()`](struct.SearchStream.html#method.get_result_rx). The stream and
     /// the receiver should be polled concurrently with `Future::join()`.
-    pub async fn start<S: AsRef<str>>(
-        &mut self,
+    pub(crate) async fn start<S: AsRef<str>>(
+        mut self,
         base: &str,
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
-    ) -> Result<()> {
+    ) -> Result<Self> {
         let opts = match self.ldap.search_opts.take() {
             Some(opts) => opts,
             None => SearchOptions::new(),
@@ -322,7 +322,7 @@ impl SearchStream {
             self.ldap.with_timeout(*timeout);
         }
         self.ldap.op_call(LdapOp::Search(tx), req).await?;
-        Ok(())
+        Ok(self)
     }
 
     pub async fn next(&mut self) -> Result<Option<ResultEntry>> {
@@ -354,17 +354,14 @@ impl SearchStream {
         Ok(None)
     }
 
-    pub fn finish(mut self) -> (LdapResult, Ldap) {
+    pub fn finish(mut self) -> LdapResult {
         self.rx = None;
-        (
-            self.res.unwrap_or_else(|| LdapResult {
-                rc: 88,
-                matched: String::from(""),
-                text: String::from("user cancelled"),
-                refs: vec![],
-                ctrls: vec![],
-            }),
-            self.ldap,
-        )
+        self.res.unwrap_or_else(|| LdapResult {
+            rc: 88,
+            matched: String::from(""),
+            text: String::from("user cancelled"),
+            refs: vec![],
+            ctrls: vec![],
+        })
     }
 }

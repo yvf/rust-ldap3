@@ -1,17 +1,20 @@
 use std::collections::HashSet;
 use std::hash::Hash;
+use std::sync::Arc;
 
 use crate::conn::{LdapConnAsync, LdapConnSettings};
 use crate::exop::Exop;
 use crate::ldap::{Ldap, Mod};
-use crate::result::{CompareResult, ExopResult, LdapResult, Result};
+use crate::result::{CompareResult, ExopResult, LdapResult, Result, SearchResult};
+use crate::search::{ResultEntry, Scope, SearchStream};
 use crate::RequestId;
 
 use tokio::runtime::{self, Runtime};
 
+#[derive(Debug)]
 pub struct LdapConn {
+    rt: Arc<Runtime>,
     ldap: Ldap,
-    rt: Runtime,
 }
 
 impl LdapConn {
@@ -32,19 +35,47 @@ impl LdapConn {
             super::drive!(conn);
             Ok(ldap)
         })?;
-        Ok(LdapConn { ldap, rt })
+        Ok(LdapConn { ldap, rt: Arc::new(rt) })
     }
 
     pub fn simple_bind(&mut self, bind_dn: &str, bind_pw: &str) -> Result<LdapResult> {
-        let rt = &mut self.rt;
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.simple_bind(bind_dn, bind_pw).await })
     }
 
     pub fn sasl_external_bind(&mut self) -> Result<LdapResult> {
-        let rt = &mut self.rt;
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.sasl_external_bind().await })
+    }
+
+    pub fn search<S: AsRef<str>>(
+        &mut self,
+        base: &str,
+        scope: Scope,
+        filter: &str,
+        attrs: Vec<S>,
+    ) -> Result<SearchResult> {
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let ldap = &mut self.ldap;
+        rt.block_on(async move { ldap.search(base, scope, filter, attrs).await })
+    }
+
+    pub fn streaming_search<S: AsRef<str>>(
+        &mut self,
+        base: &str,
+        scope: Scope,
+        filter: &str,
+        attrs: Vec<S>,
+    ) -> Result<EntryStream> {
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let ldap = &mut self.ldap;
+        let stream = rt.block_on(async move { ldap.streaming_search(base, scope, filter, attrs).await })?;
+        Ok(EntryStream {
+            stream,
+            rt: self.rt.clone(),
+        })
     }
 
     pub fn add<S: AsRef<[u8]> + Eq + Hash>(
@@ -52,7 +83,7 @@ impl LdapConn {
         dn: &str,
         attrs: Vec<(S, HashSet<S>)>,
     ) -> Result<LdapResult> {
-        let rt = &mut self.rt;
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.add(dn, attrs).await })
     }
@@ -63,13 +94,13 @@ impl LdapConn {
         attr: &str,
         val: B,
     ) -> Result<CompareResult> {
-        let rt = &mut self.rt;
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.compare(dn, attr, val).await })
     }
 
     pub fn delete(&mut self, dn: &str) -> Result<LdapResult> {
-        let rt = &mut self.rt;
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.delete(dn).await })
     }
@@ -79,7 +110,7 @@ impl LdapConn {
         dn: &str,
         mods: Vec<Mod<S>>,
     ) -> Result<LdapResult> {
-        let rt = &mut self.rt;
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.modify(dn, mods).await })
     }
@@ -91,13 +122,13 @@ impl LdapConn {
         delete_old: bool,
         new_sup: Option<&str>,
     ) -> Result<LdapResult> {
-        let rt = &mut self.rt;
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.modifydn(dn, rdn, delete_old, new_sup).await })
     }
 
     pub fn unbind(&mut self) -> Result<()> {
-        let rt = &mut self.rt;
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.unbind().await })
     }
@@ -106,7 +137,7 @@ impl LdapConn {
     where
         E: Into<Exop>,
     {
-        let rt = &mut self.rt;
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.extended(exop).await })
     }
@@ -116,8 +147,25 @@ impl LdapConn {
     }
 
     pub fn abandon(&mut self, msgid: RequestId) -> Result<()> {
-        let rt = &mut self.rt;
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.abandon(msgid).await })
+    }
+}
+
+pub struct EntryStream {
+    stream: SearchStream,
+    rt: Arc<Runtime>,
+}
+
+impl EntryStream {
+    pub fn next(&mut self) -> Result<Option<ResultEntry>> {
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let stream = &mut self.stream;
+        rt.block_on(async move { stream.next().await })
+    }
+
+    pub fn result(self) -> LdapResult {
+        self.stream.finish()
     }
 }

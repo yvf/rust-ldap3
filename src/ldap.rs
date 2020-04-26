@@ -7,8 +7,8 @@ use crate::controls_impl::IntoRawControlVec;
 use crate::exop::Exop;
 use crate::exop_impl::construct_exop;
 use crate::protocol::{LdapOp, MaybeControls, ResultSender};
-use crate::result::{CompareResult, ExopResult, LdapError, LdapResult, LdapResultExt, Result};
-use crate::search::{SearchOptions, SearchStream};
+use crate::result::{CompareResult, ExopResult, LdapError, LdapResult, LdapResultExt, Result, SearchResult};
+use crate::search::{Scope, SearchOptions, SearchStream};
 use crate::RequestId;
 
 use lber::common::TagClass;
@@ -169,8 +169,29 @@ impl Ldap {
         Ok(self.op_call(LdapOp::Single, req).await?.0)
     }
 
-    pub fn into_search_stream(self) -> SearchStream {
-        SearchStream::new(self)
+    pub async fn search<S: AsRef<str>>(
+        &mut self,
+        base: &str,
+        scope: Scope,
+        filter: &str,
+        attrs: Vec<S>,
+    ) -> Result<SearchResult> {
+        let mut stream = self.streaming_search(base, scope, filter, attrs).await?;
+        let mut re_vec = vec![];
+        while let Some(entry) = stream.next().await? {
+            re_vec.push(entry);
+        }
+        Ok(SearchResult(re_vec, stream.finish()))
+    }
+
+    pub async fn streaming_search<S: AsRef<str>>(
+        &mut self,
+        base: &str,
+        scope: Scope,
+        filter: &str,
+        attrs: Vec<S>,
+    ) -> Result<SearchStream> {
+        SearchStream::new(self.clone()).start(base, scope, filter, attrs).await
     }
 
     /// See [`LdapConn::add()`](struct.LdapConn.html#method.add).
