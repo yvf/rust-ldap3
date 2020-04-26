@@ -10,7 +10,7 @@ use ldap3::{LdapConnAsync, LdapConnSettings, Scope, SearchEntry};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let (conn, ldap) = LdapConnAsync::with_settings(
+    let (conn, mut ldap) = LdapConnAsync::with_settings(
         LdapConnSettings::new()
             .set_starttls(true)
             .set_no_tls_verify(true),
@@ -18,19 +18,17 @@ async fn main() -> Result<()> {
     )
     .await?;
     ldap3::drive!(conn);
-    let mut search = ldap.into_search_stream();
-    search
-        .start(
-            "ou=Places,dc=example,dc=org",
-            Scope::Subtree,
-            "objectClass=locality",
-            vec!["l"],
-        )
-        .await?;
+    let mut search = ldap.streaming_search(
+        "ou=Places,dc=example,dc=org",
+        Scope::Subtree,
+        "(&(l=ma*)(objectClass=locality))",
+        vec!["l"],
+    )
+    .await?;
     while let Some(entry) = search.next().await? {
         let entry = SearchEntry::construct(entry);
         println!("{:?}", entry);
     }
-    let (res, _ldap) = search.finish();
-    Ok(res.success().map(|_| ())?)
+    let _res = search.finish().success()?;
+    Ok(ldap.unbind().await?)
 }
