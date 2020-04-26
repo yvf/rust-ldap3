@@ -29,8 +29,8 @@ use tokio::stream::StreamExt;
 use tokio::sync::mpsc;
 #[cfg(feature = "tls")]
 use tokio::sync::oneshot;
-#[cfg(feature = "tls")]
 use tokio::time;
+#[cfg(feature = "tls")]
 use tokio_tls::{TlsConnector as TokioTlsConnector, TlsStream};
 use tokio_util::codec::{Decoder, Framed};
 use url::{self, Url};
