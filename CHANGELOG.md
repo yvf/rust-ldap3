@@ -1,3 +1,25 @@
+## v0.7.0-alpha.3, 2020-04-27
+
+This version completely overhauls the internals of the
+library by porting it to Tokio 0.2 and async/await. This
+makes the asynchronous interface one big breaking change,
+so it makes no sense to enumerate the differences. The
+synchronous interface proved rather more stable, but there
+are a couple of breaking changes there, too:
+
+* [breaking change]: The `LdapConn` struct now must be mutable,
+  since all methods require `&mut self`.
+
+* [breaking change]: The error part of the functions and methods
+  that return Result is now an instance of `LdapError`. There is
+  a blanket automatic conversion to `io::Error` to make the change
+  less problematic for applications.
+
+* [breaking change]: Streaming Search returns raw entries, without
+  trying to parse referrals or intermediate messages. Ordinary
+  Search drops intermediate messages and collects all referrals
+  in the result vector.
+
 ## v0.6.1, 2018-10-16
 
 * A number of dependencies have been updated to avoid
