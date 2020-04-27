@@ -59,10 +59,12 @@ impl ResultEntry {
         ResultEntry(st)
     }
 
+    /// Returns true if the enclosed entry is a referral.
     pub fn is_ref(&self) -> bool {
         self.0.id == 19
     }
 
+    /// Returns true if the enclosed entry is an intermediate message.
     pub fn is_intermediate(&self) -> bool {
         self.0.id == 25
     }
@@ -129,11 +131,6 @@ impl SearchOptions {
 /// possible that a particular set of values for a binary attribute _could_ be
 /// converted into UTF-8 `String`s, the presence of of such attribute in the result
 /// entry should be checked for both in `attrs` and `bin_atrrs`.
-///
-/// In the future versions of the library, this parsing interface will be
-/// de-emphasized in favor of custom Serde deserialization of search results directly
-/// into a user-supplied struct, which is expected to be a better fit for the
-/// majority of uses.
 #[derive(Debug, Clone)]
 pub struct SearchEntry {
     /// Entry DN.
@@ -147,8 +144,7 @@ pub struct SearchEntry {
 impl SearchEntry {
     /// Parse raw BER data and convert it into attribute map(s).
     ///
-    /// __Note__: this function will panic on parsing error. Error handling will be
-    /// improved in a future version of the library.
+    /// __Note__: this function will panic on parsing error.
     pub fn construct(re: ResultEntry) -> SearchEntry {
         let mut tags =
             re.0.match_id(4)
@@ -222,6 +218,21 @@ impl SearchEntry {
     }
 }
 
+/// Asynchronous handle for obtaining a stream of search results. __*__
+///
+/// A streaming search should be used for situations where the expected
+/// size of result entries varies considerably between searches, and/or
+/// can rise above a few tens to hundreds of KB. This is more of a concern
+/// for a long-lived process which is expected to have a predictable memory
+/// footprint (i.e., a server), but can also help with one-off searches if
+/// the result set is in the tens of thounsands of entries.
+///
+/// Once initiated, a streaming search is driven to the end by repeatedly calling
+/// [`next()`](#method.next) until it returns `Ok(None)` or an error. Then, a call
+/// to [`finish()`](#method.finish) will return the overall result of the search.
+/// Calling `finish()` earlier will terminate search result processing in the
+/// client; it is the user's responsibility to inform the server that the operation
+/// has been terminated by sending an Abandon or a Cancel operation.
 #[derive(Debug)]
 pub struct SearchStream {
     ldap: Ldap,
@@ -242,14 +253,6 @@ impl SearchStream {
         }
     }
 
-    /// See also [`LdapConn::streaming_search()`](struct.LdapConn.html#method.streaming_search).
-    ///
-    /// The returned future resolves to a [`SearchStream`](struct.SearchStream.html),
-    /// which should be iterated through to obtain results. Before starting the iteration,
-    /// the receiver future, which will yield the overall result of the search after the stream
-    /// is drained, should be retrieved from the stream instance with
-    /// [`get_result_rx()`](struct.SearchStream.html#method.get_result_rx). The stream and
-    /// the receiver should be polled concurrently with `Future::join()`.
     pub(crate) async fn start<S: AsRef<str>>(
         mut self,
         base: &str,
@@ -317,6 +320,9 @@ impl SearchStream {
         Ok(self)
     }
 
+    /// Fetch the next item from the result stream.
+    ///
+    /// Returns Ok(None) at the end of the stream.
     pub async fn next(&mut self) -> Result<Option<ResultEntry>> {
         if self.rx.is_none() {
             return Ok(None);
@@ -351,7 +357,19 @@ impl SearchStream {
         Ok(None)
     }
 
+    /// Return the overall result of the Search.
+    ///
+    /// This method can be called at any time. If the stream has been read to the
+    /// end, the return value will be the actual result returned by the server.
+    /// Otherwise, a synthetic cancellation result is returned, and it's the user's
+    /// responsibility to abandon or cancel the operation on the server.
     pub fn finish(mut self) -> LdapResult {
+        if self.rx.is_some() {
+            let last_id = self.ldap.last_id;
+            if let Err(e) = self.ldap.id_scrub_tx.send(last_id) {
+                warn!("error sending scrub message from SearchStream::finish() for ID {}: {}", last_id, e);
+            }
+        }
         self.rx = None;
         self.res.unwrap_or_else(|| LdapResult {
             rc: 88,
@@ -362,11 +380,14 @@ impl SearchStream {
         })
     }
 
+    /// Return the message ID of the Search operation.
     pub fn last_id(&mut self) -> RequestId {
         self.ldap.last_id()
     }
 }
 
+/// Possible values of the Sync Info intermediate message. See the Content
+/// Synchronization specification ([RFC 4532](https://tools.ietf.org/html/rfc4532)).
 #[derive(Clone, Debug)]
 pub enum SyncInfo {
     NewCookie(Vec<u8>),
@@ -385,6 +406,7 @@ pub enum SyncInfo {
     },
 }
 
+/// Parse the Sync Info value from the raw BER-encoded octet string.
 pub fn parse_syncinfo<V: AsRef<[u8]>>(raw: V) -> SyncInfo {
     let syncinfo_val = match parse_tag(raw.as_ref()) {
         IResult::Done(_, tag) => tag,
@@ -476,6 +498,7 @@ pub fn parse_syncinfo<V: AsRef<[u8]>>(raw: V) -> SyncInfo {
     }
 }
 
+/// Parse the referrals from the supplied BER-encoded sequence.
 pub fn parse_refs(t: StructureTag) -> Vec<String> {
     t.expect_constructed()
         .expect("referrals")

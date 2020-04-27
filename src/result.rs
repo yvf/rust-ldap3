@@ -27,61 +27,90 @@ use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time;
 
+/// Type alias for the standard `Result` with the fixed `LdapError` error part.
 pub type Result<T> = std::result::Result<T, LdapError>;
 
+/// Error variants recognized by the library.
 #[derive(Debug, Error)]
 pub enum LdapError {
+    /// No path given for a `ldapi://` URL.
     #[error("empty Unix domain socket path")]
     EmptyUnixPath,
+
+    /// A `ldapi://` URL contains a port spec, which it shouldn't.
     #[error("the port must be empty in the ldapi scheme")]
     PortInUnixPath,
+
+    /// Encapsulated I/O error.
     #[error("I/O error: {source}")]
     Io {
         #[from]
         source: io::Error,
     },
+
+    /// Error while sending an operation to the connection handler.
     #[error("op send error: {source}")]
     OpSend {
         #[from]
         source: mpsc::error::SendError<(RequestId, LdapOp, Tag, MaybeControls, ResultSender)>,
     },
+
+    /// Error while receiving operation results from the connection handler.
     #[error("result recv error: {source}")]
     ResultRecv {
         #[from]
         source: oneshot::error::RecvError,
     },
+
+    /// Error while sending an internal ID scrubbing request to the connection handler.
     #[error("id scrub send error: {source}")]
     IdScrubSend {
         #[from]
         source: mpsc::error::SendError<RequestId>,
     },
+
+    /// Operation or connection timeout.
     #[error("timeout: {elapsed}")]
     Timeout {
         #[from]
         elapsed: time::Elapsed,
     },
+
+    /// Error parsing the string representation of a search filter.
     #[error("filter parse error")]
     FilterParsing,
+
+    /// Premature end of a search stream.
     #[error("premature end of search stream")]
     EndOfStream,
+
+    /// URL parsing error.
     #[error("url parse error: {source}")]
     UrlParsing {
         #[from]
         source: url::ParseError,
     },
+
+    /// Unknown LDAP URL scheme.
     #[error("unknown LDAP URL scheme: {0}")]
     UnknownScheme(String),
+
     #[cfg(feature = "tls")]
+    /// Native TLS library error.
     #[error("native TLS error: {source}")]
     NativeTLS {
         #[from]
         source: native_tls::Error,
     },
+
+    /// LDAP operation result with an error return code.
     #[error("LDAP operation result: {result}")]
     LdapResult {
         #[from]
         result: LdapResult,
     },
+
+    /// No values provided for the Add operation.
     #[error("empty value set for Add")]
     AddNoValues,
 }
@@ -119,8 +148,7 @@ pub struct LdapResult {
     pub text: String,
     /// Referrals.
     ///
-    /// In the current implementation, all referrals received during a Search
-    /// operation will be accumulated in this vector.
+    /// Absence of referrals is represented by an empty vector.
     pub refs: Vec<String>,
     /// Response controls.
     ///

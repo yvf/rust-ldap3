@@ -151,7 +151,7 @@ impl RawControl {
     /// __Note__: no control known to the author signals the lack of return value by
     /// omitting the control value, so this shouldn't be a problem in practice.
     /// Nevertheless, it should be possible to report this along with other parsing errors,
-    /// which is a planned future improvement.
+    /// if it proves necessary.
     pub fn parse<T: ControlParser>(&self) -> T {
         T::parse(self.val.as_ref().expect("value"))
     }

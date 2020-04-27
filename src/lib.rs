@@ -1,8 +1,83 @@
+//! A pure-Rust LDAP library using the Tokio stack.
+//!
+//! ## Usage
+//!
+//! In `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies.ldap3]
+//! version = "0.7.0-alpha"
+//! ```
+//!
+//! ## Summary
+//!
+//! The library provides both synchronous and asynchronous interfaces. The [`LdapConn`](struct.LdapConn.html)
+//! structure is the starting point for all synchronous operations. [`LdapConnAsync`](struct.LdapConnAsync.html)
+//! is its asynchronous analogue, and [`Ldap`](struct.Ldap.html) is the low-level asynchronous handle useds
+//! internally by `LdapConn`, and explicitly by the users of the asynchronous interface.
+//!
+//! In the [struct list](#structs), async-related structs have an asterisk (__*__) after
+//! the short description.
+//!
+//! The documentation is written for readers familiar with LDAP concepts and terminology,
+//! which it won't attempt to explain.
+//!
+//! ## Examples
+//!
+//! The following two examples perform exactly the same operation and should produce identical
+//! results. They should be run against the example server in the `data` subdirectory of the crate source.
+//! Other sample programs expecting the same server setup can be found in the `examples` subdirectory.
+//!
+//! ### Synchronous search
+//!
+//! ```rust,no_run
+//! use ldap3::{LdapConn, Scope, SearchEntry};
+//! use ldap3::result::Result;
+//!
+//! fn main() -> Result<()> {
+//!     let mut ldap = LdapConn::new("ldap://localhost:2389")?;
+//!     let (rs, _res) = ldap.search(
+//!         "ou=Places,dc=example,dc=org",
+//!         Scope::Subtree,
+//!         "(&(objectClass=locality)(l=ma*))",
+//!         vec!["l"]
+//!     )?.success()?;
+//!     for entry in rs {
+//!         println!("{:?}", SearchEntry::construct(entry));
+//!     }
+//!     Ok(ldap.unbind()?)
+//! }
+//! ```
+//!
+//! ### Asynchronous search
+//!
+//! ```rust,no_run
+//! use ldap3::{LdapConnAsync, Scope, SearchEntry};
+//! use ldap3::result::Result;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<()> {
+//!     let (conn, mut ldap) = LdapConnAsync::new("ldap://localhost:2389").await?;
+//!     ldap3::drive!(conn);
+//!     let (rs, _res) = ldap.search(
+//!         "ou=Places,dc=example,dc=org",
+//!         Scope::Subtree,
+//!         "(&(objectClass=locality)(l=ma*))",
+//!         vec!["l"]
+//!     ).await?.success()?;
+//!     for entry in rs {
+//!         println!("{:?}", SearchEntry::construct(entry));
+//!     }
+//!     Ok(ldap.unbind().await?)
+//! }
+//! ```
+
 #[macro_use]
 extern crate nom;
 #[macro_use]
 pub extern crate log;
 
+/// Type alias for the LDAP message ID.
 pub type RequestId = i32;
 
 pub mod asn1 {
@@ -89,9 +164,9 @@ mod util;
 pub use conn::{LdapConnAsync, LdapConnSettings};
 pub use filter::parse as parse_filter;
 pub use ldap::{Ldap, Mod};
-pub use result::{LdapError, LdapResult};
+pub use result::{LdapError, LdapResult, SearchResult};
 pub use search::parse_syncinfo;
-pub use search::{Scope, SearchEntry, SearchStream, SyncInfo};
+pub use search::{DerefAliases, ResultEntry, Scope, SearchEntry, SearchOptions, SearchStream, SyncInfo};
 #[cfg(feature = "sync")]
-pub use sync::LdapConn;
+pub use sync::{EntryStream, LdapConn};
 pub use util::{dn_escape, ldap_escape};

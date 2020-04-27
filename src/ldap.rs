@@ -34,6 +34,36 @@ pub enum Mod<S: AsRef<[u8]> + Eq + Hash> {
     Increment(S, S),
 }
 
+/// Asynchronous handle for LDAP operations. __*__
+///
+/// All LDAP operations allow attaching a series of request controls, which augment or modify
+/// the operation. Controls are attached by calling [`with_controls()`](#method.with_controls)
+/// on the handle, and using the result to call another modifier or the operation itself.
+/// A timeout can be imposed on an operation by calling [`with_timeout()`](#method.with_timeout)
+/// on the handle before invoking the operation.
+///
+/// The Search operation has many parameters, most of which are infrequently used. Those
+/// parameters can be specified by constructing a [`SearchOptions`](struct.SearchOptions.html)
+/// structure and passing it to [`with_search_options()`](#method.with_search_options)
+/// called on the handle. This method can be combined with `with_controls()` and `with_timeout()`,
+/// described above.
+///
+/// There are two ways to invoke a search. The first, using [`search()`](#method.search),
+/// returns all result entries in a single vector, which works best if it's known that the
+/// result set will be limited. The other way uses [`streaming_search()`](#method.streaming_search),
+/// which accepts the same parameters, but returns a handle which must be used to obtain
+/// result entries one by one.
+///
+/// As a rule, operations return [`LdapResult`](result/struct.LdapResult.html),
+/// a structure of result components. The most important element of `LdapResult`
+/// is the result code, a numeric value indicating the outcome of the operation.
+/// This structure also contains the possibly empty vector of response controls,
+/// which are not directly usable, but must be additionally parsed by the driver- or
+/// user-supplied code.
+///
+/// The handle can be freely cloned. Each clone will multiplex the invoked LDAP operations on
+/// the same underlying connection. Dropping the last handle will automatically close the
+/// connection.
 #[derive(Debug)]
 pub struct Ldap {
     pub(crate) msgmap: Arc<Mutex<(RequestId, HashSet<RequestId>)>>,
@@ -103,25 +133,49 @@ impl Ldap {
         Ok((result, exop))
     }
 
-    /// See [`LdapConn::with_search_options()`](struct.LdapConn.html#method.with_search_options).
+    /// Use the provided `SearchOptions` with the next Search operation, which can
+    /// be invoked directly on the result of this method. If this method is used in
+    /// combination with a non-Search operation, the provided options will be silently
+    /// discarded when the operation is invoked.
+    ///
+    /// The Search operation can be invoked on the result of this method.
     pub fn with_search_options(&mut self, opts: SearchOptions) -> &mut Self {
         self.search_opts = Some(opts);
         self
     }
 
-    /// See [`LdapConn::with_controls()`](struct.LdapConn.html#method.with_controls).
+    /// Pass the provided request control(s) to the next LDAP operation.
+    /// Controls can be constructed by instantiating structs in the
+    /// [`controls`](controls/index.html) module, and converted to the form needed
+    /// by this method by calling `into()` on the instances. Alternatively, a control
+    /// struct may offer a constructor which will produce a `RawControl` instance
+    /// itself. See the module-level documentation for the list of directly supported
+    /// controls and procedures for defining custom controls.
+    ///
+    /// This method accepts either a single `RawControl` or a `Vec` of them, in
+    /// order to make the call site less noisy, since it's expected that passing
+    /// a single control will comprise the majority of uses.
+    ///
+    /// The desired operation can be invoked on the result of this method.
     pub fn with_controls<V: IntoRawControlVec>(&mut self, ctrls: V) -> &mut Self {
         self.controls = Some(ctrls.into());
         self
     }
 
-    /// See [`LdapConn::with_timeout()`](struct.LdapConn.html#method.with_timeout).
+    /// Perform the next operation with the timeout specified in `duration`.
+    /// The LDAP Search operation consists of an indeterminate number of Entry/Referral
+    /// replies; the timer is reset for each reply.
+    ///
+    /// If the timeout occurs, the operation will return an error. The connection remains
+    /// usable for subsequent operations.
+    ///
+    /// The desired operation can be invoked on the result of this method.
     pub fn with_timeout(&mut self, duration: Duration) -> &mut Self {
         self.timeout = Some(duration);
         self
     }
 
-    /// See [`LdapConn::simple_bind()`](struct.LdapConn.html#method.simple_bind).
+    /// Do a simple Bind with the provided DN (`bind_dn`) and password (`bind_pw`).
     pub async fn simple_bind(&mut self, bind_dn: &str, bind_pw: &str) -> Result<LdapResult> {
         let req = Tag::Sequence(Sequence {
             id: 0,
@@ -145,7 +199,10 @@ impl Ldap {
         Ok(self.op_call(LdapOp::Single, req).await?.0)
     }
 
-    /// See [`LdapConn::sasl_external_bind()`](struct.LdapConn.html#method.sasl_external_bind).
+    /// Do a SASL EXTERNAL bind on the connection. The identity of the client
+    /// must have already been established by connection-specific methods, as
+    /// is the case for Unix domain sockets or TLS client certificates. The bind
+    /// is made with the hardcoded empty authzId value.
     pub async fn sasl_external_bind(&mut self) -> Result<LdapResult> {
         let req = Tag::Sequence(Sequence {
             id: 0,
@@ -178,6 +235,21 @@ impl Ldap {
         Ok(self.op_call(LdapOp::Single, req).await?.0)
     }
 
+    /// Perform a Search with the given base DN (`base`), scope, filter, and
+    /// the list of attributes to be returned (`attrs`). If `attrs` is empty,
+    /// or if it contains a special name `*` (asterisk), return all (user) attributes.
+    /// Requesting a special name `+` (plus sign) will return all operational
+    /// attributes. Include both `*` and `+` in order to return all attributes
+    /// of an entry.
+    ///
+    /// The returned structure wraps the vector of result entries and the overall
+    /// result of the operation. Entries are not directly usable, and must be parsed by
+    /// [`SearchEntry::construct()`](struct.SearchEntry.html#method.construct). All
+    /// referrals in the result stream will be collected in the `refs` vector of the
+    /// operation result. Any intermediate messages will be discarded.
+    ///
+    /// This method should be used if it's known that the result set won't be
+    /// large. For other situations, one can use [`streaming_search()`](#method.streaming_search).
     pub async fn search<S: AsRef<str>>(
         &mut self,
         base: &str,
@@ -203,6 +275,10 @@ impl Ldap {
         Ok(SearchResult(re_vec, res))
     }
 
+    /// Perform a Search, but unlike [`search()`](#method.search) (q.v., also for
+    /// the parameters), which returns all results at once, return a handle which
+    /// will be used for retrieving entries one by one. See [`SearchStream`](struct.SearchStream.html)
+    /// for the explanation of the protocol which must be adhered to in this case.
     pub async fn streaming_search<S: AsRef<str>>(
         &mut self,
         base: &str,
@@ -215,7 +291,9 @@ impl Ldap {
             .await
     }
 
-    /// See [`LdapConn::add()`](struct.LdapConn.html#method.add).
+    /// Add an entry named by `dn`, with the list of attributes and their values
+    /// given in `attrs`. None of the `HashSet`s of values for an attribute may
+    /// be empty.
     pub async fn add<S: AsRef<[u8]> + Eq + Hash>(
         &mut self,
         dn: &str,
@@ -270,7 +348,11 @@ impl Ldap {
         Ok(self.op_call(LdapOp::Single, req).await?.0)
     }
 
-    /// See [`LdapConn::compare()`](struct.LdapConn.html#method.compare).
+    /// Compare the value(s) of the attribute `attr` within an entry named by `dn` with the
+    /// value `val`. If any of the values is identical to the provided one, return result code 5
+    /// (`compareTrue`), otherwise return result code 6 (`compareFalse`). If access control
+    /// rules on the server disallow comparison, another result code will be used to indicate
+    /// an error.
     pub async fn compare<B: AsRef<[u8]>>(
         &mut self,
         dn: &str,
@@ -303,7 +385,7 @@ impl Ldap {
         Ok(CompareResult(self.op_call(LdapOp::Single, req).await?.0))
     }
 
-    /// See [`LdapConn::delete()`](struct.LdapConn.html#method.delete).
+    /// Delete an entry named by `dn`.
     pub async fn delete(&mut self, dn: &str) -> Result<LdapResult> {
         let req = Tag::OctetString(OctetString {
             id: 10,
@@ -313,7 +395,8 @@ impl Ldap {
         Ok(self.op_call(LdapOp::Single, req).await?.0)
     }
 
-    /// See [`LdapConn::modify()`](struct.LdapConn.html#method.modify).
+    /// Modify an entry named by `dn` by sequentially applying the modifications given by `mods`.
+    /// See the [`Mod`](enum.Mod.html) documentation for the description of possible values.
     pub async fn modify<S: AsRef<[u8]> + Eq + Hash>(
         &mut self,
         dn: &str,
@@ -386,7 +469,10 @@ impl Ldap {
         Ok(self.op_call(LdapOp::Single, req).await?.0)
     }
 
-    /// See [`LdapConn::modifydn()`](struct.LdapConn.html#method.modifydn).
+    /// Rename and/or move an entry named by `dn`. The new name is given by `rdn`. If
+    /// `delete_old` is `true`, delete the previous value of the naming attribute from
+    /// the entry. If the entry is to be moved elsewhere in the DIT, `new_sup` gives
+    /// the new superior entry where the moved entry will be anchored.
     pub async fn modifydn(
         &mut self,
         dn: &str,
@@ -423,7 +509,9 @@ impl Ldap {
         Ok(self.op_call(LdapOp::Single, req).await?.0)
     }
 
-    /// See [`LdapConn::extended()`](struct.LdapConn.html#method.extended).
+    /// Perform an Extended operation given by `exop`. Extended operations are defined in the
+    /// [`exop`](exop/index.html) module. See the module-level documentation for the list of extended
+    /// operations supported by this library and procedures for defining custom exops.
     pub async fn extended<E>(&mut self, exop: E) -> Result<ExopResult>
     where
         E: Into<Exop>,
@@ -438,7 +526,7 @@ impl Ldap {
             .map(|et| ExopResult(et.1, et.0))
     }
 
-    /// See [`LdapConn::unbind()`](struct.LdapConn.html#method.unbind).
+    /// Terminate the connection to the server.
     pub async fn unbind(&mut self) -> Result<()> {
         let req = Tag::Null(Null {
             id: 2,
@@ -448,10 +536,14 @@ impl Ldap {
         Ok(self.op_call(LdapOp::Unbind, req).await.map(|_| ())?)
     }
 
+    /// Return the message ID of the last active operation. When the handle is initialized, this
+    /// value is set to zero. The intended use is to obtain the ID of a timed out operation for
+    /// passing it to an Abandon or Cancel operation.
     pub fn last_id(&mut self) -> RequestId {
         self.last_id
     }
 
+    /// Ask the server to abandon an operation identified by `msgid`.
     pub async fn abandon(&mut self, msgid: RequestId) -> Result<()> {
         let req = Tag::Integer(Integer {
             id: 16,

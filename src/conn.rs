@@ -128,10 +128,8 @@ impl LdapConnSettings {
 
     #[cfg(feature = "tls")]
     /// Set a custom TLS connector, which enables setting various options
-    /// when establishing a secure connection. See the documentation for
-    /// [native_tls](https://docs.rs/native-tls/0.1.4/native_tls/).
-    /// Defaults to `None`, which will use a connector with default
-    /// settings.
+    /// when establishing a secure connection. The default of `None` will
+    /// use a connector with default settings.
     pub fn set_connector(mut self, connector: TlsConnector) -> Self {
         self.connector = Some(connector);
         self
@@ -161,14 +159,6 @@ impl LdapConnSettings {
     #[cfg(feature = "tls")]
     /// If `true`, try to establish a TLS connection without hostname
     /// verification. Defaults to `false`.
-    ///
-    /// The connection can still fail if the server certificate is
-    /// considered invalid for other reasons (e.g., chain of trust or
-    /// expiration date.) Depending on the platform, using a
-    /// custom connector with backend-specific options _and_ setting
-    /// this option to `true` may enable connections to servers with
-    /// invalid certificates. One tested combination is OpenSSL with
-    /// a connector for which `SSL_VERIFY_NONE` has been set.
     pub fn set_no_tls_verify(mut self, no_tls_verify: bool) -> Self {
         self.no_tls_verify = no_tls_verify;
         self
@@ -181,6 +171,40 @@ enum LoopMode {
     Continuous,
 }
 
+/// Asynchronous connection to an LDAP server. __*__
+///
+/// In the asynchronous version of the interface, opening a connection with [`new()`](#method.new)
+/// will return a tuple consisting of the connection itself and a [`Ldap`](struct.Ldap.html)
+/// handle for performing the LDAP operations. The connection must be spawned on the active
+/// Tokio executor before using the handle. A convenience macro, [`drive!`](macro.drive.html), is
+/// provided by the library. For the connection `conn`, it does the equivalent of:
+///
+/// ```rust,no_run
+/// # use ldap3::LdapConnAsync;
+/// # use log::warn;
+/// # #[tokio::main]
+/// # async fn main() {
+/// # let (conn, _ldap) = LdapConnAsync::new("ldap://localhost:2389").await.unwrap();
+/// tokio::spawn(async move {
+///     if let Err(e) = conn.drive().await {
+///         warn!("LDAP connection error: {}", e);
+///     }
+/// });
+/// # }
+/// ```
+///
+/// If you need custom connection lifecycle handling, use the [`drive()`](#method.drive) method
+/// on the connection inside your own `async` block.
+///
+/// The `Ldap` handle can be freely cloned, with each clone capable of launching a separate
+/// LDAP operation multiplexed on the original connection. Dropping the last handle will automatically
+/// close the connection.
+///
+/// Some connections need additional parameters, but providing many separate functions to initialize
+/// them, singly or in combination, would result in a cumbersome interface. Instead, connection
+/// initialization is optimized for the expected most frequent usage, and additional customization
+/// is possible through the [`LdapConnSettings`](struct.LdapConnSettings.html) struct, which can be
+/// passed to [`with_settings()`](#method.with_settings).
 pub struct LdapConnAsync {
     msgmap: Arc<Mutex<(i32, HashSet<i32>)>>,
     resultmap: HashMap<i32, ResultSender>,
@@ -190,6 +214,10 @@ pub struct LdapConnAsync {
     stream: Framed<ConnType, LdapCodec>,
 }
 
+/// Drive the connection until its completion.
+///
+/// See the introduction of [LdapConnAsync](struct.LdapConnAsync.html) for the exact code produced by
+/// the macro.
 #[macro_export]
 macro_rules! drive {
     ($conn:expr) => {
@@ -202,6 +230,8 @@ macro_rules! drive {
 }
 
 impl LdapConnAsync {
+    /// Open a connection to an LDAP server specified by `url`, using
+    /// `settings` to specify additional parameters.
     pub async fn with_settings(mut settings: LdapConnSettings, url: &str) -> Result<(Self, Ldap)> {
         if url.starts_with("ldapi://") {
             Ok(LdapConnAsync::new_unix(url, settings).await?)
@@ -216,6 +246,18 @@ impl LdapConnAsync {
         }
     }
 
+    /// Open a connection to an LDAP server specified by `url`.
+    ///
+    /// The `url` is an LDAP URL. Depending on the platform and compile-time features, the
+    /// library will recognize one or more URL schemes.
+    ///
+    /// The __ldap__ scheme, which uses a plain TCP connection, is always available. Unix-like
+    /// platforms also support __ldapi__, using Unix domain sockets. With the __tls__ feature,
+    /// the __ldaps__ scheme and StartTLS over __ldap__ are additionally supported.
+    ///
+    /// The connection element in the returned tuple must be spawned on the current Tokio
+    /// executor before using the `Ldap` element. See the introduction to this struct's
+    /// documentation.
     pub async fn new(url: &str) -> Result<(Self, Ldap)> {
         Self::with_settings(LdapConnSettings::new(), url).await
     }
@@ -339,6 +381,7 @@ impl LdapConnAsync {
         (conn, ldap)
     }
 
+    /// Repeatedly poll the connection until it exits.
     pub async fn drive(self) -> Result<()> {
         self.turn(LoopMode::Continuous).await.map(|_| ())
     }

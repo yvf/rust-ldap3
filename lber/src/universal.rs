@@ -1,3 +1,4 @@
+/// Universal types.
 pub enum Types {
     Eoc = 0,
     Boolean = 1,
