@@ -30,6 +30,10 @@ new code layout.
 
 - [Version 0.6.x (old-stable)](https://docs.rs/ldap3/0.6.1/ldap3/)
 
+### Note
+
+The library is client-only. One cannot make an LDAP server or a proxy with it.
+
 ## Usage
 
 The library can be used either synchronously or asynchronously. The aim is to
