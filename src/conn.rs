@@ -173,7 +173,7 @@ enum LoopMode {
 
 /// Asynchronous connection to an LDAP server. __*__
 ///
-/// In the asynchronous version of the interface, opening a connection with [`new()`](#method.new)
+/// In this version of the interface, opening a connection with [`new()`](#method.new)
 /// will return a tuple consisting of the connection itself and a [`Ldap`](struct.Ldap.html)
 /// handle for performing the LDAP operations. The connection must be spawned on the active
 /// Tokio executor before using the handle. A convenience macro, [`drive!`](macro.drive.html), is

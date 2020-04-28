@@ -15,7 +15,7 @@ use tokio::runtime::{self, Runtime};
 
 /// Synchronous connection to an LDAP server.
 ///
-/// In the synchronous version of the interface, [`new()`](#method.new) will return
+/// In this version of the interface, [`new()`](#method.new) will return
 /// a struct encapsulating a runtime, the connection, and an operation handle. All
 /// operations are performed through that struct, synchronously: the thread will
 /// wait until the result is available or the operation times out.
@@ -30,16 +30,16 @@ pub struct LdapConn {
 }
 
 impl LdapConn {
-    /// Open a connection to an LDAP server specified by `url`, using
-    /// `settings` to specify additional parameters.
-    pub fn new(url: &str) -> Result<Self> {
-        Self::with_settings(LdapConnSettings::new(), url)
-    }
-
     /// Open a connection to an LDAP server specified by `url`.
     ///
     /// See [LdapConnAsync::new()](struct.LdapConnAsync.html#method.new) for the
     /// details of the supported URL formats.
+    pub fn new(url: &str) -> Result<Self> {
+        Self::with_settings(LdapConnSettings::new(), url)
+    }
+
+    /// Open a connection to an LDAP server specified by `url`, using
+    /// `settings` to specify additional parameters.
     pub fn with_settings(settings: LdapConnSettings, url: &str) -> Result<Self> {
         let mut rt = runtime::Builder::new()
             .basic_scheduler()
