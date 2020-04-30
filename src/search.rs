@@ -46,17 +46,17 @@ pub enum DerefAliases {
 pub enum SearchItem {
     Entry(StructureTag),
     Referral(StructureTag),
-    Done(LdapResult, Vec<Control>),
+    Done(LdapResult),
 }
 
 /// Wrapper for the internal structure of a result entry.
 #[derive(Debug, Clone)]
-pub struct ResultEntry(pub(crate) StructureTag);
+pub struct ResultEntry(pub StructureTag, pub Vec<Control>);
 
 impl ResultEntry {
     #[doc(hidden)]
     pub fn new(st: StructureTag) -> ResultEntry {
-        ResultEntry(st)
+        ResultEntry(st, vec![])
     }
 
     /// Returns true if the enclosed entry is a referral.
@@ -236,7 +236,7 @@ impl SearchEntry {
 #[derive(Debug)]
 pub struct SearchStream {
     ldap: Ldap,
-    rx: Option<mpsc::UnboundedReceiver<SearchItem>>,
+    rx: Option<mpsc::UnboundedReceiver<(SearchItem, Vec<Control>)>>,
     req: Option<Tag>,
     timeout: Option<Duration>,
     res: Option<LdapResult>,
@@ -337,8 +337,8 @@ impl SearchStream {
         } else {
             self.rx.as_mut().unwrap().recv().await
         };
-        let item = match item {
-            Some(item) => item,
+        let (item, controls) = match item {
+            Some((item, controls)) => (item, controls),
             None => {
                 self.rx = None;
                 return Err(LdapError::EndOfStream);
@@ -346,9 +346,9 @@ impl SearchStream {
         };
         match item {
             SearchItem::Entry(tag) | SearchItem::Referral(tag) => {
-                return Ok(Some(ResultEntry(tag)))
+                return Ok(Some(ResultEntry(tag, controls)))
             }
-            SearchItem::Done(mut res, controls) => {
+            SearchItem::Done(mut res) => {
                 res.ctrls = controls;
                 self.res = Some(res);
                 self.rx = None;

@@ -455,11 +455,11 @@ impl LdapConnAsync {
                         };
                         let (item, mut remove) = match protoop.id {
                             4 | 25 => (SearchItem::Entry(protoop), false),
-                            5 => (SearchItem::Done(Tag::StructureTag(protoop).into(), controls), true),
+                            5 => (SearchItem::Done(Tag::StructureTag(protoop).into()), true),
                             19 => (SearchItem::Referral(protoop), false),
                             _ => panic!("unrecognized op id: {}", protoop.id),
                         };
-                        if let Err(e) = tx.send(item) {
+                        if let Err(e) = tx.send((item, controls)) {
                             warn!("ldap search item send error, op={}: {:?}", id, e);
                             remove = true;
                         }

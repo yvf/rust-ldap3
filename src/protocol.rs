@@ -21,7 +21,7 @@ use tokio_util::codec::{Decoder, Encoder};
 pub struct LdapCodec;
 
 pub(crate) type MaybeControls = Option<Vec<RawControl>>;
-pub(crate) type ItemSender = mpsc::UnboundedSender<SearchItem>;
+pub(crate) type ItemSender = mpsc::UnboundedSender<(SearchItem, Vec<Control>)>;
 pub(crate) type ResultSender = oneshot::Sender<(Tag, Vec<Control>)>;
 
 #[derive(Debug)]
