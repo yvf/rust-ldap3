@@ -11,7 +11,9 @@ pub mod types {
     //!
     //! Variants are individually reexported from the private submodule
     //! to inhibit exhaustive matching.
-    pub use self::inner::_ControlType::{PagedResults, PostReadResp, PreReadResp};
+    pub use self::inner::_ControlType::{
+        PagedResults, PostReadResp, PreReadResp, SyncDone, SyncState,
+    };
 
     /// Recognized control types. Variants can't be named in the namespace
     /// of this type; they must be used through module-level reexports.
@@ -22,6 +24,8 @@ pub mod types {
             PagedResults,
             PostReadResp,
             PreReadResp,
+            SyncDone,
+            SyncState,
             #[doc(hidden)]
             _Nonexhaustive,
         }
@@ -31,6 +35,10 @@ use self::types::ControlType;
 
 mod assertion;
 pub use self::assertion::Assertion;
+
+mod content_sync;
+pub use self::content_sync::parse_syncinfo;
+pub use self::content_sync::{RefreshMode, SyncDone, SyncInfo, SyncRequest, SyncState};
 
 mod paged_results;
 pub use self::paged_results::PagedResults;
@@ -50,6 +58,8 @@ lazy_static! {
         map.insert(self::paged_results::PAGED_RESULTS_OID, types::PagedResults);
         map.insert(self::read_entry::POST_READ_OID, types::PostReadResp);
         map.insert(self::read_entry::PRE_READ_OID, types::PreReadResp);
+        map.insert(self::content_sync::SYNC_DONE_OID, types::SyncDone);
+        map.insert(self::content_sync::SYNC_STATE_OID, types::SyncState);
         map
     };
 }

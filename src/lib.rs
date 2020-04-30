@@ -128,12 +128,14 @@ pub mod controls {
     //! [`parse()`](struct.RawControl.html#method.parse) on the instance of `RawControl`
     //! representing it. A third-party control must implement the
     //! [`ControlParser`](trait.ControlParser.html) trait to support this interface.
+    pub use crate::controls_impl::parse_syncinfo;
     pub use crate::controls_impl::types;
     pub use crate::controls_impl::{Assertion, PagedResults, ProxyAuth, RelaxRules};
     pub use crate::controls_impl::{
         Control, ControlParser, CriticalControl, MakeCritical, RawControl,
     };
     pub use crate::controls_impl::{PostRead, PostReadResp, PreRead, PreReadResp, ReadEntryResp};
+    pub use crate::controls_impl::{RefreshMode, SyncDone, SyncInfo, SyncRequest, SyncState};
 }
 mod controls_impl;
 mod exop_impl;
@@ -165,8 +167,7 @@ pub use conn::{LdapConnAsync, LdapConnSettings};
 pub use filter::parse as parse_filter;
 pub use ldap::{Ldap, Mod};
 pub use result::{LdapError, LdapResult, SearchResult};
-pub use search::parse_syncinfo;
-pub use search::{DerefAliases, ResultEntry, Scope, SearchEntry, SearchOptions, SearchStream, SyncInfo};
+pub use search::{DerefAliases, ResultEntry, Scope, SearchEntry, SearchOptions, SearchStream};
 #[cfg(feature = "sync")]
 pub use sync::{EntryStream, LdapConn};
 pub use util::{dn_escape, ldap_escape};
