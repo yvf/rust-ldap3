@@ -20,7 +20,7 @@ const SYNC_INFO_OID: &'static str = "1.3.6.1.4.1.4203.1.9.1.4";
 /// Sync Request control.
 ///
 ///  See the Content Synchronization specification
-/// ([RFC 4532](https://tools.ietf.org/html/rfc4532)).
+/// ([RFC 4533](https://tools.ietf.org/html/rfc4533)).
 #[derive(Clone, Debug, Default)]
 pub struct SyncRequest {
     pub mode: RefreshMode,
@@ -31,7 +31,7 @@ pub struct SyncRequest {
 /// Content refresh mode.
 ///
 ///  See the Content Synchronization specification
-/// ([RFC 4532](https://tools.ietf.org/html/rfc4532)).
+/// ([RFC 4533](https://tools.ietf.org/html/rfc4533)).
 #[derive(Clone, Debug)]
 pub enum RefreshMode {
     RefreshOnly,
@@ -93,7 +93,7 @@ impl From<SyncRequest> for RawControl {
 /// Sync State control value.
 ///
 ///  See the Content Synchronization specification
-/// ([RFC 4532](https://tools.ietf.org/html/rfc4532)).
+/// ([RFC 4533](https://tools.ietf.org/html/rfc4533)).
 #[derive(Debug)]
 pub struct SyncState {
     state: EntryState,
@@ -157,7 +157,7 @@ impl ControlParser for SyncState {
 /// Sync Done control value.
 ///
 ///  See the Content Synchronization specification
-/// ([RFC 4532](https://tools.ietf.org/html/rfc4532)).
+/// ([RFC 4533](https://tools.ietf.org/html/rfc4533)).
 #[derive(Debug)]
 pub struct SyncDone {
     cookie: Option<Vec<u8>>,
@@ -208,9 +208,9 @@ impl ControlParser for SyncDone {
 }
 
 /// Possible values of the Sync Info intermediate message.
-//
-///  See the Content Synchronization specification
-/// ([RFC 4532](https://tools.ietf.org/html/rfc4532)).
+///
+/// See the Content Synchronization specification
+/// ([RFC 4533](https://tools.ietf.org/html/rfc4533)).
 #[derive(Clone, Debug)]
 pub enum SyncInfo {
     NewCookie(Vec<u8>),
