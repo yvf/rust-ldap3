@@ -286,7 +286,11 @@ impl Ldap {
         filter: &str,
         attrs: Vec<S>,
     ) -> Result<SearchStream> {
-        SearchStream::new(self.clone())
+        let mut ldap = self.clone();
+        ldap.controls = self.controls.take();
+        ldap.timeout = self.timeout.take();
+        ldap.search_opts = self.search_opts.take();
+        SearchStream::new(ldap)
             .start(base, scope, filter, attrs)
             .await
     }
