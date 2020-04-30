@@ -6,32 +6,20 @@ use lber::universal::Types;
 
 use lazy_static::lazy_static;
 
-pub mod types {
-    //! Control type enum and variant names.
-    //!
-    //! Variants are individually reexported from the private submodule
-    //! to inhibit exhaustive matching.
-    pub use self::inner::_ControlType::{
-        PagedResults, PostReadResp, PreReadResp, SyncDone, SyncState,
-    };
-
-    /// Recognized control types. Variants can't be named in the namespace
-    /// of this type; they must be used through module-level reexports.
-    pub type ControlType = self::inner::_ControlType;
-    mod inner {
-        #[derive(Clone, Copy, Debug)]
-        pub enum _ControlType {
-            PagedResults,
-            PostReadResp,
-            PreReadResp,
-            SyncDone,
-            SyncState,
-            #[doc(hidden)]
-            _Nonexhaustive,
-        }
-    }
+/// Recognized control types.
+///
+/// The variants can't be exhaustively matched, since the list of
+/// recognized and internally implemented controls can change from one
+/// release to the next.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug)]
+pub enum ControlType {
+    PagedResults,
+    PostReadResp,
+    PreReadResp,
+    SyncDone,
+    SyncState,
 }
-use self::types::ControlType;
 
 mod assertion;
 pub use self::assertion::Assertion;
@@ -55,11 +43,11 @@ pub use self::relax_rules::RelaxRules;
 lazy_static! {
     static ref CONTROLS: HashMap<&'static str, ControlType> = {
         let mut map = HashMap::new();
-        map.insert(self::paged_results::PAGED_RESULTS_OID, types::PagedResults);
-        map.insert(self::read_entry::POST_READ_OID, types::PostReadResp);
-        map.insert(self::read_entry::PRE_READ_OID, types::PreReadResp);
-        map.insert(self::content_sync::SYNC_DONE_OID, types::SyncDone);
-        map.insert(self::content_sync::SYNC_STATE_OID, types::SyncState);
+        map.insert(self::paged_results::PAGED_RESULTS_OID, ControlType::PagedResults);
+        map.insert(self::read_entry::POST_READ_OID, ControlType::PostReadResp);
+        map.insert(self::read_entry::PRE_READ_OID, ControlType::PreReadResp);
+        map.insert(self::content_sync::SYNC_DONE_OID, ControlType::SyncDone);
+        map.insert(self::content_sync::SYNC_STATE_OID, ControlType::SyncState);
         map
     };
 }

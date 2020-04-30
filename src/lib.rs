@@ -114,25 +114,24 @@ pub mod controls {
     //! A third-party control must implement the conversion from an instance
     //! of itself to [`RawControl`](struct.RawControl.html), a general form of control.
     //!
-    //! `RawControl`, together with an optional instance of [`ControlType`](types/index.html),
+    //! `RawControl`, together with an optional instance of [`ControlType`](enum.ControlType.html),
     //! forms the type [`Control`](struct.Control.html); a vector of `Control`s is part
     //! of the result of all LDAP operation which return one.
     //!
     //! The first element of `Control` will have a value if the parser recognizes
     //! the control's OID as one that is implemented by the library itself. Since the
-    //! list of implemented controls is expected to grow, matching those values must
-    //! be done through reexported types in the [`types`](types/index.html) module,
-    //! and cannot be exhaustive.
+    //! list of implemented controls is expected to grow, the `ControlType` enum cannot
+    //! be exhaustively matched.
     //!
     //! A recognized response control can be parsed by calling
     //! [`parse()`](struct.RawControl.html#method.parse) on the instance of `RawControl`
     //! representing it. A third-party control must implement the
     //! [`ControlParser`](trait.ControlParser.html) trait to support this interface.
     pub use crate::controls_impl::parse_syncinfo;
-    pub use crate::controls_impl::types;
+    //pub use crate::controls_impl::types;
     pub use crate::controls_impl::{Assertion, PagedResults, ProxyAuth, RelaxRules};
     pub use crate::controls_impl::{
-        Control, ControlParser, CriticalControl, MakeCritical, RawControl,
+        Control, ControlParser, ControlType, CriticalControl, MakeCritical, RawControl,
     };
     pub use crate::controls_impl::{PostRead, PostReadResp, PreRead, PreReadResp, ReadEntryResp};
     pub use crate::controls_impl::{RefreshMode, SyncDone, SyncInfo, SyncRequest, SyncState};
