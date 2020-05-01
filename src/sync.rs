@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -107,13 +108,13 @@ impl LdapConn {
     /// Perform a Search, but unlike `search()`, which returns all results at once, return a handle which
     /// will be used for retrieving entries one by one. See [`EntryStream`](struct.EntryStream.html)
     /// for the explanation of the protocol which must be adhered to in this case.
-    pub fn streaming_search<S: AsRef<str>>(
-        &mut self,
+    pub fn streaming_search<'a, S: AsRef<str>>(
+        &'a mut self,
         base: &str,
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
-    ) -> Result<EntryStream> {
+    ) -> Result<EntryStream<'a>> {
         let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
         let stream =
@@ -121,6 +122,7 @@ impl LdapConn {
         Ok(EntryStream {
             stream,
             rt: self.rt.clone(),
+            conn: PhantomData,
         })
     }
 
@@ -214,14 +216,15 @@ impl LdapConn {
 /// which is [`SearchStream`](struct.SearchStream.html). The protocol and behavior
 /// are the same, with one important difference: an `EntryStream` shares the
 /// Tokio runtime with `LdapConn` from which it's obtained, but the two can't be
-/// used in parallel. Thefore, don't try to send an `EntryStream` to a different
-/// thread.
-pub struct EntryStream {
+/// used in parallel, which is enforced by capturing the reference to `LdapConn`
+/// during the lifetime of `EntryStream`.
+pub struct EntryStream<'a> {
     stream: SearchStream,
     rt: Arc<Runtime>,
+    conn: PhantomData<&'a mut ()>,
 }
 
-impl EntryStream {
+impl<'a> EntryStream<'a> {
     /// See [`SearchStream::next()`](struct.SearchStream.html#method.next).
     pub fn next(&mut self) -> Result<Option<ResultEntry>> {
         let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
