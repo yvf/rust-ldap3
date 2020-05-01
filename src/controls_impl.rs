@@ -40,6 +40,7 @@ pub use self::read_entry::{PostRead, PostReadResp, PreRead, PreReadResp, ReadEnt
 mod relax_rules;
 pub use self::relax_rules::RelaxRules;
 
+#[rustfmt::skip]
 lazy_static! {
     static ref CONTROLS: HashMap<&'static str, ControlType> = {
         let mut map = HashMap::new();

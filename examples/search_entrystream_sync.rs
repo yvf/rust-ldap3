@@ -7,18 +7,17 @@
 //    directions for the ordering of steps to avoid
 //    double-borrowing.
 
-use ldap3::{LdapConn, Scope, SearchEntry};
 use ldap3::result::Result;
+use ldap3::{LdapConn, Scope, SearchEntry};
 
 fn main() -> Result<()> {
     let mut ldap = LdapConn::new("ldap://localhost:2389")?;
-    let mut search = ldap
-        .streaming_search(
-            "ou=Places,dc=example,dc=org",
-            Scope::Subtree,
-            "(&(l=ma*)(objectClass=locality))",
-            vec!["l"],
-        )?;
+    let mut search = ldap.streaming_search(
+        "ou=Places,dc=example,dc=org",
+        Scope::Subtree,
+        "(&(l=ma*)(objectClass=locality))",
+        vec!["l"],
+    )?;
     while let Some(entry) = search.next()? {
         let entry = SearchEntry::construct(entry);
         println!("{:?}", entry);
