@@ -7,7 +7,7 @@ license = "MIT/Apache-2.0"
 name = "ldap3"
 readme = "README.md"
 repository = "https://github.com/inejge/ldap3"
-version = "0.7.0-alpha.3"
+version = "0.7.0-alpha.4"
 edition = "2018"
 
 [dependencies]
@@ -28,7 +28,7 @@ maplit = "1.0.2"
 
 [dependencies.lber]
 path = "lber"
-version = "0.1.7"
+version = "0.2.0"
 
 [[example]]
 name = "bind_sync"

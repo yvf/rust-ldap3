@@ -4,6 +4,10 @@ A pure-Rust LDAP library using the Tokio stack.
 
 ### Attention!
 
+_The first published 0.7.0 alpha will be yanked because of breakage caused by
+the updated `lber` depending on the newer version of `bytes`, and 0.6.1
+picking up that dependency while depending on older `bytes` itself._
+
 The library has recently been ported to Tokio 0.2 and async/await. For previous
 users of the synchronous API, there is one major change to be aware of:
 
@@ -26,7 +30,7 @@ new code layout.
 
 ### Documentation
 
-- [Version 0.7.0-alpha (current)](https://docs.rs/ldap3/0.7.0-alpha.3/ldap3/)
+- [Version 0.7.0-alpha (current)](https://docs.rs/ldap3/0.7.0-alpha.4/ldap3/)
 
 - [Version 0.6.x (old-stable)](https://docs.rs/ldap3/0.6.1/ldap3/)
 

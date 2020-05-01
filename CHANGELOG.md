@@ -1,4 +1,8 @@
-## v0.7.0-alpha.3, 2020-04-27
+## v0.7.0-alpha.4, 2020-05-01
+
+In the alpha cycle, the changes for all versions will be
+listed together in reverse chronological order. The heading
+will show the latest alpha.
 
 This version completely overhauls the internals of the
 library by porting it to Tokio 0.2 and async/await. This
@@ -6,6 +10,14 @@ makes the asynchronous interface one big breaking change,
 so it makes no sense to enumerate the differences. The
 synchronous interface proved rather more stable, but there
 are a couple of breaking changes there, too:
+
+* [breaking change]: `ResultEntry` now has public components,
+  where the second is the set of controls associated with the
+  entry. This is necessary in order to process all elements of
+  the content synchronization protocol. The struct will probably
+  be marked as non-exhaustive.
+
+* --- alpha.3
 
 * [breaking change]: The `LdapConn` struct now must be mutable,
   since all methods require `&mut self`.
