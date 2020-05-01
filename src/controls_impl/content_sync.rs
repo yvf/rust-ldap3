@@ -12,10 +12,10 @@ use lber::structures::{ASNTag, Boolean, Enumerated, OctetString, Sequence, Tag};
 use lber::universal::Types;
 use lber::{write, IResult};
 
-pub const SYNC_REQUEST_OID: &'static str = "1.3.6.1.4.1.4203.1.9.1.1";
-pub const SYNC_STATE_OID: &'static str = "1.3.6.1.4.1.4203.1.9.1.2";
-pub const SYNC_DONE_OID: &'static str = "1.3.6.1.4.1.4203.1.9.1.3";
-const SYNC_INFO_OID: &'static str = "1.3.6.1.4.1.4203.1.9.1.4";
+pub const SYNC_REQUEST_OID: &str = "1.3.6.1.4.1.4203.1.9.1.1";
+pub const SYNC_STATE_OID: &str = "1.3.6.1.4.1.4203.1.9.1.2";
+pub const SYNC_DONE_OID: &str = "1.3.6.1.4.1.4203.1.9.1.3";
+const SYNC_INFO_OID: &str = "1.3.6.1.4.1.4203.1.9.1.4";
 
 /// Sync Request control.
 ///
@@ -166,7 +166,7 @@ pub struct SyncDone {
 
 impl ControlParser for SyncDone {
     fn parse(val: &[u8]) -> Self {
-        let mut tags = match parse_tag(val) {
+        let tags = match parse_tag(val) {
             IResult::Done(_, tag) => tag,
             _ => panic!("syncdone: failed to parse tag"),
         }
@@ -175,23 +175,15 @@ impl ControlParser for SyncDone {
         .into_iter();
         let mut cookie = None;
         let mut refresh_deletes = false;
-        while let Some(tag) = tags.next() {
+        for tag in tags {
             match tag {
-                StructureTag {
-                    id,
-                    class: _,
-                    payload,
-                } if id == Types::OctetString as u64 => {
+                StructureTag { id, payload, .. } if id == Types::OctetString as u64 => {
                     cookie = Some(match payload {
                         PL::P(ostr) => ostr,
                         PL::C(_) => panic!("syncdone: constructed octet string?"),
                     });
                 }
-                StructureTag {
-                    id,
-                    class: _,
-                    payload,
-                } if id == Types::Boolean as u64 => {
+                StructureTag { id, payload, .. } if id == Types::Boolean as u64 => {
                     refresh_deletes = match payload {
                         PL::P(ostr) => ostr[0] != 0,
                         PL::C(_) => panic!("syncdone: constructed boolean?"),
@@ -277,36 +269,27 @@ pub fn parse_syncinfo(entry: ResultEntry) -> SyncInfo {
                                     match syncinfo_val.next() {
                                         None => break 'it,
                                         Some(comp) => match comp {
-                                            StructureTag {
-                                                id,
-                                                class,
-                                                payload: _,
-                                            } if class == TagClass::Universal
-                                                && id == Types::OctetString as u64
-                                                && pass <= 1 =>
+                                            StructureTag { id, class, .. }
+                                                if class == TagClass::Universal
+                                                    && id == Types::OctetString as u64
+                                                    && pass <= 1 =>
                                             {
                                                 sync_cookie = comp.expect_primitive();
                                             }
-                                            StructureTag {
-                                                id,
-                                                class,
-                                                payload: _,
-                                            } if class == TagClass::Universal
-                                                && id == Types::Boolean as u64
-                                                && pass <= 2 =>
+                                            StructureTag { id, class, .. }
+                                                if class == TagClass::Universal
+                                                    && id == Types::Boolean as u64
+                                                    && pass <= 2 =>
                                             {
-                                                flag = !(comp
+                                                flag = comp
                                                     .expect_primitive()
                                                     .expect("octet string")[0]
-                                                    == 0);
+                                                    != 0;
                                             }
-                                            StructureTag {
-                                                id,
-                                                class,
-                                                payload: _,
-                                            } if class == TagClass::Universal
-                                                && id == Types::Set as u64
-                                                && pass <= 3 =>
+                                            StructureTag { id, class, .. }
+                                                if class == TagClass::Universal
+                                                    && id == Types::Set as u64
+                                                    && pass <= 3 =>
                                             {
                                                 uuids = comp
                                                     .expect_constructed()

@@ -6,7 +6,7 @@ use super::{MakeCritical, RawControl};
 /// result control.
 pub struct RelaxRules;
 
-pub const RELAX_RULES_OID: &'static str = "1.3.6.1.4.1.4203.666.5.12";
+pub const RELAX_RULES_OID: &str = "1.3.6.1.4.1.4203.666.5.12";
 
 impl MakeCritical for RelaxRules {}
 

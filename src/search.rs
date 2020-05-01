@@ -78,6 +78,7 @@ pub struct SearchOptions {
 
 impl SearchOptions {
     /// Create an instance of the structure with default values.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         SearchOptions {
             deref: DerefAliases::Never,
@@ -208,7 +209,7 @@ impl SearchEntry {
             }
         }
         SearchEntry {
-            dn: dn,
+            dn,
             attrs: attr_vals,
             bin_attrs: bin_attr_vals,
         }
@@ -320,13 +321,14 @@ impl SearchStream {
     /// Fetch the next item from the result stream.
     ///
     /// Returns Ok(None) at the end of the stream.
+    #[allow(clippy::should_implement_trait)]
     pub async fn next(&mut self) -> Result<Option<ResultEntry>> {
         if self.rx.is_none() {
             return Ok(None);
         }
         let item = if let Some(ref timeout) = self.timeout {
             let res = time::timeout(*timeout, self.rx.as_mut().unwrap().recv()).await;
-            if let Err(_) = res {
+            if res.is_err() {
                 let last_id = self.ldap.last_id;
                 self.ldap.id_scrub_tx.send(last_id)?;
             }

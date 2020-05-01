@@ -211,20 +211,13 @@ pub fn parse_controls(t: StructureTag) -> Vec<Control> {
         };
         let val = match maybe_val {
             None => None,
-            Some(v) => Some(Vec::from(v.expect_primitive().expect("octet string"))),
+            Some(v) => Some(v.expect_primitive().expect("octet string")),
         };
         let known_type = match CONTROLS.get(&*ctype) {
             Some(val) => Some(*val),
             None => None,
         };
-        ctrls.push(Control(
-            known_type,
-            RawControl {
-                ctype: ctype,
-                crit: crit,
-                val: val,
-            },
-        ));
+        ctrls.push(Control(known_type, RawControl { ctype, crit, val }));
     }
     ctrls
 }

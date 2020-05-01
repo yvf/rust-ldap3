@@ -324,10 +324,10 @@ impl From<Tag> for LdapResultExt {
         }
         LdapResultExt(
             LdapResult {
-                rc: rc,
-                matched: matched,
-                text: text,
-                refs: refs,
+                rc,
+                matched,
+                text,
+                refs,
                 ctrls: vec![],
             },
             Exop {

@@ -10,7 +10,7 @@ pub struct ProxyAuth {
     pub authzid: String,
 }
 
-pub const PROXY_AUTH_OID: &'static str = "2.16.840.1.113730.3.4.18";
+pub const PROXY_AUTH_OID: &str = "2.16.840.1.113730.3.4.18";
 
 impl From<ProxyAuth> for RawControl {
     fn from(pa: ProxyAuth) -> RawControl {

@@ -171,6 +171,7 @@ enum LoopMode {
     Continuous,
 }
 
+#[allow(clippy::needless_doctest_main)]
 /// Asynchronous connection to an LDAP server. __*__
 ///
 /// In this version of the interface, opening a connection with [`new()`](#method.new)
@@ -330,10 +331,8 @@ impl LdapConnAsync {
                     tokio::spawn(async move {
                         conn.single_op(tx).await;
                     });
-                    let res = tokio::try_join!(
-                        rx.map_err(|e| LdapError::from(e)),
-                        ldap.extended(StartTLS)
-                    );
+                    let res =
+                        tokio::try_join!(rx.map_err(LdapError::from), ldap.extended(StartTLS));
                     match res {
                         Ok((conn_res, res)) => {
                             conn = conn_res?;
@@ -365,14 +364,14 @@ impl LdapConnAsync {
             msgmap: Arc::new(Mutex::new((0, HashSet::new()))),
             resultmap: HashMap::new(),
             searchmap: HashMap::new(),
-            rx: rx,
-            id_scrub_rx: id_scrub_rx,
+            rx,
+            id_scrub_rx,
             stream: codec.framed(ctype),
         };
         let ldap = Ldap {
             msgmap: conn.msgmap.clone(),
-            tx: tx,
-            id_scrub_tx: id_scrub_tx,
+            tx,
+            id_scrub_tx,
             last_id: 0,
             timeout: None,
             controls: None,
@@ -388,7 +387,7 @@ impl LdapConnAsync {
 
     #[cfg(feature = "tls")]
     pub(crate) async fn single_op(self, tx: oneshot::Sender<Result<Self>>) {
-        if let Err(_) = tx.send(self.turn(LoopMode::SingleOp).await) {
+        if tx.send(self.turn(LoopMode::SingleOp).await).is_err() {
             warn!("single op send error");
         }
     }
@@ -406,7 +405,7 @@ impl LdapConnAsync {
                 },
                 op_tuple = self.rx.recv() => {
                     if let Some((id, op, tag, controls, tx)) = op_tuple {
-                        if let &LdapOp::Search(ref search_tx) = &op {
+                        if let LdapOp::Search(ref search_tx) = op {
                             self.searchmap.insert(id, search_tx.clone());
                         }
                         if let Err(e) = self.stream.send((id, tag, controls)).await {

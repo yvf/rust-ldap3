@@ -22,7 +22,7 @@ pub struct PagedResults {
     pub cookie: Vec<u8>,
 }
 
-pub const PAGED_RESULTS_OID: &'static str = "1.2.840.113556.1.4.319";
+pub const PAGED_RESULTS_OID: &str = "1.2.840.113556.1.4.319";
 
 impl MakeCritical for PagedResults {}
 
@@ -80,9 +80,6 @@ impl ControlParser for PagedResults {
             .expect("element")
             .expect_primitive()
             .expect("octet string");
-        PagedResults {
-            size: size,
-            cookie: cookie,
-        }
+        PagedResults { size, cookie }
     }
 }

@@ -8,8 +8,8 @@ use lber::parse::parse_tag;
 use lber::structures::{ASNTag, OctetString, Sequence, Tag};
 use lber::{write, IResult};
 
-pub const PRE_READ_OID: &'static str = "1.3.6.1.1.13.1";
-pub const POST_READ_OID: &'static str = "1.3.6.1.1.13.2";
+pub const PRE_READ_OID: &str = "1.3.6.1.1.13.1";
+pub const POST_READ_OID: &str = "1.3.6.1.1.13.2";
 
 #[derive(Debug)]
 struct ReadEntry<S> {
@@ -40,11 +40,10 @@ pub struct PreRead<S>(ReadEntry<S>);
 
 impl<S: AsRef<str>> PreRead<S> {
     /// Create a new control instance with the specified list of attribute names/OIDs.
-    // RawControl is returned in order to avoid an into() at the call site
-    #[cfg_attr(feature = "cargo-clippy", allow(new_ret_no_self))]
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(attrs: Vec<S>) -> RawControl {
         PreRead(ReadEntry {
-            attrs: attrs,
+            attrs,
             oid: PRE_READ_OID,
         })
         .into()
@@ -66,11 +65,10 @@ impl<S> MakeCritical for PostRead<S> {}
 
 impl<S: AsRef<str>> PostRead<S> {
     /// Create a new control instance with the specified list of attribute names/OIDs.
-    // RawControl is returned in order to avoid an into() at the call site
-    #[cfg_attr(feature = "cargo-clippy", allow(new_ret_no_self))]
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(attrs: Vec<S>) -> RawControl {
         PostRead(ReadEntry {
-            attrs: attrs,
+            attrs,
             oid: POST_READ_OID,
         })
         .into()

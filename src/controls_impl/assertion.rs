@@ -5,7 +5,7 @@ use crate::filter::parse;
 use lber::structures::ASNTag;
 use lber::write;
 
-pub const ASSERTION_OID: &'static str = "1.3.6.1.1.12";
+pub const ASSERTION_OID: &str = "1.3.6.1.1.12";
 
 /// Assertion control ([RFC 4528](https://tools.ietf.org/html/rfc4528)).
 #[derive(Debug)]
@@ -16,10 +16,9 @@ pub struct Assertion<S> {
 
 impl<S: AsRef<str>> Assertion<S> {
     /// Create a new control instance with the specified filter.
-    // RawControl is returned in order to avoid an into() at the call site
-    #[cfg_attr(feature = "cargo-clippy", allow(new_ret_no_self))]
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(filter: S) -> RawControl {
-        Assertion { filter: filter }.into()
+        Assertion { filter }.into()
     }
 }
 

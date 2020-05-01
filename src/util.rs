@@ -42,7 +42,7 @@ pub fn ldap_escape<'a, S: Into<Cow<'a, str>>>(lit: S) -> Cow<'a, str> {
         // bytes with ASCII byte sequences
         Cow::Owned(unsafe { String::from_utf8_unchecked(output) })
     } else {
-        lit.into()
+        lit
     }
 }
 
@@ -109,7 +109,7 @@ pub fn dn_escape<'a, S: Into<Cow<'a, str>>>(val: S) -> Cow<'a, str> {
         // see the rationale for the same construct in ldap_escape()
         Cow::Owned(unsafe { String::from_utf8_unchecked(output) })
     } else {
-        val.into()
+        val
     }
 }
 

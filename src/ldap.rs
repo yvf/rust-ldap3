@@ -120,7 +120,7 @@ impl Ldap {
         self.tx.send((id, op, req, self.controls.take(), tx))?;
         let response = if let Some(timeout) = self.timeout.take() {
             let res = time::timeout(timeout, rx).await;
-            if let Err(_) = res {
+            if res.is_err() {
                 self.id_scrub_tx.send(self.last_id)?;
             }
             res?

@@ -1,3 +1,5 @@
+#![allow(clippy::block_in_if_condition_stmt)]
+
 use std::default::Default;
 use std::str;
 
@@ -335,7 +337,7 @@ fn extensible_tag(mrule: Option<&[u8]>, attr: Option<&[u8]>, value: Vec<u8>, dn:
     Tag::Sequence(Sequence {
         class: TagClass::Context,
         id: EXT_MATCH,
-        inner: inner,
+        inner,
     })
 }
 

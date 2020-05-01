@@ -226,6 +226,7 @@ pub struct EntryStream<'a> {
 
 impl<'a> EntryStream<'a> {
     /// See [`SearchStream::next()`](struct.SearchStream.html#method.next).
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<ResultEntry>> {
         let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let stream = &mut self.stream;
