@@ -127,8 +127,36 @@ pub mod controls {
     //! [`parse()`](struct.RawControl.html#method.parse) on the instance of `RawControl`
     //! representing it. A third-party control must implement the
     //! [`ControlParser`](trait.ControlParser.html) trait to support this interface.
+    //!
+    //! ### Example
+    //!
+    //! With a `LdapResult` in `res`, iterating through controls and matching the desired ones
+    //! could be done like this:
+    //!
+    //! ```rust,no_run
+    //! # use ldap3::controls::{Control, ControlType, PagedResults};
+    //! # use ldap3::result::Result;
+    //! # use ldap3::LdapConn;
+    //! # fn main() -> Result<()> {
+    //! # let mut ldap = LdapConn::new("ldap://localhost")?;
+    //! # let res = ldap.simple_bind("", "")?.success()?;
+    //! for ctrl in res.ctrls {
+    //!     match ctrl {
+    //!         // matching a control implemented by the library
+    //!         Control(Some(ControlType::PagedResults), ref raw) => {
+    //!             dbg!(raw.parse::<PagedResults>());
+    //!         },
+    //!         // matching a control unknown to the library
+    //!         // the OID is actually that of PagedResults
+    //!         Control(None, ref raw) if raw.ctype == "1.2.840.113556.1.4.319" => {
+    //!             dbg!(raw.parse::<PagedResults>());
+    //!         },
+    //!         _ => (),
+    //!     }
+    //! }
+    //! # Ok(())
+    //! # }
     pub use crate::controls_impl::parse_syncinfo;
-    //pub use crate::controls_impl::types;
     pub use crate::controls_impl::{Assertion, PagedResults, ProxyAuth, RelaxRules};
     pub use crate::controls_impl::{
         Control, ControlParser, ControlType, CriticalControl, MakeCritical, RawControl,

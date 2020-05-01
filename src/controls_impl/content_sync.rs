@@ -90,7 +90,7 @@ impl From<SyncRequest> for RawControl {
     }
 }
 
-/// Sync State control value.
+/// Sync State response control.
 ///
 ///  See the Content Synchronization specification
 /// ([RFC 4533](https://tools.ietf.org/html/rfc4533)).
@@ -154,7 +154,7 @@ impl ControlParser for SyncState {
     }
 }
 
-/// Sync Done control value.
+/// Sync Done response control.
 ///
 ///  See the Content Synchronization specification
 /// ([RFC 4533](https://tools.ietf.org/html/rfc4533)).
