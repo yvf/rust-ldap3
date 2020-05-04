@@ -227,7 +227,7 @@ impl fmt::Display for LdapResult {
 
 impl LdapResult {
     /// If the result code is zero, return the instance itself wrapped
-    /// in `Ok()`, otherwise wrap the instance in an `io::Error`.
+    /// in `Ok()`, otherwise wrap the instance in an `LdapError`.
     pub fn success(self) -> Result<Self> {
         if self.rc == 0 {
             Ok(self)
@@ -238,7 +238,7 @@ impl LdapResult {
 
     /// If the result code is 0 or 10 (referral), return the instance
     /// itself wrapped in `Ok()`, otherwise wrap the instance in an
-    /// `io::Error`.
+    /// `LdapError`.
     pub fn non_error(self) -> Result<Self> {
         if self.rc == 0 || self.rc == 10 {
             Ok(self)
@@ -349,7 +349,7 @@ pub struct SearchResult(pub Vec<ResultEntry>, pub LdapResult);
 
 impl SearchResult {
     /// If the result code is zero, return an anonymous tuple of component structs
-    /// wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
+    /// wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `LdapError`.
     pub fn success(self) -> Result<(Vec<ResultEntry>, LdapResult)> {
         if self.1.rc == 0 {
             Ok((self.0, self.1))
@@ -359,7 +359,7 @@ impl SearchResult {
     }
 
     /// If the result code is 0 or 10 (referral), return an anonymous tuple of component
-    /// structs wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
+    /// structs wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `LdapError`.
     pub fn non_error(self) -> Result<(Vec<ResultEntry>, LdapResult)> {
         if self.1.rc == 0 || self.1.rc == 10 {
             Ok((self.0, self.1))
@@ -380,7 +380,7 @@ pub struct CompareResult(pub LdapResult);
 
 impl CompareResult {
     /// If the result code is 5 (compareFalse) or 6 (compareTrue), return the corresponding
-    /// boolean value wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
+    /// boolean value wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `LdapError`.
     pub fn equal(self) -> Result<bool> {
         match self.0.rc {
             5 => Ok(false),
@@ -390,7 +390,7 @@ impl CompareResult {
     }
 
     /// If the result code is 5 (compareFalse), 6 (compareTrue),  or 10 (referral), return
-    /// the inner `LdapResult`, otherwise rewrap `LdapResult` in an `io::Error`.
+    /// the inner `LdapResult`, otherwise rewrap `LdapResult` in an `LdapError`.
     pub fn non_error(self) -> Result<LdapResult> {
         if self.0.rc == 5 || self.0.rc == 6 || self.0.rc == 10 {
             Ok(self.0)
@@ -411,7 +411,7 @@ pub struct ExopResult(pub Exop, pub LdapResult);
 
 impl ExopResult {
     /// If the result code is zero, return an anonymous tuple of component structs
-    /// wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
+    /// wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `LdapError`.
     pub fn success(self) -> Result<(Exop, LdapResult)> {
         if self.1.rc == 0 {
             Ok((self.0, self.1))
@@ -421,7 +421,7 @@ impl ExopResult {
     }
 
     /// If the result code is 0 or 10 (referral), return an anonymous tuple of component
-    /// structs wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `io::Error`.
+    /// structs wrapped in `Ok()`, otherwise wrap the `LdapResult` part in an `LdapError`.
     pub fn non_error(self) -> Result<(Exop, LdapResult)> {
         if self.1.rc == 0 || self.1.rc == 10 {
             Ok((self.0, self.1))
