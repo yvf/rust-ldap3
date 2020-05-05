@@ -30,28 +30,6 @@ maplit = "1.0.2"
 path = "lber"
 version = "0.2.0"
 
-[[example]]
-name = "bind_sync"
-required-features = ["sync"]
-
-[[example]]
-name = "search_starttls_noverify"
-required-features = ["sync", "tls"]
-
-# Only works on Unix
-[[example]]
-name = "whoami_external"
-required-features = ["sync"]
-
-# Only works on Unix
-[[example]]
-name = "whoami_external_sync"
-required-features = ["sync"]
-
-[[example]]
-name = "whoami_proxyauth"
-required-features = ["sync"]
-
 [features]
 default = ["sync", "tls"]
 tls = ["native-tls", "tokio-tls"]
