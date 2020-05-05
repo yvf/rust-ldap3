@@ -58,7 +58,7 @@ impl Decoder for LdapCodec {
             Some(tags) => tags,
             None => return Err(decoding_error),
         };
-        let maybe_controls = tags.pop().expect("element");
+        let mut maybe_controls = tags.pop().expect("element");
         let has_controls = match maybe_controls {
             StructureTag {
                 id,
@@ -68,6 +68,17 @@ impl Decoder for LdapCodec {
                 PL::C(_) => true,
                 PL::P(_) => return Err(decoding_error),
             },
+            StructureTag { id, class, .. } if class == TagClass::Context && id == 10 => {
+                // Active Directory bug workaround
+                //
+                // AD incorrectly encodes Notice of Disconnection messages. The OID of the
+                // Unsolicited Notification should be part of the ExtendedResponse sequence
+                // but AD puts it outside, where the optional controls belong. This confuses
+                // our parser, which doesn't expect the extra sequence element at the end
+                // and crashes. This match arm thus ignores the element.
+                maybe_controls = tags.pop().expect("element");
+                false
+            }
             _ => false,
         };
         let (protoop, controls) = if has_controls {
