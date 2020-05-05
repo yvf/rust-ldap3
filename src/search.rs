@@ -39,6 +39,12 @@ pub enum DerefAliases {
     Always = 3,
 }
 
+impl Default for DerefAliases {
+    fn default() -> Self {
+        DerefAliases::Never
+    }
+}
+
 #[derive(Debug)]
 pub enum SearchItem {
     Entry(StructureTag),
@@ -68,7 +74,7 @@ impl ResultEntry {
 }
 
 /// Additional parameters for the Search operation.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct SearchOptions {
     pub(crate) deref: DerefAliases,
     pub(crate) typesonly: bool,
@@ -78,13 +84,9 @@ pub struct SearchOptions {
 
 impl SearchOptions {
     /// Create an instance of the structure with default values.
-    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         SearchOptions {
-            deref: DerefAliases::Never,
-            typesonly: false,
-            timelimit: 0,
-            sizelimit: 0,
+            ..Default::default()
         }
     }
 
