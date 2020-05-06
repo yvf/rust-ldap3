@@ -322,7 +322,7 @@ impl SearchStream {
 
     /// Fetch the next item from the result stream.
     ///
-    /// Returns Ok(None) at the end of the stream.
+    /// Returns `Ok(None)` at the end of the stream.
     #[allow(clippy::should_implement_trait)]
     pub async fn next(&mut self) -> Result<Option<ResultEntry>> {
         if self.rx.is_none() {

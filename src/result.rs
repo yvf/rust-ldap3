@@ -1,6 +1,6 @@
 //! Operation result structures and helpers.
 //!
-//! Most LDAP operations return a [`LdapResult`](struct.LdapResult.html). This module
+//! Most LDAP operations return an [`LdapResult`](struct.LdapResult.html). This module
 //! contains its definition, as well as that of a number of wrapper structs and
 //! helper methods, which adapt LDAP result and error handling to be a closer
 //! match to Rust conventions.

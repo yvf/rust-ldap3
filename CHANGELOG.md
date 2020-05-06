@@ -32,6 +32,9 @@ are a couple of breaking changes there, too:
   Search drops intermediate messages and collects all referrals
   in the result vector.
 
+* `LdapConn` is now `Send`, meaning that it's usable in connection
+  pool managers such as `r2d2`.
+
 ## v0.6.1, 2018-10-16
 
 * A number of dependencies have been updated to avoid

@@ -130,7 +130,7 @@ pub mod controls {
     //!
     //! ### Example
     //!
-    //! With a `LdapResult` in `res`, iterating through controls and matching the desired ones
+    //! With an `LdapResult` in `res`, iterating through controls and matching the desired ones
     //! could be done like this:
     //!
     //! ```rust,no_run
