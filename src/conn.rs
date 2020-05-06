@@ -233,10 +233,17 @@ macro_rules! drive {
 impl LdapConnAsync {
     /// Open a connection to an LDAP server specified by `url`, using
     /// `settings` to specify additional parameters.
-    pub async fn with_settings(mut settings: LdapConnSettings, url: &str) -> Result<(Self, Ldap)> {
+    pub async fn with_settings(settings: LdapConnSettings, url: &str) -> Result<(Self, Ldap)> {
         if url.starts_with("ldapi://") {
             Ok(LdapConnAsync::new_unix(url, settings).await?)
         } else {
+            // For some reason, "mut settings" is transformed to "__arg0" in the docs,
+            // this is a workaround. On GitHub, at the time of writing, there is:
+            //
+            // https://github.com/rust-lang/docs.rs/issues/737
+            //
+            // But no issue in the Rust repo.
+            let mut settings = settings;
             let timeout = settings.conn_timeout.take();
             let conn_future = LdapConnAsync::new_tcp(url, settings);
             Ok(if let Some(timeout) = timeout {
