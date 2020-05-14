@@ -80,6 +80,7 @@ pub extern crate log;
 /// Type alias for the LDAP message ID.
 pub type RequestId = i32;
 
+pub mod adapters;
 pub mod asn1 {
     //! ASN.1 structure construction and parsing.
     //!
@@ -194,7 +195,10 @@ pub use conn::{LdapConnAsync, LdapConnSettings};
 pub use filter::parse as parse_filter;
 pub use ldap::{Ldap, Mod};
 pub use result::{LdapError, LdapResult, SearchResult};
-pub use search::{DerefAliases, ResultEntry, Scope, SearchEntry, SearchOptions, SearchStream};
+pub use search::parse_refs;
+pub use search::{
+    DerefAliases, ResultEntry, Scope, SearchEntry, SearchOptions, SearchStream, StreamState,
+};
 #[cfg(feature = "sync")]
 pub use sync::{EntryStream, LdapConn};
 pub use util::{dn_escape, ldap_escape};

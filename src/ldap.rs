@@ -3,6 +3,7 @@ use std::hash::Hash;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crate::adapters::{Adapted, Direct, EntriesOnly, IntoAdapterVec};
 use crate::controls_impl::IntoRawControlVec;
 use crate::exop::Exop;
 use crate::exop_impl::construct_exop;
@@ -10,7 +11,6 @@ use crate::protocol::{LdapOp, MaybeControls, ResultSender};
 use crate::result::{
     CompareResult, ExopResult, LdapError, LdapResult, LdapResultExt, Result, SearchResult,
 };
-use crate::search::parse_refs;
 use crate::search::{Scope, SearchOptions, SearchStream};
 use crate::RequestId;
 
@@ -70,9 +70,9 @@ pub struct Ldap {
     pub(crate) tx: mpsc::UnboundedSender<(RequestId, LdapOp, Tag, MaybeControls, ResultSender)>,
     pub(crate) id_scrub_tx: mpsc::UnboundedSender<RequestId>,
     pub(crate) last_id: RequestId,
-    pub(crate) timeout: Option<Duration>,
-    pub(crate) controls: MaybeControls,
-    pub(crate) search_opts: Option<SearchOptions>,
+    pub timeout: Option<Duration>,
+    pub controls: MaybeControls,
+    pub search_opts: Option<SearchOptions>,
 }
 
 impl Clone for Ldap {
@@ -250,28 +250,21 @@ impl Ldap {
     ///
     /// This method should be used if it's known that the result set won't be
     /// large. For other situations, one can use [`streaming_search()`](#method.streaming_search).
-    pub async fn search<S: AsRef<str>>(
+    pub async fn search<S: AsRef<str> + Send + Sync + 'static>(
         &mut self,
         base: &str,
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
     ) -> Result<SearchResult> {
-        let mut stream = self.streaming_search(base, scope, filter, attrs).await?;
+        let mut stream = self
+            .streaming_search_with(EntriesOnly::new(), base, scope, filter, attrs)
+            .await?;
         let mut re_vec = vec![];
-        let mut refs = vec![];
         while let Some(entry) = stream.next().await? {
-            if entry.is_intermediate() {
-                continue;
-            }
-            if entry.is_ref() {
-                refs.extend(parse_refs(entry.0));
-                continue;
-            }
             re_vec.push(entry);
         }
-        let mut res = stream.finish();
-        res.refs.extend(refs);
+        let res = stream.finish().await;
         Ok(SearchResult(re_vec, res))
     }
 
@@ -279,18 +272,42 @@ impl Ldap {
     /// the parameters), which returns all results at once, return a handle which
     /// will be used for retrieving entries one by one. See [`SearchStream`](struct.SearchStream.html)
     /// for the explanation of the protocol which must be adhered to in this case.
-    pub async fn streaming_search<S: AsRef<str>>(
+    pub async fn streaming_search<S: AsRef<str> + Send + Sync + 'static>(
         &mut self,
         base: &str,
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
-    ) -> Result<SearchStream> {
+    ) -> Result<SearchStream<S>> {
         let mut ldap = self.clone();
         ldap.controls = self.controls.take();
         ldap.timeout = self.timeout.take();
         ldap.search_opts = self.search_opts.take();
-        SearchStream::new(ldap)
+        SearchStream::<S, Direct>::new(ldap)
+            .start(base, scope, filter, attrs)
+            .await
+    }
+
+    /// Perform a streaming Search internally modified by a chain of [adapters](adapters/index.html).
+    /// The first argument can either be a struct implementing `Adapter`, if a single adapter is needed,
+    /// or a vector of boxed `Adapter` trait objects. The returned handle has a different marker struct,
+    /// `Adapted` instead of `Direct`, but is used equivalently to the regular one.
+    pub async fn streaming_search_with<
+        V: IntoAdapterVec<S>,
+        S: AsRef<str> + Send + Sync + 'static,
+    >(
+        &mut self,
+        adapters: V,
+        base: &str,
+        scope: Scope,
+        filter: &str,
+        attrs: Vec<S>,
+    ) -> Result<SearchStream<S, Adapted>> {
+        let mut ldap = self.clone();
+        ldap.controls = self.controls.take();
+        ldap.timeout = self.timeout.take();
+        ldap.search_opts = self.search_opts.take();
+        SearchStream::<S, Adapted>::new(ldap, adapters.into())
             .start(base, scope, filter, attrs)
             .await
     }

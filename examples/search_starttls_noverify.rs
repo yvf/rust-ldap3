@@ -30,6 +30,6 @@ async fn main() -> Result<()> {
         let entry = SearchEntry::construct(entry);
         println!("{:?}", entry);
     }
-    let _res = search.finish().success()?;
+    let _res = search.finish().await.success()?;
     Ok(ldap.unbind().await?)
 }

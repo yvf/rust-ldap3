@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::adapters::{Adapted, Direct, IntoAdapterVec};
 use crate::conn::{LdapConnAsync, LdapConnSettings};
 use crate::controls_impl::IntoRawControlVec;
 use crate::exop::Exop;
@@ -93,7 +94,7 @@ impl LdapConn {
     }
 
     /// See [`Ldap::search()`](struct.Ldap.html#method.search).
-    pub fn search<S: AsRef<str>>(
+    pub fn search<S: AsRef<str> + Send + Sync + 'static>(
         &mut self,
         base: &str,
         scope: Scope,
@@ -108,17 +109,44 @@ impl LdapConn {
     /// Perform a Search, but unlike `search()`, which returns all results at once, return a handle which
     /// will be used for retrieving entries one by one. See [`EntryStream`](struct.EntryStream.html)
     /// for the explanation of the protocol which must be adhered to in this case.
-    pub fn streaming_search<'a, S: AsRef<str>>(
+    pub fn streaming_search<'a, S: AsRef<str> + Send + Sync + 'static>(
         &'a mut self,
         base: &str,
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
-    ) -> Result<EntryStream<'a>> {
+    ) -> Result<EntryStream<'a, S, Direct>> {
         let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
         let ldap = &mut self.ldap;
         let stream =
             rt.block_on(async move { ldap.streaming_search(base, scope, filter, attrs).await })?;
+        Ok(EntryStream {
+            stream,
+            rt: self.rt.clone(),
+            conn: PhantomData,
+        })
+    }
+
+    /// Perform a streaming Search internally modified by a chain of [adapters](adapters/index.html).
+    /// See [`Ldap::streaming_search_with()`](struct.Ldap.html#method.streaming_search_with).
+    pub fn streaming_search_with<
+        'a,
+        V: IntoAdapterVec<S>,
+        S: AsRef<str> + Send + Sync + 'static,
+    >(
+        &'a mut self,
+        adapters: V,
+        base: &str,
+        scope: Scope,
+        filter: &str,
+        attrs: Vec<S>,
+    ) -> Result<EntryStream<'a, S, Adapted>> {
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let ldap = &mut self.ldap;
+        let stream = rt.block_on(async move {
+            ldap.streaming_search_with(adapters.into(), base, scope, filter, attrs)
+                .await
+        })?;
         Ok(EntryStream {
             stream,
             rt: self.rt.clone(),
@@ -218,13 +246,19 @@ impl LdapConn {
 /// Tokio runtime with `LdapConn` from which it's obtained, but the two can't be
 /// used in parallel, which is enforced by capturing the reference to `LdapConn`
 /// during the lifetime of `EntryStream`.
-pub struct EntryStream<'a> {
-    stream: SearchStream,
+///
+/// Multiple variants parametrized by different marker values of `Mode` are needed
+/// to allow the use of `Direct` and `Adapted` Search operation.
+pub struct EntryStream<'a, S, Mode> {
+    stream: SearchStream<S, Mode>,
     rt: Arc<Runtime>,
     conn: PhantomData<&'a mut ()>,
 }
 
-impl<'a> EntryStream<'a> {
+impl<'a, S> EntryStream<'a, S, Direct>
+where
+    S: AsRef<str> + Send + Sync + 'static,
+{
     /// See [`SearchStream::next()`](struct.SearchStream.html#method.next).
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<ResultEntry>> {
@@ -236,12 +270,41 @@ impl<'a> EntryStream<'a> {
     /// See [`SearchStream::finish()`](struct.SearchStream.html#method.finish).
     ///
     /// The name `result()` was kept for backwards compatibility.
-    pub fn result(self) -> LdapResult {
-        self.stream.finish()
+    pub fn result(mut self) -> LdapResult {
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let stream = &mut self.stream;
+        rt.block_on(async move { stream.finish().await })
+    }
+}
+
+impl<'a, S> EntryStream<'a, S, Adapted>
+where
+    S: AsRef<str> + Send + Sync + 'static,
+{
+    /// See [`SearchStream::next()`](struct.SearchStream.html#method.next).
+    #[allow(clippy::should_implement_trait)]
+    pub fn next(&mut self) -> Result<Option<ResultEntry>> {
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let stream = &mut self.stream;
+        rt.block_on(async move { stream.next().await })
     }
 
-    /// See [`SearchStream::last_id()`](struct.SearchStream.html#method.last_id).
-    pub fn last_id(&mut self) -> RequestId {
-        self.stream.last_id()
+    /// See [`SearchStream::finish()`](struct.SearchStream.html#method.finish).
+    ///
+    /// The name `result()` was kept for backwards compatibility.
+    pub fn result(mut self) -> LdapResult {
+        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let stream = &mut self.stream;
+        rt.block_on(async move { stream.finish().await })
+    }
+}
+
+impl<'a, S, Mode> EntryStream<'a, S, Mode>
+where
+    S: AsRef<str> + Send + Sync + 'static,
+{
+    /// See [`SearchStream::ldap_handle()`](struct.SearchStream.html#method.ldap_handle).
+    pub fn ldap_handle(&mut self) -> &Ldap {
+        self.stream.ldap_handle()
     }
 }

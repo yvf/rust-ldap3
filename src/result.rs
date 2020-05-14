@@ -113,6 +113,10 @@ pub enum LdapError {
     /// No values provided for the Add operation.
     #[error("empty value set for Add")]
     AddNoValues,
+
+    /// No values provided for the Add operation.
+    #[error("adapter init error: {0}")]
+    AdapterInit(String),
 }
 
 impl From<LdapError> for io::Error {
