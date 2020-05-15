@@ -1,4 +1,4 @@
-## v0.7.0-alpha.4, 2020-05-01
+## v0.7.0-alpha.5, 2020-05-15
 
 In the alpha cycle, the changes for all versions will be
 listed together in reverse chronological order. The heading
@@ -10,6 +10,17 @@ makes the asynchronous interface one big breaking change,
 so it makes no sense to enumerate the differences. The
 synchronous interface proved rather more stable, but there
 are a couple of breaking changes there, too:
+
+* A search adapter framework lets user-supplied code control
+  the execution of a Search operation and transform returned
+  entries and result codes. Two adapters are included in the
+  crate: EntriesOnly, which filters out referrals and
+  intermediate messages from the stream, and PagedResults,
+  which uses the control of the same name and automatically
+  applies it to Search operation until the full result set
+  is retrieved.
+
+* --- alpha.4
 
 * [breaking change]: `ResultEntry` now has public components,
   where the second is the set of controls associated with the
@@ -28,9 +39,14 @@ are a couple of breaking changes there, too:
   less problematic for applications.
 
 * [breaking change]: Streaming Search returns raw entries, without
-  trying to parse referrals or intermediate messages. Ordinary
-  Search drops intermediate messages and collects all referrals
-  in the result vector.
+  trying to parse referrals or intermediate messages. The
+  EntriesOnly search adapter can be used to restoe the earlier
+  behavior. Ordinary Search drops intermediate messages and collects
+  all referrals in the result vector.
+
+* [breaking change]: There is no `autopage` search option for
+  automatically applying the Paged Results control to a Search.
+  Use the PagedResults search adapter instead.
 
 * `LdapConn` is now `Send`, meaning that it's usable in connection
   pool managers such as `r2d2`.
