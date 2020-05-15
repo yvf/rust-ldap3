@@ -37,10 +37,7 @@ pub fn ldap_escape<'a, S: Into<Cow<'a, str>>>(lit: S) -> Cow<'a, str> {
         }
     }
     if let Some(output) = output {
-        // unchecked conversion is safe here: we receive a valid
-        // UTF-8 value, by definition, and only replace single ASCII
-        // bytes with ASCII byte sequences
-        Cow::Owned(unsafe { String::from_utf8_unchecked(output) })
+        Cow::Owned(String::from_utf8(output).expect("ldap escaped"))
     } else {
         lit
     }
@@ -106,8 +103,7 @@ pub fn dn_escape<'a, S: Into<Cow<'a, str>>>(val: S) -> Cow<'a, str> {
         }
     }
     if let Some(output) = output {
-        // see the rationale for the same construct in ldap_escape()
-        Cow::Owned(unsafe { String::from_utf8_unchecked(output) })
+        Cow::Owned(String::from_utf8(output).expect("dn escaped"))
     } else {
         val
     }
