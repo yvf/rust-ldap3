@@ -3,6 +3,12 @@ objectClass: locality
 objectClass: dcObject
 dc: example
 
+dn: dc=subtree,dc=example,dc=org
+objectClass: referral
+objectClass: extensibleObject
+dc: subtree
+ref: ldaps://ldap.example.org/dc=subtree,dc=example,dc=org
+
 dn: ou=People,dc=example,dc=org
 objectClass: organizationalUnit
 ou: People
