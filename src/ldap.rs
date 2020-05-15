@@ -279,7 +279,8 @@ impl Ldap {
         filter: &str,
         attrs: Vec<S>,
     ) -> Result<SearchStream<S>> {
-        self.streaming_search_with(vec![], base, scope, filter, attrs).await
+        self.streaming_search_with(vec![], base, scope, filter, attrs)
+            .await
     }
 
     /// Perform a streaming Search internally modified by a chain of [adapters](adapters/index.html).

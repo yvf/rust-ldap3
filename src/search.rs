@@ -656,7 +656,9 @@ where
         if let Some(timeout) = self.timeout {
             self.ldap.with_timeout(timeout);
         }
-        self.ldap.op_call(LdapOp::Search(tx), req).await.map(|_| { self.state = StreamState::Active; })
+        self.ldap.op_call(LdapOp::Search(tx), req).await.map(|_| {
+            self.state = StreamState::Active;
+        })
     }
 
     pub(crate) async fn next_inner(&mut self) -> Result<Option<ResultEntry>> {
@@ -737,9 +739,7 @@ where
         let adapter = self.adapters[self.ax].clone();
         let mut adapter = adapter.lock().await;
         self.ax += 1;
-        let res = (&mut adapter)
-            .start(self, base, scope, filter, attrs)
-            .await;
+        let res = (&mut adapter).start(self, base, scope, filter, attrs).await;
         self.ax -= 1;
         if res.is_err() {
             self.state = StreamState::Error;
