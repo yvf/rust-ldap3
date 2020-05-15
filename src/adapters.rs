@@ -11,7 +11,7 @@
 //! An adapter is a struct implementing the [`Adapter`](trait.Adapter.html) trait. A single adapter
 //! struct or a vector of `Adapter` trait objects can be passed to the
 //! [`streaming_search_with()`](../struct.Ldap.html#method.streaming_search_with) method on the `Ldap`
-//! handle along with regular Search parameters to create an `Adapted` search. Calling the stream
+//! handle along with regular Search parameters to create an adapted search. Calling the stream
 //! methods on the returned handle will execute the chain of `Adapter` methods from each adapter in
 //! turn, ending with the direct call of the regular stream method.
 //!
@@ -28,12 +28,6 @@ use crate::search::{ResultEntry, Scope, SearchStream};
 
 use async_trait::async_trait;
 
-/// Marker struct for a direct stream.
-pub struct Direct;
-
-/// Marker struct for an adapted stream.
-pub struct Adapted;
-
 /// Adapter interface to a Search.
 ///
 /// Structs implementing this trait:
@@ -44,7 +38,7 @@ pub struct Adapted;
 ///
 /// * Must contain no references, that is, they must be `'static`.
 ///
-/// The trait is parametrized with `S`, which appears in the `start()`  method as the generic type
+/// The trait is parametrized with `S`, which is used in the `start()`  method as the generic type
 /// for the attribute name vector. (It must appear here because of object safety.) When implementing
 /// the trait, `S` must be constrained to `AsRef<str> + Send + Sync + 'static`. To use a bare instance
 /// of a struct implementing this trait in the call to `streaming_search_with()`, the struct must also
@@ -79,7 +73,7 @@ pub struct Adapted;
 ///
 /// ```rust,no_run
 /// # use async_trait::async_trait;
-/// # use ldap3::adapters::{Adapted, Adapter, SoloMarker};
+/// # use ldap3::adapters::{Adapter, SoloMarker};
 /// # use ldap3::{ResultEntry, Scope, SearchStream};
 /// # use ldap3::result::{LdapResult, Result};
 /// # use ldap3::parse_refs;
@@ -107,12 +101,12 @@ pub struct Adapted;
 ///     // The start() method doesn't do much
 ///     async fn start(
 ///         &mut self,
-///         stream: SearchStream<S, Adapted>,
+///         stream: &mut SearchStream<S>,
 ///         base: &str,
 ///         scope: Scope,
 ///         filter: &str,
 ///         attrs: Vec<S>,
-///     ) -> Result<SearchStream<S, Adapted>> {
+///     ) -> Result<()> {
 ///         self.refs.as_mut().expect("refs").clear();
 ///         // Call up the adapter chain
 ///         stream.start(base, scope, filter, attrs).await
@@ -122,7 +116,7 @@ pub struct Adapted;
 ///     // a single result entry is returned
 ///     async fn next(
 ///         &mut self,
-///         stream: &mut SearchStream<S, Adapted>
+///         stream: &mut SearchStream<S>
 ///     ) -> Result<Option<ResultEntry>> {
 ///         loop {
 ///             // Call up the adapter chain
@@ -144,7 +138,7 @@ pub struct Adapted;
 ///     }
 ///
 ///     // The result returned from the upcall is modified by our values
-///     async fn finish(&mut self, stream: &mut SearchStream<S, Adapted>) -> LdapResult {
+///     async fn finish(&mut self, stream: &mut SearchStream<S>) -> LdapResult {
 ///         // Call up the adapter chain
 ///         let mut res = stream.finish().await;
 ///         res.refs.extend(self.refs.take().expect("refs"));
@@ -153,18 +147,21 @@ pub struct Adapted;
 /// }
 #[async_trait]
 pub trait Adapter<S>: AdapterClone<S> + Debug + Send + Sync + 'static {
+    /// Initialize the stream.
     async fn start(
         &mut self,
-        stream: SearchStream<S, Adapted>,
+        stream: &mut SearchStream<S>,
         base: &str,
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
-    ) -> Result<SearchStream<S, Adapted>>;
+    ) -> Result<()>;
 
-    async fn next(&mut self, stream: &mut SearchStream<S, Adapted>) -> Result<Option<ResultEntry>>;
+    /// Fetch the next entry from the stream.
+    async fn next(&mut self, stream: &mut SearchStream<S>) -> Result<Option<ResultEntry>>;
 
-    async fn finish(&mut self, stream: &mut SearchStream<S, Adapted>) -> LdapResult;
+    /// Return the result from the stream.
+    async fn finish(&mut self, stream: &mut SearchStream<S>) -> LdapResult;
 }
 
 /// Helper trait to enforce `Clone` on `Adapter` implementors.
@@ -218,14 +215,25 @@ where
 ///
 /// To invoke a streaming Search with this adapter on the `ldap` handle, use
 ///
-/// ```rust,ignore
-/// let mut stream = ldap.streaming_search_with(EntriesOnly::new(), ...);
+/// ```rust,no_run
+/// # use ldap3::adapters::EntriesOnly;
+/// # use ldap3::{LdapConn, Scope};
+/// # let mut ldap = LdapConn::new("ldapi://ldapi").unwrap();
+/// let mut stream = ldap.streaming_search_with(
+///     EntriesOnly::new(),
+///     "",
+///     Scope::Base,
+///     "(objectClass=*)",
+///     vec!["+"]
+/// );
+/// # let _ = stream;
 /// ```
 #[derive(Clone, Debug)]
 pub struct EntriesOnly {
     refs: Option<Vec<String>>,
 }
 
+/// Create a new adapter instance.
 #[allow(clippy::new_without_default)]
 impl EntriesOnly {
     pub fn new() -> Self {
@@ -242,17 +250,17 @@ where
 {
     async fn start(
         &mut self,
-        stream: SearchStream<S, Adapted>,
+        stream: &mut SearchStream<S>,
         base: &str,
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
-    ) -> Result<SearchStream<S, Adapted>> {
+    ) -> Result<()> {
         self.refs.as_mut().expect("refs").clear();
         stream.start(base, scope, filter, attrs).await
     }
 
-    async fn next(&mut self, stream: &mut SearchStream<S, Adapted>) -> Result<Option<ResultEntry>> {
+    async fn next(&mut self, stream: &mut SearchStream<S>) -> Result<Option<ResultEntry>> {
         loop {
             return match stream.next().await {
                 Ok(None) => Ok(None),
@@ -271,7 +279,7 @@ where
         }
     }
 
-    async fn finish(&mut self, stream: &mut SearchStream<S, Adapted>) -> LdapResult {
+    async fn finish(&mut self, stream: &mut SearchStream<S>) -> LdapResult {
         let mut res = stream.finish().await;
         res.refs.extend(self.refs.take().expect("refs"));
         res
@@ -318,12 +326,12 @@ where
 {
     async fn start(
         &mut self,
-        stream: SearchStream<S, Adapted>,
+        stream: &mut SearchStream<S>,
         base: &str,
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
-    ) -> Result<SearchStream<S, Adapted>> {
+    ) -> Result<()> {
         let mut stream = stream;
         let stream_ldap = stream.ldap_handle();
         let mut ldap = stream_ldap.clone();
@@ -370,7 +378,7 @@ where
         stream.start(base, scope, filter, attrs).await
     }
 
-    async fn next(&mut self, stream: &mut SearchStream<S, Adapted>) -> Result<Option<ResultEntry>> {
+    async fn next(&mut self, stream: &mut SearchStream<S>) -> Result<Option<ResultEntry>> {
         'ent: loop {
             match stream.next().await {
                 Ok(None) => {
@@ -429,7 +437,7 @@ where
         }
     }
 
-    async fn finish(&mut self, stream: &mut SearchStream<S, Adapted>) -> LdapResult {
+    async fn finish(&mut self, stream: &mut SearchStream<S>) -> LdapResult {
         stream.finish().await
     }
 }

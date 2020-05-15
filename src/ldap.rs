@@ -3,7 +3,7 @@ use std::hash::Hash;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use crate::adapters::{Adapted, Direct, EntriesOnly, IntoAdapterVec};
+use crate::adapters::{EntriesOnly, IntoAdapterVec};
 use crate::controls_impl::IntoRawControlVec;
 use crate::exop::Exop;
 use crate::exop_impl::construct_exop;
@@ -279,19 +279,12 @@ impl Ldap {
         filter: &str,
         attrs: Vec<S>,
     ) -> Result<SearchStream<S>> {
-        let mut ldap = self.clone();
-        ldap.controls = self.controls.take();
-        ldap.timeout = self.timeout.take();
-        ldap.search_opts = self.search_opts.take();
-        SearchStream::<S, Direct>::new(ldap)
-            .start(base, scope, filter, attrs)
-            .await
+        self.streaming_search_with(vec![], base, scope, filter, attrs).await
     }
 
     /// Perform a streaming Search internally modified by a chain of [adapters](adapters/index.html).
     /// The first argument can either be a struct implementing `Adapter`, if a single adapter is needed,
-    /// or a vector of boxed `Adapter` trait objects. The returned handle has a different marker struct,
-    /// `Adapted` instead of `Direct`, but is used equivalently to the regular one.
+    /// or a vector of boxed `Adapter` trait objects.
     pub async fn streaming_search_with<
         V: IntoAdapterVec<S>,
         S: AsRef<str> + Send + Sync + 'static,
@@ -302,14 +295,14 @@ impl Ldap {
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
-    ) -> Result<SearchStream<S, Adapted>> {
+    ) -> Result<SearchStream<S>> {
         let mut ldap = self.clone();
         ldap.controls = self.controls.take();
         ldap.timeout = self.timeout.take();
         ldap.search_opts = self.search_opts.take();
-        SearchStream::<S, Adapted>::new(ldap, adapters.into())
-            .start(base, scope, filter, attrs)
-            .await
+        let mut stream = SearchStream::new(ldap, adapters.into());
+        stream.start(base, scope, filter, attrs).await?;
+        Ok(stream)
     }
 
     /// Add an entry named by `dn`, with the list of attributes and their values
