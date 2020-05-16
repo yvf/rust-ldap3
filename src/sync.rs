@@ -1,7 +1,5 @@
 use std::collections::HashSet;
 use std::hash::Hash;
-use std::marker::PhantomData;
-use std::sync::Arc;
 use std::time::Duration;
 
 use crate::adapters::IntoAdapterVec;
@@ -27,7 +25,7 @@ use tokio::runtime::{self, Runtime};
 /// new connection.
 #[derive(Debug)]
 pub struct LdapConn {
-    rt: Arc<Runtime>,
+    rt: Runtime,
     ldap: Ldap,
 }
 
@@ -55,10 +53,7 @@ impl LdapConn {
             super::drive!(conn);
             Ok(ldap)
         })?;
-        Ok(LdapConn {
-            ldap,
-            rt: Arc::new(rt),
-        })
+        Ok(LdapConn { ldap, rt })
     }
 
     /// See [`Ldap::with_search_options()`](struct.Ldap.html#method.with_search_options).
@@ -81,14 +76,14 @@ impl LdapConn {
 
     /// See [`Ldap::simple_bind()`](struct.Ldap.html#method.simple_bind).
     pub fn simple_bind(&mut self, bind_dn: &str, bind_pw: &str) -> Result<LdapResult> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.simple_bind(bind_dn, bind_pw).await })
     }
 
     /// See [`Ldap::sasl_external_bind()`](struct.Ldap.html#method.sasl_external_bind).
     pub fn sasl_external_bind(&mut self) -> Result<LdapResult> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.sasl_external_bind().await })
     }
@@ -101,7 +96,7 @@ impl LdapConn {
         filter: &str,
         attrs: Vec<S>,
     ) -> Result<SearchResult> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.search(base, scope, filter, attrs).await })
     }
@@ -116,15 +111,11 @@ impl LdapConn {
         filter: &str,
         attrs: Vec<S>,
     ) -> Result<EntryStream<'a, S>> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         let stream =
             rt.block_on(async move { ldap.streaming_search(base, scope, filter, attrs).await })?;
-        Ok(EntryStream {
-            stream,
-            rt: self.rt.clone(),
-            conn: PhantomData,
-        })
+        Ok(EntryStream { stream, conn: self })
     }
 
     /// Perform a streaming Search internally modified by a chain of [adapters](adapters/index.html).
@@ -141,17 +132,13 @@ impl LdapConn {
         filter: &str,
         attrs: Vec<S>,
     ) -> Result<EntryStream<'a, S>> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         let stream = rt.block_on(async move {
             ldap.streaming_search_with(adapters.into(), base, scope, filter, attrs)
                 .await
         })?;
-        Ok(EntryStream {
-            stream,
-            rt: self.rt.clone(),
-            conn: PhantomData,
-        })
+        Ok(EntryStream { stream, conn: self })
     }
 
     /// See [`Ldap::add()`](struct.Ldap.html#method.add).
@@ -160,7 +147,7 @@ impl LdapConn {
         dn: &str,
         attrs: Vec<(S, HashSet<S>)>,
     ) -> Result<LdapResult> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.add(dn, attrs).await })
     }
@@ -172,14 +159,14 @@ impl LdapConn {
         attr: &str,
         val: B,
     ) -> Result<CompareResult> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.compare(dn, attr, val).await })
     }
 
     /// See [`Ldap::delete()`](struct.Ldap.html#method.delete).
     pub fn delete(&mut self, dn: &str) -> Result<LdapResult> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.delete(dn).await })
     }
@@ -190,7 +177,7 @@ impl LdapConn {
         dn: &str,
         mods: Vec<Mod<S>>,
     ) -> Result<LdapResult> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.modify(dn, mods).await })
     }
@@ -203,14 +190,14 @@ impl LdapConn {
         delete_old: bool,
         new_sup: Option<&str>,
     ) -> Result<LdapResult> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.modifydn(dn, rdn, delete_old, new_sup).await })
     }
 
     /// See [`Ldap::unbind()`](struct.Ldap.html#method.unbind).
     pub fn unbind(&mut self) -> Result<()> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.unbind().await })
     }
@@ -220,7 +207,7 @@ impl LdapConn {
     where
         E: Into<Exop>,
     {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.extended(exop).await })
     }
@@ -232,7 +219,7 @@ impl LdapConn {
 
     /// See [`Ldap::abandon()`](struct.Ldap.html#method.abandon).
     pub fn abandon(&mut self, msgid: RequestId) -> Result<()> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.abandon(msgid).await })
     }
@@ -248,8 +235,7 @@ impl LdapConn {
 /// during the lifetime of `EntryStream`.
 pub struct EntryStream<'a, S> {
     stream: SearchStream<S>,
-    rt: Arc<Runtime>,
-    conn: PhantomData<&'a mut ()>,
+    conn: &'a mut LdapConn,
 }
 
 impl<'a, S> EntryStream<'a, S>
@@ -259,7 +245,7 @@ where
     /// See [`SearchStream::next()`](struct.SearchStream.html#method.next).
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<ResultEntry>> {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.conn.rt;
         let stream = &mut self.stream;
         rt.block_on(async move { stream.next().await })
     }
@@ -268,7 +254,7 @@ where
     ///
     /// The name `result()` was kept for backwards compatibility.
     pub fn result(mut self) -> LdapResult {
-        let rt = Arc::get_mut(&mut self.rt).expect("runtime ref");
+        let rt = &mut self.conn.rt;
         let stream = &mut self.stream;
         rt.block_on(async move { stream.finish().await })
     }
