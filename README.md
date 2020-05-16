@@ -26,7 +26,7 @@ new code layout.
 
 ### Documentation
 
-- [Version 0.7.0-alpha (current)](https://docs.rs/ldap3/0.7.0-alpha.5/ldap3/)
+- [Version 0.7.0-alpha (current)](https://docs.rs/ldap3/0.7.0-alpha.6/ldap3/)
 
 - [Version 0.6.x (old-stable)](https://docs.rs/ldap3/0.6.1/ldap3/)
 

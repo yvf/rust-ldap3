@@ -1,4 +1,4 @@
-## v0.7.0-alpha.5, 2020-05-15
+## v0.7.0-alpha.6, 2020-05-16
 
 In the alpha cycle, the changes for all versions will be
 listed together in reverse chronological order. The heading
@@ -10,6 +10,12 @@ makes the asynchronous interface one big breaking change,
 so it makes no sense to enumerate the differences. The
 synchronous interface proved rather more stable, but there
 are a couple of breaking changes there, too:
+
+* Fix the borrowing of the Tokio runtime in sync Searches,
+  which stopped working with the adapter changes. It's also
+  much simpler now.
+
+* --- alpha.5
 
 * A search adapter framework lets user-supplied code control
   the execution of a Search operation and transform returned
