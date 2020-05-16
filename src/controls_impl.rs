@@ -19,6 +19,7 @@ pub enum ControlType {
     PreReadResp,
     SyncDone,
     SyncState,
+    ManageDsaIt,
 }
 
 mod assertion;
@@ -40,6 +41,9 @@ pub use self::read_entry::{PostRead, PostReadResp, PreRead, PreReadResp, ReadEnt
 mod relax_rules;
 pub use self::relax_rules::RelaxRules;
 
+mod manage_dsa_it;
+pub use self::manage_dsa_it::ManageDsaIt;
+
 #[rustfmt::skip]
 lazy_static! {
     static ref CONTROLS: HashMap<&'static str, ControlType> = {
@@ -49,6 +53,7 @@ lazy_static! {
         map.insert(self::read_entry::PRE_READ_OID, ControlType::PreReadResp);
         map.insert(self::content_sync::SYNC_DONE_OID, ControlType::SyncDone);
         map.insert(self::content_sync::SYNC_STATE_OID, ControlType::SyncState);
+        map.insert(self::manage_dsa_it::MANAGE_DSA_IT_OID, ControlType::ManageDsaIt);
         map
     };
 }

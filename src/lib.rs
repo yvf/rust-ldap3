@@ -158,7 +158,7 @@ pub mod controls {
     //! # Ok(())
     //! # }
     pub use crate::controls_impl::parse_syncinfo;
-    pub use crate::controls_impl::{Assertion, PagedResults, ProxyAuth, RelaxRules};
+    pub use crate::controls_impl::{Assertion, ManageDsaIt, PagedResults, ProxyAuth, RelaxRules};
     pub use crate::controls_impl::{
         Control, ControlParser, ControlType, CriticalControl, MakeCritical, RawControl,
     };
