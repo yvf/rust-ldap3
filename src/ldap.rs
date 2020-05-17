@@ -554,7 +554,10 @@ impl Ldap {
     /// Return the message ID of the last active operation. When the handle is initialized, this
     /// value is set to zero. The intended use is to obtain the ID of a timed out operation for
     /// passing it to an Abandon or Cancel operation.
-    pub fn last_id(&self) -> RequestId {
+    ///
+    /// Using this method in the `start()` adapter chain of a streaming Search will return zero,
+    /// since the Message ID is obtained in the inner `start()` method.
+    pub fn last_id(&mut self) -> RequestId {
         self.last_id
     }
 

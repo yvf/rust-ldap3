@@ -826,8 +826,12 @@ where
     }
 
     /// Return the `Ldap` handle of the stream.
-    pub fn ldap_handle(&mut self) -> &Ldap {
-        &self.ldap
+    ///
+    /// Mutating the public elements of `Ldap` through the obtained handle can't affect
+    /// the current operation _except_ in the `start()` chain of an adapted streaming
+    /// Search, intentionally so.
+    pub fn ldap_handle(&mut self) -> &mut Ldap {
+        &mut self.ldap
     }
 }
 

@@ -259,8 +259,11 @@ where
         rt.block_on(async move { stream.finish().await })
     }
 
-    /// See [`SearchStream::ldap_handle()`](struct.SearchStream.html#method.ldap_handle).
-    pub fn ldap_handle(&mut self) -> &Ldap {
-        self.stream.ldap_handle()
+    /// Returns the Message ID of the initial Search.
+    ///
+    /// This method calls [`Ldap::last_id()`](struct.Ldap.html#method.last_id)
+    /// on the `Ldap` handle encapsulated by the underlying stream.
+    pub fn last_id(&mut self) -> RequestId {
+        self.stream.ldap_handle().last_id()
     }
 }
