@@ -1,3 +1,6 @@
+// Demonstrates the use of Abandon after prematurely terminating
+// the Search stream.
+
 use ldap3::result::Result;
 use ldap3::{LdapConnAsync, Scope};
 
@@ -16,8 +19,8 @@ async fn main() -> Result<()> {
     while let Some(_r) = stream.next().await? {
         break;
     }
-    let msgid = stream.ldap_handle().last_id();
     let _res = stream.finish().await;
+    let msgid = stream.ldap_handle().last_id();
     ldap.abandon(msgid).await?;
     Ok(ldap.unbind().await?)
 }
