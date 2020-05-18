@@ -7,7 +7,7 @@ A pure-Rust LDAP library using the Tokio stack.
 The library has recently been ported to Tokio 0.2 and async/await. For previous
 users of the synchronous API, there is one major change to be aware of:
 
-__The conection handle, `LdapConn`, must be mutable.__
+__The connection handle, `LdapConn`, must be mutable.__
 
 All methods on `LdapConn` now take `&mut self`. Another big change is that
 every error return in the library now uses instances of `LdapError`, but since
@@ -20,13 +20,9 @@ async/await, much more pleasant to use. The internal restructuring has also
 made some aspects of library more robust and the implementation closer to
 the specification.
 
-Old examples have all been deleted to avoid confusion. As the code solidifies,
-most of them will be ported back. The documentation has been adapted to the
-new code layout.
-
 ### Documentation
 
-- [Version 0.7.0-alpha (current)](https://docs.rs/ldap3/0.7.0-alpha.6/ldap3/)
+- [Version 0.7.0-alpha (current)](https://docs.rs/ldap3/0.7.0-alpha.7/ldap3/)
 
 - [Version 0.6.x (old-stable)](https://docs.rs/ldap3/0.6.1/ldap3/)
 

@@ -549,6 +549,11 @@ pub enum StreamState {
 
 /// Asynchronous handle for obtaining a stream of search results. __*__
 ///
+/// User code can't construct a stream directly, but only by using
+/// [`streaming_search()`](struct.Ldap.html#method.streaming_search) or
+/// [`streaming_search_with()`](struct.Ldap.html#method.streaming_search_with) on
+/// an `Ldap` handle.
+///
 /// A streaming search should be used for situations where the expected
 /// size of result entries varies considerably between searches, and/or
 /// can rise above a few tens to hundreds of KB. This is more of a concern

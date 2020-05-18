@@ -1,4 +1,4 @@
-// Demonstrates: streaming Search with and without an adapter.
+// Demonstrates streaming Search with and without an adapter.
 // The result set is known to contain a referral object.
 
 use ldap3::adapters::EntriesOnly;

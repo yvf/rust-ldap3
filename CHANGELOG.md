@@ -1,4 +1,4 @@
-## v0.7.0-alpha.6, 2020-05-16
+## v0.7.0-alpha.7, 2020-05-18
 
 In the alpha cycle, the changes for all versions will be
 listed together in reverse chronological order. The heading
@@ -9,7 +9,13 @@ library by porting it to Tokio 0.2 and async/await. This
 makes the asynchronous interface one big breaking change,
 so it makes no sense to enumerate the differences. The
 synchronous interface proved rather more stable, but there
-are a couple of breaking changes there, too:
+are a couple of breaking changes there, too.
+
+* Assorted example, documentation, and API fixes. This
+  ought to be the final alpha before the first 0.7.x
+  release.
+
+* --- alpha.6
 
 * Fix the borrowing of the Tokio runtime in sync Searches,
   which stopped working with the adapter changes. It's also

@@ -3,14 +3,22 @@
 This directory contains setup scripts and data files for creating
 an OpenLDAP server against which example programs can be run. The scripts
 expect that you have a recent-ish OpenLDAP installation on your system;
-they have been tested on CentOS 7 and Ubuntu 16.04. CentOS 6, Fedora,
-and recent Debian should also work.
+they expect that `slapadd` and `slapd` are in your $PATH.
+
+The scripts were originally tested on CentOS 7 and Ubuntu 16.04. Later
+Ubuntu releases should behave the same. Following the lead of its parent,
+RHEL, CentOS 8 no longer includes the OpenLDAP server. There, you can
+use the packages provided by the [LTB project](https://ltb-project.org/download),
+which also has the latest OpenLDAP for Debian and Ubuntu.
 
 * On Ubuntu, install `slapd` and `ldap-utils`.
 
-* On CentOS, install `openldap-servers` and `openldap-clients`.
+* On CentOS 7, install `openldap-servers` and `openldap-clients`.
 
-* On both distros, install `make`.
+* On CentOS 8, configure the [LTB yum repository](https://ltb-project.org/documentation/openldap-rpm#yum_repository)
+  and install `openldap-ltb`.
+
+* Whatever the distro, install `make`.
 
 This setup shouldn't be used for anything serious: in the interest of
 uniformity, it uses Debian-specific parameters for the config database
@@ -23,13 +31,14 @@ All scripts should be run from this directory.
 
 * To create the example database and import the data, run `make db`.
 
-* To start the database, run `./startdb.sh`.
+* To start the database, run `./startdb.sh`. Additional arguments will be
+  passed to `slapd`.
 
 * To stop the database, run `./stopdb.sh`.
 
-The database server will listen on __localhost:2389__ and a Unix
-domain socket __ldapi__ in the current directory.
+The database server will listen on __localhost:2389__ (ldap), __localhost:2636__ (ldaps),
+and a Unix domain socket __ldapi__ in the current directory.
 
 Examples are run by invoking `cargo run --quiet --example `_`name`_.
-For the file `examples/search.rs`, that would be
-`cargo run --quiet --example search`.
+For the file `examples/bind_sync.rs`, that would be
+`cargo run --quiet --example bind_sync`.

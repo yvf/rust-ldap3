@@ -227,6 +227,11 @@ impl LdapConn {
 
 /// Handle for obtaining a stream of search results.
 ///
+/// User code can't construct a stream directly, but only by using
+/// [`streaming_search()`](struct.LdapConn.html#method.streaming_search) or
+/// [`streaming_search_with()`](struct.LdapConn.html#method.streaming_search_with) on
+/// an `LdapConn` handle.
+///
 /// For compatibility, this struct's name is different from the async version
 /// which is [`SearchStream`](struct.SearchStream.html). The protocol and behavior
 /// are the same, with one important difference: an `EntryStream` shares the
