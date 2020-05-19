@@ -31,7 +31,7 @@ use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::time;
 #[cfg(feature = "tls")]
-use tokio_tls::{TlsConnector as TokioTlsConnector, TlsStream};
+use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream};
 use tokio_util::codec::{Decoder, Framed};
 use url::{self, Url};
 
