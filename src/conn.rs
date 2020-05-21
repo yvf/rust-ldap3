@@ -442,6 +442,8 @@ impl LdapConnAsync {
                                 warn!("ldap null result send error: {:?}", e);
                             }
                         }
+                    } else {
+                        break;
                     }
                 },
                 resp = self.stream.next() => {
