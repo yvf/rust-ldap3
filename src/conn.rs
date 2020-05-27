@@ -37,7 +37,7 @@ use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream};
 #[cfg(all(feature = "tls-rustls", not(feature = "tls-native")))]
 use tokio_rustls::{client::TlsStream, TlsConnector as TokioTlsConnector};
 #[cfg(all(feature = "tls-native", feature = "tls-rustls"))]
-compile_error!(r#"Only one feature "tls-native" or "tls-rustlsls" must be enabled for this crate"#);
+compile_error!(r#"Only one feature "tls-native" or "tls-rustls" must be enabled for this crate"#);
 use tokio_util::codec::{Decoder, Framed};
 use url::{self, Url};
 
