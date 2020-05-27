@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-#[cfg(feature = "tls")]
+#[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
 use crate::exop_impl::StartTLS;
 use crate::ldap::Ldap;
 use crate::protocol::{ItemSender, LdapCodec, LdapOp, MaybeControls, ResultSender};
@@ -14,34 +14,58 @@ use crate::RequestId;
 
 use lber::structures::{Null, Tag};
 
-#[cfg(feature = "tls")]
+#[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
 use futures_util::future::TryFutureExt;
 use futures_util::sink::SinkExt;
-#[cfg(feature = "tls")]
+#[cfg(feature = "tls-native")]
 use native_tls::TlsConnector;
 #[cfg(unix)]
 use percent_encoding::percent_decode;
+#[cfg(feature = "tls-rustls")]
+use rustls::ClientConfig;
 use tokio::io::{self, AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 #[cfg(unix)]
 use tokio::net::UnixStream;
 use tokio::stream::StreamExt;
 use tokio::sync::mpsc;
-#[cfg(feature = "tls")]
+#[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
 use tokio::sync::oneshot;
 use tokio::time;
-#[cfg(feature = "tls")]
+#[cfg(all(feature = "tls-native", not(feature = "tls-rustls")))]
 use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream};
+#[cfg(all(feature = "tls-rustls", not(feature = "tls-native")))]
+use tokio_rustls::{client::TlsStream, TlsConnector as TokioTlsConnector};
+#[cfg(not(any(feature = "tls-native", feature = "tls-rustls")))]
+compile_error!(r#"Either feature "tls-native" or "tls-rustlsls" must be enabled for this crate"#);
+#[cfg(all(feature = "tls-native", feature = "tls-rustls"))]
+compile_error!(r#"Only one feature "tls-native" or "tls-rustlsls" must be enabled for this crate"#);
 use tokio_util::codec::{Decoder, Framed};
 use url::{self, Url};
 
 #[derive(Debug)]
 enum ConnType {
     Tcp(TcpStream),
-    #[cfg(feature = "tls")]
+    #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
     Tls(TlsStream<TcpStream>),
     #[cfg(unix)]
     Unix(UnixStream),
+}
+
+#[cfg(feature = "tls-rustls")]
+struct NoCertVerification {}
+
+#[cfg(feature = "tls-rustls")]
+impl rustls::ServerCertVerifier for NoCertVerification {
+    fn verify_server_cert(
+        &self,
+        _: &rustls::RootCertStore,
+        _: &[rustls::Certificate],
+        _: tokio_rustls::webpki::DNSNameRef,
+        _: &[u8],
+    ) -> core::result::Result<rustls::ServerCertVerified, rustls::TLSError> {
+        Ok(rustls::ServerCertVerified::assertion())
+    }
 }
 
 impl AsyncRead for ConnType {
@@ -52,7 +76,7 @@ impl AsyncRead for ConnType {
     ) -> Poll<io::Result<usize>> {
         match self.get_mut() {
             ConnType::Tcp(ts) => Pin::new(ts).poll_read(cx, buf),
-            #[cfg(feature = "tls")]
+            #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
             ConnType::Tls(tls) => Pin::new(tls).poll_read(cx, buf),
             #[cfg(unix)]
             ConnType::Unix(us) => Pin::new(us).poll_read(cx, buf),
@@ -64,7 +88,7 @@ impl AsyncWrite for ConnType {
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context, buf: &[u8]) -> Poll<io::Result<usize>> {
         match self.get_mut() {
             ConnType::Tcp(ts) => Pin::new(ts).poll_write(cx, buf),
-            #[cfg(feature = "tls")]
+            #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
             ConnType::Tls(tls) => Pin::new(tls).poll_write(cx, buf),
             #[cfg(unix)]
             ConnType::Unix(us) => Pin::new(us).poll_write(cx, buf),
@@ -74,7 +98,7 @@ impl AsyncWrite for ConnType {
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
         match self.get_mut() {
             ConnType::Tcp(ts) => Pin::new(ts).poll_flush(cx),
-            #[cfg(feature = "tls")]
+            #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
             ConnType::Tls(tls) => Pin::new(tls).poll_flush(cx),
             #[cfg(unix)]
             ConnType::Unix(us) => Pin::new(us).poll_flush(cx),
@@ -84,7 +108,7 @@ impl AsyncWrite for ConnType {
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
         match self.get_mut() {
             ConnType::Tcp(ts) => Pin::new(ts).poll_shutdown(cx),
-            #[cfg(feature = "tls")]
+            #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
             ConnType::Tls(tls) => Pin::new(tls).poll_shutdown(cx),
             #[cfg(unix)]
             ConnType::Unix(us) => Pin::new(us).poll_shutdown(cx),
@@ -101,11 +125,13 @@ impl AsyncWrite for ConnType {
 #[derive(Clone, Default)]
 pub struct LdapConnSettings {
     conn_timeout: Option<Duration>,
-    #[cfg(feature = "tls")]
+    #[cfg(feature = "tls-native")]
     connector: Option<TlsConnector>,
-    #[cfg(feature = "tls")]
+    #[cfg(feature = "tls-rustls")]
+    config: Option<Arc<ClientConfig>>,
+    #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
     starttls: bool,
-    #[cfg(feature = "tls")]
+    #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
     no_tls_verify: bool,
 }
 
@@ -126,7 +152,7 @@ impl LdapConnSettings {
         self
     }
 
-    #[cfg(feature = "tls")]
+    #[cfg(feature = "tls-native")]
     /// Set a custom TLS connector, which enables setting various options
     /// when establishing a secure connection. The default of `None` will
     /// use a connector with default settings.
@@ -135,7 +161,16 @@ impl LdapConnSettings {
         self
     }
 
-    #[cfg(feature = "tls")]
+    #[cfg(feature = "tls-rustls")]
+    /// Set a custom TLS configuration, which enables setting various options
+    /// when establishing a secure connection. The default of `None` will
+    /// use a configuration with default values.
+    pub fn set_config(mut self, config: Arc<ClientConfig>) -> Self {
+        self.config = Some(config);
+        self
+    }
+
+    #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
     /// If `true`, use the StartTLS extended operation to establish a
     /// secure connection. Defaults to `false`.
     pub fn set_starttls(mut self, starttls: bool) -> Self {
@@ -143,20 +178,20 @@ impl LdapConnSettings {
         self
     }
 
-    #[cfg(feature = "tls")]
+    #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
     /// The `starttls` settings indicates whether the StartTLS extended
     /// operation will be used to establish a secure connection.
     pub fn starttls(&self) -> bool {
         self.starttls
     }
 
-    #[cfg(not(feature = "tls"))]
+    #[cfg(not(any(feature = "tls-native", feature = "tls-rustls")))]
     /// Always `false` when no TLS support is compiled in.
     pub fn starttls(&self) -> bool {
         false
     }
 
-    #[cfg(feature = "tls")]
+    #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
     /// If `true`, try to establish a TLS connection without hostname
     /// verification. Defaults to `false`.
     pub fn set_no_tls_verify(mut self, no_tls_verify: bool) -> Self {
@@ -301,7 +336,7 @@ impl LdapConnAsync {
                     s
                 }
             }
-            #[cfg(feature = "tls")]
+            #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
             s @ "ldaps" => {
                 settings = settings.set_starttls(false);
                 port = 636;
@@ -321,18 +356,8 @@ impl LdapConnAsync {
         let (mut conn, mut ldap) = Self::conn_pair(ConnType::Tcp(stream));
         match scheme {
             "ldap" => (),
-            #[cfg(feature = "tls")]
+            #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
             s @ "ldaps" | s @ "starttls" => {
-                let connector = match settings.connector {
-                    Some(connector) => connector,
-                    None => {
-                        let mut builder = TlsConnector::builder();
-                        if settings.no_tls_verify {
-                            builder.danger_accept_invalid_certs(true);
-                        }
-                        builder.build().expect("connector")
-                    }
-                };
                 if s == "starttls" {
                     let (tx, rx) = oneshot::channel();
                     tokio::spawn(async move {
@@ -350,9 +375,7 @@ impl LdapConnAsync {
                 }
                 let parts = conn.stream.into_parts();
                 let tls_stream = if let ConnType::Tcp(stream) = parts.io {
-                    TokioTlsConnector::from(connector)
-                        .connect(_hostname, stream)
-                        .await?
+                    LdapConnAsync::create_tls_stream(settings, &_hostname, stream).await?
                 } else {
                     panic!("underlying stream not TCP");
                 };
@@ -361,6 +384,63 @@ impl LdapConnAsync {
             _ => unimplemented!(),
         }
         Ok((conn, ldap))
+    }
+
+    #[cfg(feature = "tls-native")]
+    async fn create_tls_stream(
+        settings: LdapConnSettings,
+        hostname: &str,
+        stream: TcpStream,
+    ) -> Result<TlsStream<TcpStream>> {
+        let connector = match settings.connector {
+            Some(connector) => connector,
+            None => LdapConnAsync::create_connector(&settings),
+        };
+        TokioTlsConnector::from(connector)
+            .connect(hostname, stream)
+            .await
+            .map_err(LdapError::from)
+    }
+
+    #[cfg(not(feature = "tls-native"))]
+    async fn create_tls_stream(
+        settings: LdapConnSettings,
+        hostname: &str,
+        stream: TcpStream,
+    ) -> Result<TlsStream<TcpStream>> {
+        let config = match settings.config {
+            Some(config) => config,
+            None => LdapConnAsync::create_config(&settings),
+        };
+        TokioTlsConnector::from(config)
+            .connect(
+                tokio_rustls::webpki::DNSNameRef::try_from_ascii_str(hostname)
+                    .expect("Invalid hostname"),
+                stream,
+            )
+            .await
+            .map_err(LdapError::from)
+    }
+
+    #[cfg(feature = "tls-rustls")]
+    fn create_config(settings: &LdapConnSettings) -> Arc<ClientConfig> {
+        let mut config = ClientConfig::new();
+        if settings.no_tls_verify {
+            let no_cert_verifier = NoCertVerification {};
+            config
+                .dangerous()
+                .set_certificate_verifier(Arc::new(no_cert_verifier));
+        }
+        Arc::new(config)
+    }
+
+    #[cfg(feature = "tls-native")]
+    fn create_connector(settings: &LdapConnSettings) -> TlsConnector {
+        let mut builder = TlsConnector::builder();
+        if settings.no_tls_verify {
+            builder.danger_accept_invalid_certs(true);
+        }
+        builder.build().expect("connector")
     }
 
     fn conn_pair(ctype: ConnType) -> (Self, Ldap) {
@@ -392,7 +472,7 @@ impl LdapConnAsync {
         self.turn(LoopMode::Continuous).await.map(|_| ())
     }
 
-    #[cfg(feature = "tls")]
+    #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
     pub(crate) async fn single_op(self, tx: oneshot::Sender<Result<Self>>) {
         if tx.send(self.turn(LoopMode::SingleOp).await).is_err() {
             warn!("single op send error");

@@ -95,12 +95,20 @@ pub enum LdapError {
     #[error("unknown LDAP URL scheme: {0}")]
     UnknownScheme(String),
 
-    #[cfg(feature = "tls")]
+    #[cfg(feature = "tls-native")]
     /// Native TLS library error.
     #[error("native TLS error: {source}")]
     NativeTLS {
         #[from]
         source: native_tls::Error,
+    },
+
+    #[cfg(feature = "tls-rustls")]
+    /// rustls library error.
+    #[error("rustls error: {source}")]
+    TLS {
+        #[from]
+        source: rustls::TLSError,
     },
 
     /// LDAP operation result with an error return code.
