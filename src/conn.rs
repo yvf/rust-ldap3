@@ -36,8 +36,6 @@ use tokio::time;
 use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream};
 #[cfg(all(feature = "tls-rustls", not(feature = "tls-native")))]
 use tokio_rustls::{client::TlsStream, TlsConnector as TokioTlsConnector};
-#[cfg(not(any(feature = "tls-native", feature = "tls-rustls")))]
-compile_error!(r#"Either feature "tls-native" or "tls-rustlsls" must be enabled for this crate"#);
 #[cfg(all(feature = "tls-native", feature = "tls-rustls"))]
 compile_error!(r#"Only one feature "tls-native" or "tls-rustlsls" must be enabled for this crate"#);
 use tokio_util::codec::{Decoder, Framed};
@@ -402,7 +400,7 @@ impl LdapConnAsync {
             .map_err(LdapError::from)
     }
 
-    #[cfg(not(feature = "tls-native"))]
+    #[cfg(feature = "tls-rustls")]
     async fn create_tls_stream(
         settings: LdapConnSettings,
         hostname: &str,
