@@ -104,9 +104,9 @@ pub enum LdapError {
     },
 
     #[cfg(feature = "tls-rustls")]
-    /// rustls library error.
+    /// Rustls library error.
     #[error("rustls error: {source}")]
-    TLS {
+    Rustls {
         #[from]
         source: rustls::TLSError,
     },
