@@ -5,14 +5,14 @@ A pure-Rust LDAP library using the Tokio stack.
 ### Attention!
 
 The library has recently been ported to Tokio 0.2 and async/await. For previous
-users of the synchronous API, there is one major change to be aware of:
+users of the synchronous API, there are two changes to be aware of:
 
-__The connection handle, `LdapConn`, must be mutable.__
+1. __The connection handle, `LdapConn`, must be mutable.__ All methods on `LdapConn`
+   now take `&mut self`.
 
-All methods on `LdapConn` now take `&mut self`. Another big change is that
-every error return in the library now uses instances of `LdapError`, but since
-there is an automatic conversion to `io::Error`, this shouldn't be too noticeable
-in the applications.
+2. Every error return in the library now uses instances of `LdapError`. Since
+   there is an automatic conversion to `io::Error`, this shouldn't be too noticeable
+   in the applications.
 
 The synchronous API is otherwise almost exactly the same. Most visible
 differences are in the asynchronous API, which is, with the introduction of
@@ -22,7 +22,7 @@ the specification.
 
 ### Documentation
 
-- [Version 0.7.0-alpha (current)](https://docs.rs/ldap3/0.7.0-alpha.7/ldap3/)
+- [Version 0.7.0-alpha (current)](https://docs.rs/ldap3/0.7.0-alpha.8/ldap3/)
 
 - [Version 0.6.x (old-stable)](https://docs.rs/ldap3/0.6.1/ldap3/)
 
@@ -92,6 +92,21 @@ async fn main() -> Result<()> {
     Ok(ldap.unbind().await?)
 }
 ```
+
+## Compile-time features
+
+The following features are available at compile time:
+
+* __sync__ (enabled by default): Synchronous API support.
+
+* __tls__ (enabled by default): TLS support, backed by the `native-tls` crate, which uses
+ a platform-specific TLS backend. This is an alias for __tls-native__.
+
+* __tls-rustls__ (disabled by default): TLS support, backed by the Rustls library.
+
+Without any features, only plain TCP connections (and Unix domain sockets on Unix-like
+platforms) are available. For TLS support, __tls__ and __tls-rustls__ are mutually
+exclusive: choosing both will produce a compile-time error.
 
 ## License
 

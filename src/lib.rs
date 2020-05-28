@@ -29,7 +29,7 @@
 //! * __sync__ (enabled by default): Synchronous API support.
 //!
 //! * __tls__ (enabled by default): TLS support, backed by the `native-tls` crate, which uses
-//!  a platform-specific TLS backend. This is an alias for `tls-native`.
+//!  a platform-specific TLS backend. This is an alias for __tls-native__.
 //!
 //! * __tls-rustls__ (disabled by default): TLS support, backed by the Rustls library.
 //!

@@ -1,4 +1,4 @@
-## v0.7.0-alpha.7, 2020-05-18
+## v0.7.0-alpha.8, 2020-05-28
 
 In the alpha cycle, the changes for all versions will be
 listed together in reverse chronological order. The heading
@@ -11,9 +11,15 @@ so it makes no sense to enumerate the differences. The
 synchronous interface proved rather more stable, but there
 are a couple of breaking changes there, too.
 
-* Assorted example, documentation, and API fixes. This
-  ought to be the final alpha before the first 0.7.x
-  release.
+* Adapter trait object and search attribute vector element
+  bounds are relaxed from 'static.
+
+* Rustls can be used as an alternative to `native-tls` for
+  TLS support.
+
+* --- alpha.7
+
+* Assorted example, documentation, and API fixes.
 
 * --- alpha.6
 
