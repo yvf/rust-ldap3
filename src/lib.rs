@@ -22,6 +22,21 @@
 //! The documentation is written for readers familiar with LDAP concepts and terminology,
 //! which it won't attempt to explain.
 //!
+//! ## Compile-time features
+//!
+//! The following features are available at compile time:
+//!
+//! * __sync__ (enabled by default): Synchronous API support.
+//!
+//! * __tls__ (enabled by default): TLS support, backed by the `native-tls` crate, which uses
+//!  a platform-specific TLS backend. This is an alias for `tls-native`.
+//!
+//! * __tls-rustls__ (disabled by default): TLS support, backed by the Rustls library.
+//!
+//! Without any features, only plain TCP connections (and Unix domain sockets on Unix-like
+//! platforms) are available. For TLS support, __tls__ and __tls-rustls__ are mutually
+//! exclusive: choosing both will produce a compile-time error.
+//!
 //! ## Examples
 //!
 //! The following two examples perform exactly the same operation and should produce identical

@@ -37,7 +37,7 @@ use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream};
 #[cfg(all(feature = "tls-rustls", not(feature = "tls-native")))]
 use tokio_rustls::{client::TlsStream, TlsConnector as TokioTlsConnector};
 #[cfg(all(feature = "tls-native", feature = "tls-rustls"))]
-compile_error!(r#"Only one feature "tls-native" or "tls-rustls" must be enabled for this crate"#);
+compile_error!(r#"Only one of "tls-native" and "tls-rustls" may be enabled for TLS support"#);
 use tokio_util::codec::{Decoder, Framed};
 use url::{self, Url};
 
@@ -293,8 +293,9 @@ impl LdapConnAsync {
     /// library will recognize one or more URL schemes.
     ///
     /// The __ldap__ scheme, which uses a plain TCP connection, is always available. Unix-like
-    /// platforms also support __ldapi__, using Unix domain sockets. With the __tls__ feature,
-    /// the __ldaps__ scheme and StartTLS over __ldap__ are additionally supported.
+    /// platforms also support __ldapi__, using Unix domain sockets. With the __tls__ or
+    /// __tls-rustls__ feature, the __ldaps__ scheme and StartTLS over __ldap__ are additionally
+    /// supported.
     ///
     /// The connection element in the returned tuple must be spawned on the current Tokio
     /// executor before using the `Ldap` element. See the introduction to this struct's
