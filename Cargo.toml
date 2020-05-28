@@ -34,7 +34,8 @@ path = "lber"
 version = "0.2.0"
 
 [features]
-default = ["sync", "tls-native"]
+default = ["sync", "tls"]
+tls = ["tls-native"]
 tls-native = ["native-tls", "tokio-native-tls"]
 tls-rustls = ["rustls", "tokio-rustls"]
 sync = ["tokio/rt-core"]
