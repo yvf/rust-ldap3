@@ -250,7 +250,7 @@ impl Ldap {
     ///
     /// This method should be used if it's known that the result set won't be
     /// large. For other situations, one can use [`streaming_search()`](#method.streaming_search).
-    pub async fn search<S: AsRef<str> + Send + Sync + 'static>(
+    pub async fn search<'a, S: AsRef<str> + Send + Sync + 'a>(
         &mut self,
         base: &str,
         scope: Scope,
@@ -272,13 +272,13 @@ impl Ldap {
     /// the parameters), which returns all results at once, return a handle which
     /// will be used for retrieving entries one by one. See [`SearchStream`](struct.SearchStream.html)
     /// for the explanation of the protocol which must be adhered to in this case.
-    pub async fn streaming_search<S: AsRef<str> + Send + Sync + 'static>(
+    pub async fn streaming_search<'a, S: AsRef<str> + Send + Sync + 'a>(
         &mut self,
         base: &str,
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
-    ) -> Result<SearchStream<S>> {
+    ) -> Result<SearchStream<'a, S>> {
         self.streaming_search_with(vec![], base, scope, filter, attrs)
             .await
     }
@@ -287,8 +287,9 @@ impl Ldap {
     /// The first argument can either be a struct implementing `Adapter`, if a single adapter is needed,
     /// or a vector of boxed `Adapter` trait objects.
     pub async fn streaming_search_with<
-        V: IntoAdapterVec<S>,
-        S: AsRef<str> + Send + Sync + 'static,
+        'a,
+        V: IntoAdapterVec<'a, S>,
+        S: AsRef<str> + Send + Sync + 'a,
     >(
         &mut self,
         adapters: V,
@@ -296,7 +297,7 @@ impl Ldap {
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
-    ) -> Result<SearchStream<S>> {
+    ) -> Result<SearchStream<'a, S>> {
         let mut ldap = self.clone();
         ldap.controls = self.controls.take();
         ldap.timeout = self.timeout.take();

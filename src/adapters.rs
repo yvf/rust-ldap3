@@ -34,15 +34,13 @@ use async_trait::async_trait;
 ///
 /// * Must additionally implement `Clone` and `Debug`;
 ///
-/// * Must be `Send` and `Sync`;
+/// * Must be `Send` and `Sync`.
 ///
-/// * Must contain no references, that is, they must be `'static`.
-///
-/// The trait is parametrized with `S`, which is used in the `start()`  method as the generic type
-/// for the attribute name vector. (It must appear here because of object safety.) When implementing
-/// the trait, `S` must be constrained to `AsRef<str> + Send + Sync + 'static`. To use a bare instance
-/// of a struct implementing this trait in the call to `streaming_search_with()`, the struct must also
-/// implement [`SoloMarker`](trait.SoloMarker.html).
+/// The trait is parametrized with `'a`, the lifetime bound propagated to trait objects,  and `S`, which
+/// is used in the `start()`  method as the generic type for the attribute name vector. (It must appear here
+/// because of object safety.) When implementing the trait, `S` must be constrained to `AsRef<str> + Send + Sync + 'a`.
+/// To use a bare instance of a struct implementing this trait in the call to `streaming_search_with()`, the struct
+/// must also implement [`SoloMarker`](trait.SoloMarker.html).
 ///
 /// There are three points where an adapter can hook into a Search:
 ///
@@ -93,15 +91,15 @@ use async_trait::async_trait;
 /// // Adapter impl must be derived with the async_trait proc macro
 /// // until Rust supports async fns in traits directly
 /// #[async_trait]
-/// impl<S> Adapter<S> for EntriesOnly
+/// impl<'a, S> Adapter<'a, S> for EntriesOnly
 /// where
 ///     // The S generic parameter must have these bounds
-///     S: AsRef<str> + Send + Sync + 'static,
+///     S: AsRef<str> + Send + Sync + 'a,
 /// {
 ///     // The start() method doesn't do much
 ///     async fn start(
 ///         &mut self,
-///         stream: &mut SearchStream<S>,
+///         stream: &mut SearchStream<'a, S>,
 ///         base: &str,
 ///         scope: Scope,
 ///         filter: &str,
@@ -116,7 +114,7 @@ use async_trait::async_trait;
 ///     // a single result entry is returned
 ///     async fn next(
 ///         &mut self,
-///         stream: &mut SearchStream<S>
+///         stream: &mut SearchStream<'a, S>
 ///     ) -> Result<Option<ResultEntry>> {
 ///         loop {
 ///             // Call up the adapter chain
@@ -138,7 +136,7 @@ use async_trait::async_trait;
 ///     }
 ///
 ///     // The result returned from the upcall is modified by our values
-///     async fn finish(&mut self, stream: &mut SearchStream<S>) -> LdapResult {
+///     async fn finish(&mut self, stream: &mut SearchStream<'a, S>) -> LdapResult {
 ///         // Call up the adapter chain
 ///         let mut res = stream.finish().await;
 ///         res.refs.extend(self.refs.take().expect("refs"));
@@ -146,11 +144,11 @@ use async_trait::async_trait;
 ///     }
 /// }
 #[async_trait]
-pub trait Adapter<S>: AdapterClone<S> + Debug + Send + Sync + 'static {
+pub trait Adapter<'a, S>: AdapterClone<'a, S> + Debug + Send + Sync + 'a {
     /// Initialize the stream.
     async fn start(
         &mut self,
-        stream: &mut SearchStream<S>,
+        stream: &mut SearchStream<'a, S>,
         base: &str,
         scope: Scope,
         filter: &str,
@@ -158,22 +156,22 @@ pub trait Adapter<S>: AdapterClone<S> + Debug + Send + Sync + 'static {
     ) -> Result<()>;
 
     /// Fetch the next entry from the stream.
-    async fn next(&mut self, stream: &mut SearchStream<S>) -> Result<Option<ResultEntry>>;
+    async fn next(&mut self, stream: &mut SearchStream<'a, S>) -> Result<Option<ResultEntry>>;
 
     /// Return the result from the stream.
-    async fn finish(&mut self, stream: &mut SearchStream<S>) -> LdapResult;
+    async fn finish(&mut self, stream: &mut SearchStream<'a, S>) -> LdapResult;
 }
 
 /// Helper trait to enforce `Clone` on `Adapter` implementors.
-pub trait AdapterClone<S> {
-    fn box_clone(&self) -> Box<dyn Adapter<S>>;
+pub trait AdapterClone<'a, S> {
+    fn box_clone(&self) -> Box<dyn Adapter<'a, S> + 'a>;
 }
 
-impl<S, T> AdapterClone<S> for T
+impl<'a, S, T> AdapterClone<'a, S> for T
 where
-    T: Adapter<S> + Clone + 'static,
+    T: Adapter<'a, S> + Clone + 'a,
 {
-    fn box_clone(&self) -> Box<dyn Adapter<S>> {
+    fn box_clone(&self) -> Box<dyn Adapter<'a, S> + 'a> {
         Box::new(self.clone())
     }
 }
@@ -187,22 +185,22 @@ where
 pub trait SoloMarker {}
 
 /// Helper trait for `Adapter` instance/chain conversions.
-pub trait IntoAdapterVec<S> {
-    fn into(self) -> Vec<Box<dyn Adapter<S>>>;
+pub trait IntoAdapterVec<'a, S> {
+    fn into(self) -> Vec<Box<dyn Adapter<'a, S> + 'a>>;
 }
 
-impl<S> IntoAdapterVec<S> for Vec<Box<dyn Adapter<S>>> {
-    fn into(self) -> Vec<Box<dyn Adapter<S>>> {
+impl<'a, S> IntoAdapterVec<'a, S> for Vec<Box<dyn Adapter<'a, S> + 'a>> {
+    fn into(self) -> Vec<Box<dyn Adapter<'a, S> + 'a>> {
         self
     }
 }
 
-impl<A, S> IntoAdapterVec<S> for A
+impl<'a, A, S> IntoAdapterVec<'a, S> for A
 where
-    A: Adapter<S> + SoloMarker,
-    S: AsRef<str> + Send + Sync + 'static,
+    A: Adapter<'a, S> + SoloMarker,
+    S: AsRef<str> + Send + Sync + 'a,
 {
-    fn into(self) -> Vec<Box<dyn Adapter<S>>> {
+    fn into(self) -> Vec<Box<dyn Adapter<'a, S> + 'a>> {
         vec![Box::new(self)]
     }
 }
@@ -244,13 +242,13 @@ impl EntriesOnly {
 impl SoloMarker for EntriesOnly {}
 
 #[async_trait]
-impl<S> Adapter<S> for EntriesOnly
+impl<'a, S> Adapter<'a, S> for EntriesOnly
 where
-    S: AsRef<str> + Send + Sync + 'static,
+    S: AsRef<str> + Send + Sync + 'a,
 {
     async fn start(
         &mut self,
-        stream: &mut SearchStream<S>,
+        stream: &mut SearchStream<'a, S>,
         base: &str,
         scope: Scope,
         filter: &str,
@@ -260,7 +258,7 @@ where
         stream.start(base, scope, filter, attrs).await
     }
 
-    async fn next(&mut self, stream: &mut SearchStream<S>) -> Result<Option<ResultEntry>> {
+    async fn next(&mut self, stream: &mut SearchStream<'a, S>) -> Result<Option<ResultEntry>> {
         loop {
             return match stream.next().await {
                 Ok(None) => Ok(None),
@@ -279,7 +277,7 @@ where
         }
     }
 
-    async fn finish(&mut self, stream: &mut SearchStream<S>) -> LdapResult {
+    async fn finish(&mut self, stream: &mut SearchStream<'a, S>) -> LdapResult {
         let mut res = stream.finish().await;
         res.refs.extend(self.refs.take().expect("refs"));
         res
@@ -320,13 +318,13 @@ impl<S> PagedResults<S> {
 }
 
 #[async_trait]
-impl<S> Adapter<S> for PagedResults<S>
+impl<'a, S> Adapter<'a, S> for PagedResults<S>
 where
-    S: AsRef<str> + Clone + Debug + Send + Sync + 'static,
+    S: AsRef<str> + Clone + Debug + Send + Sync + 'a,
 {
     async fn start(
         &mut self,
-        stream: &mut SearchStream<S>,
+        stream: &mut SearchStream<'a, S>,
         base: &str,
         scope: Scope,
         filter: &str,
@@ -368,7 +366,6 @@ where
             .into(),
         );
         // Not a typo for "stream_ldap", we're replacing Ldap controls.
-        // One reason that this adapter needs special access.
         stream.ldap.controls = Some(controls);
         self.ldap = Some(ldap);
         self.base = String::from(base);
@@ -378,7 +375,7 @@ where
         stream.start(base, scope, filter, attrs).await
     }
 
-    async fn next(&mut self, stream: &mut SearchStream<S>) -> Result<Option<ResultEntry>> {
+    async fn next(&mut self, stream: &mut SearchStream<'a, S>) -> Result<Option<ResultEntry>> {
         'ent: loop {
             match stream.next().await {
                 Ok(None) => {
@@ -421,7 +418,7 @@ where
                                 Err(e) => return Err(e),
                             };
                             // Again, we're replacing the innards of the original stream with
-                            // the contents of the new one. Also requires special access.
+                            // the contents of the new one.
                             stream.ldap = new_stream.ldap;
                             stream.rx = new_stream.rx;
                             continue 'ent;
@@ -437,7 +434,7 @@ where
         }
     }
 
-    async fn finish(&mut self, stream: &mut SearchStream<S>) -> LdapResult {
+    async fn finish(&mut self, stream: &mut SearchStream<'a, S>) -> LdapResult {
         stream.finish().await
     }
 }

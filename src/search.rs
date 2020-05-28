@@ -572,21 +572,21 @@ pub enum StreamState {
 /// stream operations directly, while the latter first passes through a chain of
 /// [adapters](adapters/index.html) given at the time of stream creation.
 #[derive(Debug)]
-pub struct SearchStream<S> {
+pub struct SearchStream<'a, S> {
     pub(crate) ldap: Ldap,
     pub(crate) rx: Option<mpsc::UnboundedReceiver<(SearchItem, Vec<Control>)>>,
     state: StreamState,
-    adapters: Vec<Arc<Mutex<Box<dyn Adapter<S>>>>>,
+    adapters: Vec<Arc<Mutex<Box<dyn Adapter<'a, S> + 'a>>>>,
     ax: usize,
     timeout: Option<Duration>,
     pub res: Option<LdapResult>,
 }
 
-impl<S> SearchStream<S>
+impl<'a, S> SearchStream<'a, S>
 where
-    S: AsRef<str> + Send + Sync + 'static,
+    S: AsRef<str> + Send + Sync + 'a,
 {
-    pub(crate) fn new(ldap: Ldap, adapters: Vec<Box<dyn Adapter<S>>>) -> Self {
+    pub(crate) fn new(ldap: Ldap, adapters: Vec<Box<dyn Adapter<'a, S> + 'a>>) -> Self {
         SearchStream {
             ldap,
             rx: None,
@@ -815,7 +815,7 @@ where
     /// of the method call. Adapter instances are cloned and collected into the
     /// resulting vector. The purpose of this method is to enable uniformly
     /// configured Search calls on the connections newly opened in an adapter.
-    pub async fn adapter_chain_tail(&mut self) -> Vec<Box<dyn Adapter<S>>> {
+    pub async fn adapter_chain_tail(&mut self) -> Vec<Box<dyn Adapter<'a, S> + 'a>> {
         let mut chain = vec![];
         for ix in self.ax..self.adapters.len() {
             let adapter = self.adapters[ix].clone();

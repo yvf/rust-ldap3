@@ -89,7 +89,7 @@ impl LdapConn {
     }
 
     /// See [`Ldap::search()`](struct.Ldap.html#method.search).
-    pub fn search<S: AsRef<str> + Send + Sync + 'static>(
+    pub fn search<'a, S: AsRef<str> + Send + Sync + 'a>(
         &mut self,
         base: &str,
         scope: Scope,
@@ -104,13 +104,13 @@ impl LdapConn {
     /// Perform a Search, but unlike `search()`, which returns all results at once, return a handle which
     /// will be used for retrieving entries one by one. See [`EntryStream`](struct.EntryStream.html)
     /// for the explanation of the protocol which must be adhered to in this case.
-    pub fn streaming_search<'a, S: AsRef<str> + Send + Sync + 'static>(
-        &'a mut self,
+    pub fn streaming_search<'a, 'b, S: AsRef<str> + Send + Sync + 'a>(
+        &'b mut self,
         base: &str,
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
-    ) -> Result<EntryStream<'a, S>> {
+    ) -> Result<EntryStream<'a, 'b, S>> {
         let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         let stream =
@@ -122,16 +122,17 @@ impl LdapConn {
     /// See [`Ldap::streaming_search_with()`](struct.Ldap.html#method.streaming_search_with).
     pub fn streaming_search_with<
         'a,
-        V: IntoAdapterVec<S>,
-        S: AsRef<str> + Send + Sync + 'static,
+        'b,
+        V: IntoAdapterVec<'a, S>,
+        S: AsRef<str> + Send + Sync + 'a,
     >(
-        &'a mut self,
+        &'b mut self,
         adapters: V,
         base: &str,
         scope: Scope,
         filter: &str,
         attrs: Vec<S>,
-    ) -> Result<EntryStream<'a, S>> {
+    ) -> Result<EntryStream<'a, 'b, S>> {
         let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         let stream = rt.block_on(async move {
@@ -238,14 +239,14 @@ impl LdapConn {
 /// Tokio runtime with `LdapConn` from which it's obtained, but the two can't be
 /// used in parallel, which is enforced by capturing the reference to `LdapConn`
 /// during the lifetime of `EntryStream`.
-pub struct EntryStream<'a, S> {
-    stream: SearchStream<S>,
-    conn: &'a mut LdapConn,
+pub struct EntryStream<'a, 'b, S> {
+    stream: SearchStream<'a, S>,
+    conn: &'b mut LdapConn,
 }
 
-impl<'a, S> EntryStream<'a, S>
+impl<'a, 'b, S> EntryStream<'a, 'b, S>
 where
-    S: AsRef<str> + Send + Sync + 'static,
+    S: AsRef<str> + Send + Sync + 'a,
 {
     /// See [`SearchStream::next()`](struct.SearchStream.html#method.next).
     #[allow(clippy::should_implement_trait)]
