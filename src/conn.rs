@@ -51,7 +51,7 @@ enum ConnType {
 }
 
 #[cfg(feature = "tls-rustls")]
-struct NoCertVerification {}
+struct NoCertVerification;
 
 #[cfg(feature = "tls-rustls")]
 impl rustls::ServerCertVerifier for NoCertVerification {
@@ -425,7 +425,7 @@ impl LdapConnAsync {
     fn create_config(settings: &LdapConnSettings) -> Arc<ClientConfig> {
         let mut config = ClientConfig::new();
         if settings.no_tls_verify {
-            let no_cert_verifier = NoCertVerification {};
+            let no_cert_verifier = NoCertVerification;
             config
                 .dangerous()
                 .set_certificate_verifier(Arc::new(no_cert_verifier));
