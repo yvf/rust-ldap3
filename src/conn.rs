@@ -407,14 +407,20 @@ impl LdapConnAsync {
         hostname: &str,
         stream: TcpStream,
     ) -> Result<TlsStream<TcpStream>> {
+        let no_tls_verify = settings.no_tls_verify;
         let config = match settings.config {
             Some(config) => config,
             None => LdapConnAsync::create_config(&settings),
         };
         TokioTlsConnector::from(config)
             .connect(
-                tokio_rustls::webpki::DNSNameRef::try_from_ascii_str(hostname)
-                    .expect("Invalid hostname"),
+                tokio_rustls::webpki::DNSNameRef::try_from_ascii_str(hostname).or_else(|e| {
+                    if no_tls_verify {
+                        tokio_rustls::webpki::DNSNameRef::try_from_ascii_str("_irrelevant")
+                    } else {
+                        Err(e)
+                    }
+                })?,
                 stream,
             )
             .await

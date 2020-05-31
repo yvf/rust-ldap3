@@ -111,6 +111,14 @@ pub enum LdapError {
         source: rustls::TLSError,
     },
 
+    #[cfg(feature = "tls-rustls")]
+    /// Rustls DNS name error.
+    #[error("rustls DNS error: {source}")]
+    DNSName {
+        #[from]
+        source: tokio_rustls::webpki::InvalidDNSNameError,
+    },
+
     /// LDAP operation result with an error return code.
     #[error("LDAP operation result: {result}")]
     LdapResult {
