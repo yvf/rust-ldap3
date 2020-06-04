@@ -190,7 +190,7 @@ impl LdapConnSettings {
     }
 
     #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
-    /// If `true`, try to establish a TLS connection without hostname
+    /// If `true`, try to establish a TLS connection without certificate
     /// verification. Defaults to `false`.
     pub fn set_no_tls_verify(mut self, no_tls_verify: bool) -> Self {
         self.no_tls_verify = no_tls_verify;
