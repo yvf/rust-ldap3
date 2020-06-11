@@ -248,7 +248,7 @@ pub struct LdapConnAsync {
     stream: Framed<ConnType, LdapCodec>,
 }
 
-/// Drive the connection until its completion.
+/// Drive the connection until its completion. __*__
 ///
 /// See the introduction of [LdapConnAsync](struct.LdapConnAsync.html) for the exact code produced by
 /// the macro.

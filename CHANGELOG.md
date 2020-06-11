@@ -1,8 +1,4 @@
-## v0.7.0-alpha.8, 2020-05-28
-
-In the alpha cycle, the changes for all versions will be
-listed together in reverse chronological order. The heading
-will show the latest alpha.
+## v0.7.1, 2020-06-11
 
 This version completely overhauls the internals of the
 library by porting it to Tokio 0.2 and async/await. This
@@ -11,23 +7,8 @@ so it makes no sense to enumerate the differences. The
 synchronous interface proved rather more stable, but there
 are a couple of breaking changes there, too.
 
-* Adapter trait object and search attribute vector element
-  bounds are relaxed from 'static.
-
 * Rustls can be used as an alternative to `native-tls` for
   TLS support.
-
-* --- alpha.7
-
-* Assorted example, documentation, and API fixes.
-
-* --- alpha.6
-
-* Fix the borrowing of the Tokio runtime in sync Searches,
-  which stopped working with the adapter changes. It's also
-  much simpler now.
-
-* --- alpha.5
 
 * A search adapter framework lets user-supplied code control
   the execution of a Search operation and transform returned
@@ -38,15 +19,11 @@ are a couple of breaking changes there, too.
   applies it to Search operation until the full result set
   is retrieved.
 
-* --- alpha.4
-
 * [breaking change]: `ResultEntry` now has public components,
   where the second is the set of controls associated with the
   entry. This is necessary in order to process all elements of
   the content synchronization protocol. The struct will probably
   be marked as non-exhaustive.
-
-* --- alpha.3
 
 * [breaking change]: The `LdapConn` struct now must be mutable,
   since all methods require `&mut self`.

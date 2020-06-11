@@ -22,7 +22,7 @@ the specification.
 
 ### Documentation
 
-- [Version 0.7.0-alpha (current)](https://docs.rs/ldap3/0.7.0-alpha.8/ldap3/)
+- [Version 0.7.x (current)](https://docs.rs/ldap3/0.7.1/ldap3/)
 
 - [Version 0.6.x (old-stable)](https://docs.rs/ldap3/0.6.1/ldap3/)
 
@@ -40,7 +40,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies.ldap3]
-version = "0.7.0-alpha"
+version = "0.7"
 ```
 
 ## Examples

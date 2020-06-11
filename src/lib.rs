@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! [dependencies.ldap3]
-//! version = "0.7.0-alpha"
+//! version = "0.7"
 //! ```
 //!
 //! ## Summary
