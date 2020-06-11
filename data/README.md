@@ -3,7 +3,7 @@
 This directory contains setup scripts and data files for creating
 an OpenLDAP server against which example programs can be run. The scripts
 expect that you have a recent-ish OpenLDAP installation on your system;
-they expect that `slapadd` and `slapd` are in your $PATH.
+you should also make sure that `slapadd` and `slapd` are in your `$PATH`.
 
 The scripts were originally tested on CentOS 7 and Ubuntu 16.04. Later
 Ubuntu releases should behave the same. Following the lead of its parent,
@@ -37,8 +37,9 @@ All scripts should be run from this directory.
 * To stop the database, run `./stopdb.sh`.
 
 The database server will listen on __localhost:2389__ (ldap), __localhost:2636__ (ldaps),
-and a Unix domain socket __ldapi__ in the current directory.
+and a Unix domain socket __ldapi__ in the current directory. Setting `$LDAP3_EXAMPLE_SERVER`
+to a hostname or IP address will use that instead of __localhost__.
 
-Examples are run by invoking `cargo run --quiet --example `_`name`_.
+Examples are run by invoking `cargo run --quiet --example`_`name`_.
 For the file `examples/bind_sync.rs`, that would be
 `cargo run --quiet --example bind_sync`.
