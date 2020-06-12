@@ -10,32 +10,32 @@ are a couple of breaking changes there, too.
 * Rustls can be used as an alternative to `native-tls` for
   TLS support.
 
-* A search adapter framework lets user-supplied code control
+* The search adapter framework lets user-supplied code control
   the execution of a Search operation and transform returned
   entries and result codes. Two adapters are included in the
   crate: EntriesOnly, which filters out referrals and
   intermediate messages from the stream, and PagedResults,
   which uses the control of the same name and automatically
-  applies it to Search operation until the full result set
+  applies it to a Search operation until the full result set
   is retrieved.
 
 * [breaking change]: `ResultEntry` now has public components,
   where the second is the set of controls associated with the
   entry. This is necessary in order to process all elements of
-  the content synchronization protocol. The struct will probably
-  be marked as non-exhaustive.
+  the content synchronization protocol. The struct is marked
+  as non-exhaustive to help ensure forward compatibility.
 
 * [breaking change]: The `LdapConn` struct now must be mutable,
   since all methods require `&mut self`.
 
 * [breaking change]: The error part of the functions and methods
-  that return Result is now an instance of `LdapError`. There is
+  that return `Result` is now an instance of `LdapError`. There is
   a blanket automatic conversion to `io::Error` to make the change
   less problematic for applications.
 
 * [breaking change]: Streaming Search returns raw entries, without
   trying to parse referrals or intermediate messages. The
-  EntriesOnly search adapter can be used to restoe the earlier
+  EntriesOnly search adapter can be used to restore the earlier
   behavior. Ordinary Search drops intermediate messages and collects
   all referrals in the result vector.
 

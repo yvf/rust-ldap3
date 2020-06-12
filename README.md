@@ -17,7 +17,7 @@ users of the synchronous API, there are two changes to be aware of:
 The synchronous API is otherwise almost exactly the same. Most visible
 differences are in the asynchronous API, which is, with the introduction of
 async/await, much more pleasant to use. The internal restructuring has also
-made some aspects of library more robust and the implementation closer to
+made some aspects of the library more robust and the implementation closer to
 the specification.
 
 ### Documentation

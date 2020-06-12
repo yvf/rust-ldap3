@@ -62,7 +62,6 @@ use async_trait::async_trait;
 /// Additional details of the calling structure are provided in the documentation of the
 /// [`StreamState`](../enum.StreamState.html) enum.
 ///
-///
 /// ## Example: the `EntriesOnly` adapter
 ///
 /// This adapter discards intermediate messages and collects all referreals in the result of the Search
