@@ -1,5 +1,9 @@
 use std::collections::{HashMap, HashSet};
+#[cfg(feature = "tls-rustls")]
+use std::net::IpAddr;
 use std::pin::Pin;
+#[cfg(feature = "tls-rustls")]
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::time::Duration;
@@ -416,7 +420,11 @@ impl LdapConnAsync {
             .connect(
                 tokio_rustls::webpki::DNSNameRef::try_from_ascii_str(hostname).or_else(|e| {
                     if no_tls_verify {
-                        tokio_rustls::webpki::DNSNameRef::try_from_ascii_str("_irrelevant")
+                        if let Ok(_addr) = IpAddr::from_str(hostname) {
+                            tokio_rustls::webpki::DNSNameRef::try_from_ascii_str("_irrelevant")
+                        } else {
+                            Err(e)
+                        }
                     } else {
                         Err(e)
                     }
