@@ -27,7 +27,7 @@ pub use self::assertion::Assertion;
 
 mod content_sync;
 pub use self::content_sync::parse_syncinfo;
-pub use self::content_sync::{RefreshMode, SyncDone, SyncInfo, SyncRequest, SyncState};
+pub use self::content_sync::{EntryState, RefreshMode, SyncDone, SyncInfo, SyncRequest, SyncState};
 
 mod paged_results;
 pub use self::paged_results::PagedResults;

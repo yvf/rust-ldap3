@@ -90,13 +90,13 @@ impl From<SyncRequest> for RawControl {
 /// Sync State response control ([RFC 4533](https://tools.ietf.org/html/rfc4533)).
 #[derive(Debug)]
 pub struct SyncState {
-    state: EntryState,
-    entry_uuid: Vec<u8>,
-    cookie: Option<Vec<u8>>,
+    pub state: EntryState,
+    pub entry_uuid: Vec<u8>,
+    pub cookie: Option<Vec<u8>>,
 }
 
 #[derive(Debug)]
-enum EntryState {
+pub enum EntryState {
     Present,
     Add,
     Modify,
@@ -151,8 +151,8 @@ impl ControlParser for SyncState {
 /// Sync Done response control ([RFC 4533](https://tools.ietf.org/html/rfc4533)).
 #[derive(Debug)]
 pub struct SyncDone {
-    cookie: Option<Vec<u8>>,
-    refresh_deletes: bool,
+    pub cookie: Option<Vec<u8>>,
+    pub refresh_deletes: bool,
 }
 
 impl ControlParser for SyncDone {
