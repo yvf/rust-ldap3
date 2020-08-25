@@ -17,3 +17,6 @@ Cargo.lock
 
 # IDEA config
 /.idea/
+
+# VSCode config
+/.vscode/
