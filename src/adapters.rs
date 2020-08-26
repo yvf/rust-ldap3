@@ -179,7 +179,7 @@ where
 ///
 /// If a struct implements this trait in addition to `Adapter`, its bare instance can appear
 /// as the first argument of [`streaming_search_with()`](../struct.Ldap.html#method.streaming_search_with)
-/// without the need for constructing a single-elemnt vector containing the boxed trait object derived
+/// without the need for constructing a single-element vector containing the boxed trait object derived
 /// from the instance.
 pub trait SoloMarker {}
 

@@ -1,4 +1,4 @@
-//! A pure-Rust LDAP library using the Tokio stack.
+//! A pure-Rust LDAP client library using the Tokio stack.
 //!
 //! ## Usage
 //!
