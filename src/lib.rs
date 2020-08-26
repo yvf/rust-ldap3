@@ -177,8 +177,10 @@ pub mod controls {
     pub use crate::controls_impl::{
         Control, ControlParser, ControlType, CriticalControl, MakeCritical, RawControl,
     };
+    pub use crate::controls_impl::{
+        EntryState, RefreshMode, SyncDone, SyncInfo, SyncRequest, SyncState,
+    };
     pub use crate::controls_impl::{PostRead, PostReadResp, PreRead, PreReadResp, ReadEntryResp};
-    pub use crate::controls_impl::{EntryState, RefreshMode, SyncDone, SyncInfo, SyncRequest, SyncState};
 }
 mod controls_impl;
 mod exop_impl;
