@@ -41,8 +41,7 @@ impl LdapConn {
     /// Open a connection to an LDAP server specified by `url`, using
     /// `settings` to specify additional parameters.
     pub fn with_settings(settings: LdapConnSettings, url: &str) -> Result<Self> {
-        let mut rt = runtime::Builder::new()
-            .basic_scheduler()
+        let rt = runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
         let ldap = rt.block_on(async move {

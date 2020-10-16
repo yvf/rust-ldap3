@@ -73,7 +73,7 @@ pub enum LdapError {
     #[error("timeout: {elapsed}")]
     Timeout {
         #[from]
-        elapsed: time::Elapsed,
+        elapsed: time::error::Elapsed,
     },
 
     /// Error parsing the string representation of a search filter.

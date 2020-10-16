@@ -27,7 +27,7 @@ use native_tls::TlsConnector;
 use percent_encoding::percent_decode;
 #[cfg(feature = "tls-rustls")]
 use rustls::ClientConfig;
-use tokio::io::{self, AsyncRead, AsyncWrite};
+use tokio::io::{self, AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
 #[cfg(unix)]
 use tokio::net::UnixStream;
@@ -74,8 +74,8 @@ impl AsyncRead for ConnType {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context,
-        buf: &mut [u8],
-    ) -> Poll<io::Result<usize>> {
+        buf: &mut ReadBuf,
+    ) -> Poll<io::Result<()>> {
         match self.get_mut() {
             ConnType::Tcp(ts) => Pin::new(ts).poll_read(cx, buf),
             #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
