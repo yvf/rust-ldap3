@@ -1,4 +1,4 @@
-#![allow(clippy::block_in_if_condition_stmt)]
+#![allow(clippy::blocks_in_if_conditions)]
 
 use std::default::Default;
 use std::str;
@@ -267,7 +267,7 @@ named!(
                                 ..Default::default()
                             }),
                             Tag::Sequence(Sequence {
-                                inner: inner,
+                                inner,
                                 ..Default::default()
                             }),
                         ],

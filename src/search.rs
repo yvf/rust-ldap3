@@ -197,7 +197,7 @@ impl SearchEntry {
                     }
                     bin_attr_vals
                         .entry(a_type.clone())
-                        .or_insert_with(|| vec![])
+                        .or_insert_with(Vec::new)
                         .push(s);
                     any_binary = true;
                     None
