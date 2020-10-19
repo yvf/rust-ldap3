@@ -1,3 +1,9 @@
+## v0.8.0, 2020-10-19
+
+Port to Tokio 0.3 and the refresh of a couple of
+dependencies. Otherwise, there are no functional
+differences compared to 0.7.1.
+
 ## v0.7.1, 2020-06-11
 
 This version completely overhauls the internals of the
