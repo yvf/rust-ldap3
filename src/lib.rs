@@ -197,7 +197,9 @@ pub mod exop {
     //! A request struct must implement the `From` conversion of itself into `Exop`.
     //! A response struct must implement the [`ExopParser`](trait.ExopParser.html)
     //! trait.
-    pub use crate::exop_impl::{Exop, ExopParser, WhoAmI, WhoAmIResp};
+    pub use crate::exop_impl::{
+        Exop, ExopParser, PasswordModify, PasswordModifyResp, WhoAmI, WhoAmIResp,
+    };
 }
 mod filter;
 mod ldap;

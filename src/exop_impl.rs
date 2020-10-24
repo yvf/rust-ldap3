@@ -7,6 +7,9 @@ pub use self::whoami::{WhoAmI, WhoAmIResp};
 mod starttls;
 pub use self::starttls::StartTLS;
 
+mod passmod;
+pub use self::passmod::{PasswordModify, PasswordModifyResp};
+
 /// Generic extended operation.
 ///
 /// Since the same struct can be used both for requests and responses,
