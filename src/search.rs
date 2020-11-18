@@ -667,7 +667,7 @@ where
     }
 
     pub(crate) async fn next_inner(&mut self) -> Result<Option<ResultEntry>> {
-        let item = if let Some(timeout) = self.ldap.timeout {
+        let item = if let Some(timeout) = self.timeout {
             let res = time::timeout(timeout, self.rx.as_mut().unwrap().recv()).await;
             if res.is_err() {
                 let last_id = self.ldap.last_id;
