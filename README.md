@@ -11,9 +11,9 @@ the development of version 0.8.
 
 ### Documentation
 
-- [Version 0.8.x (Tokio 0.3)](https://docs.rs/ldap3/0.8.0/ldap3/)
+- [Version 0.8.x (Tokio 0.3)](https://docs.rs/ldap3/0.8.1/ldap3/)
 
-- [Version 0.7.x (Tokio 0.2)](https://docs.rs/ldap3/0.7.1/ldap3/)
+- [Version 0.7.x (Tokio 0.2)](https://docs.rs/ldap3/0.7.2/ldap3/)
 
 ### Note
 
