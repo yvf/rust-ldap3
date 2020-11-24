@@ -22,7 +22,7 @@ the specification.
 
 ### Documentation
 
-- [Version 0.7.x (current)](https://docs.rs/ldap3/0.7.1/ldap3/)
+- [Version 0.7.2 (current for Tokio 0.2)](https://docs.rs/ldap3/0.7.2/ldap3/)
 
 - [Version 0.6.x (old-stable)](https://docs.rs/ldap3/0.6.1/ldap3/)
 

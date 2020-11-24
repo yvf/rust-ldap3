@@ -1,3 +1,11 @@
+## v0.7.2, 2020-11-24
+
+* Timeouts are honored in Search operations
+  ([#63](https://github.com/inejge/ldap3/issues/63)).
+
+* Password Modify extended operation support added
+  ([#60](https://github.com/inejge/ldap3/issues/60)).
+
 ## v0.7.1, 2020-06-11
 
 This version completely overhauls the internals of the
