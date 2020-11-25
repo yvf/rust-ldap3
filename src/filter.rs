@@ -23,6 +23,19 @@ pub fn parse(input: &str) -> Result<Tag, ()> {
     }
 }
 
+pub(crate) fn parse_matched_values(input: &str) -> Result<Tag, ()> {
+    match mv_filtexpr(input.as_bytes()) {
+        IResult::Done(r, t) => {
+            if r.is_empty() {
+                Ok(t)
+            } else {
+                Err(())
+            }
+        }
+        IResult::Error(_) | IResult::Incomplete(_) => Err(()),
+    }
+}
+
 const AND_FILT: u64 = 0;
 const OR_FILT: u64 = 1;
 const NOT_FILT: u64 = 2;
@@ -39,25 +52,26 @@ const SUB_INITIAL: u64 = 0;
 const SUB_ANY: u64 = 1;
 const SUB_FINAL: u64 = 2;
 
-named!(filtexpr<Tag>, alt!(filter | valuesreturnfilter | item));
+named!(filtexpr<Tag>, alt!(filter | item));
 
 named!(filter<Tag>, delimited!(char!('('), filtercomp, char!(')')));
 named!(filtercomp<Tag>, alt!(and | or | not | item));
 named!(filterlist<Vec<Tag>>, many0!(filter));
 
 named!(
-    valuesreturnfilter<Tag>,
-    delimited!(char!('('), item_or_list, char!(')'))
+    mv_filtexpr<Tag>,
+    delimited!(char!('('), mv_filterlist, char!(')'))
 );
-named!(valuesreturnfilterlist<Vec<Tag>>, many1!(valuesreturnfilter));
-named!(item_or_list<Tag>, alt!(itemlist | item));
 named!(
-    itemlist<Tag>,
-    map!(valuesreturnfilterlist, |tagv: Vec<Tag>| -> Tag {
+    mv_filteritems<Vec<Tag>>,
+    many1!(delimited!(char!('('), item, char!(')')))
+);
+named!(
+    mv_filterlist<Tag>,
+    map!(mv_filteritems, |tagv: Vec<Tag>| -> Tag {
         Tag::Sequence(Sequence {
-            class: TagClass::Universal,
-            id: lber::universal::Types::Sequence as u64,
             inner: tagv,
+            ..Default::default()
         })
     })
 );
