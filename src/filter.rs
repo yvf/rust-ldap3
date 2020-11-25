@@ -39,11 +39,28 @@ const SUB_INITIAL: u64 = 0;
 const SUB_ANY: u64 = 1;
 const SUB_FINAL: u64 = 2;
 
-named!(filtexpr<Tag>, alt!(filter | item));
+named!(filtexpr<Tag>, alt!(filter | valuesreturnfilter | item));
 
 named!(filter<Tag>, delimited!(char!('('), filtercomp, char!(')')));
 named!(filtercomp<Tag>, alt!(and | or | not | item));
 named!(filterlist<Vec<Tag>>, many0!(filter));
+
+named!(
+    valuesreturnfilter<Tag>,
+    delimited!(char!('('), item_or_list, char!(')'))
+);
+named!(valuesreturnfilterlist<Vec<Tag>>, many1!(valuesreturnfilter));
+named!(item_or_list<Tag>, alt!(itemlist | item));
+named!(
+    itemlist<Tag>,
+    map!(valuesreturnfilterlist, |tagv: Vec<Tag>| -> Tag {
+        Tag::Sequence(Sequence {
+            class: TagClass::Universal,
+            id: lber::universal::Types::Sequence as u64,
+            inner: tagv,
+        })
+    })
+);
 
 named!(
     and<Tag>,
