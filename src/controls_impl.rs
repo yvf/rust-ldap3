@@ -20,6 +20,7 @@ pub enum ControlType {
     SyncDone,
     SyncState,
     ManageDsaIt,
+    MatchedValues,
 }
 
 mod assertion;
@@ -44,6 +45,9 @@ pub use self::relax_rules::RelaxRules;
 mod manage_dsa_it;
 pub use self::manage_dsa_it::ManageDsaIt;
 
+mod matched_values;
+pub use self::matched_values::MatchedValues;
+
 #[rustfmt::skip]
 lazy_static! {
     static ref CONTROLS: HashMap<&'static str, ControlType> = {
@@ -54,6 +58,7 @@ lazy_static! {
         map.insert(self::content_sync::SYNC_DONE_OID, ControlType::SyncDone);
         map.insert(self::content_sync::SYNC_STATE_OID, ControlType::SyncState);
         map.insert(self::manage_dsa_it::MANAGE_DSA_IT_OID, ControlType::ManageDsaIt);
+        map.insert(self::matched_values::MATCHED_VALUES_OID, ControlType::MatchedValues);
         map
     };
 }
