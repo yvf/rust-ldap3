@@ -31,7 +31,6 @@ use tokio::io::{self, AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
 #[cfg(unix)]
 use tokio::net::UnixStream;
-use tokio::stream::StreamExt;
 use tokio::sync::mpsc;
 #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
 use tokio::sync::oneshot;
@@ -40,6 +39,7 @@ use tokio::time;
 use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream};
 #[cfg(all(feature = "tls-rustls", not(feature = "tls-native")))]
 use tokio_rustls::{client::TlsStream, TlsConnector as TokioTlsConnector};
+use tokio_stream::StreamExt;
 #[cfg(all(feature = "tls-native", feature = "tls-rustls"))]
 compile_error!(r#"Only one of "tls-native" and "tls-rustls" may be enabled for TLS support"#);
 use tokio_util::codec::{Decoder, Framed};

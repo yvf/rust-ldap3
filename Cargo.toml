@@ -11,9 +11,10 @@ version = "0.8.1"
 edition = "2018"
 
 [dependencies]
-tokio = { version = "0.3", features = ["macros", "io-util", "stream", "sync", "time", "net"] }
-tokio-util = { version = "0.4", features = ["codec"] }
-bytes = "0.5"
+tokio = { version = "1", features = ["macros", "io-util", "sync", "time", "net"] }
+tokio-util = { version = "0.6", features = ["codec"] }
+tokio-stream = "0.1"
+bytes = "1"
 nom = "2"
 url = "2"
 futures = "0.3.6"
@@ -22,10 +23,10 @@ futures-util = "0.3.6"
 log = "0.4.8"
 lazy_static = "1.4.0"
 thiserror = "1.0.21"
-native-tls = { version = "0.2.4", optional = true }
-tokio-native-tls = { version = "0.2", optional = true }
-rustls = { version = "0.18.1", optional = true }
-tokio-rustls = { version = "0.20.0", optional = true, features = ["dangerous_configuration"]}
+native-tls = { version = "0.2.6", optional = true }
+tokio-native-tls = { version = "0.3", optional = true }
+rustls = { version = "0.19", optional = true }
+tokio-rustls = { version = "0.22", optional = true, features = ["dangerous_configuration"]}
 maplit = "1.0.2"
 async-trait = "0.1.41"
 
@@ -41,7 +42,7 @@ tls-rustls = ["rustls", "tokio-rustls"]
 sync = ["tokio/rt"]
 
 [dev-dependencies]
-tokio = { version = "0.3", features = ["macros", "io-util", "stream", "sync", "time", "net", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "io-util", "sync", "time", "net", "rt-multi-thread"] }
 env_logger = "0.7"
 
 [workspace]
