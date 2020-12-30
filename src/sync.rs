@@ -12,6 +12,7 @@ use crate::search::{ResultEntry, Scope, SearchOptions, SearchStream};
 use crate::RequestId;
 
 use tokio::runtime::{self, Runtime};
+use url::Url;
 
 /// Synchronous connection to an LDAP server.
 ///
@@ -41,11 +42,23 @@ impl LdapConn {
     /// Open a connection to an LDAP server specified by `url`, using
     /// `settings` to specify additional parameters.
     pub fn with_settings(settings: LdapConnSettings, url: &str) -> Result<Self> {
+        let url = Url::parse(url)?;
+        Self::from_url_with_settings(settings, &url)
+    }
+
+    /// Open a connection to an LDAP server specified by an already parsed `Url`.
+    pub fn from_url(url: &Url) -> Result<Self> {
+        Self::from_url_with_settings(LdapConnSettings::new(), url)
+    }
+
+    /// Open a connection to an LDAP server specified by an already parsed `Url`, using
+    /// `settings` to specify additional parameters.
+    pub fn from_url_with_settings(settings: LdapConnSettings, url: &Url) -> Result<Self> {
         let rt = runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
         let ldap = rt.block_on(async move {
-            let (conn, ldap) = match LdapConnAsync::with_settings(settings, url).await {
+            let (conn, ldap) = match LdapConnAsync::from_url_with_settings(settings, url).await {
                 Ok((conn, ldap)) => (conn, ldap),
                 Err(e) => return Err(e),
             };
