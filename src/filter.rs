@@ -111,7 +111,7 @@ named!(
 
 named!(item<Tag>, alt!(eq | non_eq | extensible));
 
-enum Unescaper {
+pub(crate) enum Unescaper {
     WantFirst,
     WantSecond(u8),
     Value(u8),
@@ -119,7 +119,7 @@ enum Unescaper {
 }
 
 impl Unescaper {
-    fn feed(&self, c: u8) -> Unescaper {
+    pub(crate) fn feed(&self, c: u8) -> Unescaper {
         match *self {
             Unescaper::Error => Unescaper::Error,
             Unescaper::WantFirst => {
