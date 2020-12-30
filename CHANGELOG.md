@@ -1,3 +1,17 @@
+## v0.8.2, 2020-12-30
+
+* Two new connection establishment functions
+  accept an url::Url reference instead of &str.
+  They exist to avoid re-parsing the URL if its
+  parameters were extracted earlier.
+
+* LDAP URL parsing added. The syntax specified by
+  RFC 4516 is mapped into the LdapUrlParams struct.
+  An LDAP URL must be parsed by url::Url::parse()
+  before extracting its components.
+
+* Matched Values control support added.
+
 ## v0.8.1/v0.7.2, 2020-11-24
 
 * Timeouts are honored in Search operations

@@ -2,18 +2,14 @@
 
 A pure-Rust LDAP client library using the Tokio stack.
 
-### Interaction with Tokio versions
+### Compatibility notice
 
-Version 0.8 of the library has been adapted for Tokio 0.3. If your application needs
-Tokio 0.2, use version 0.7; there are presently no functional differences between
-0.7 and 0.8. At least one further 0.7 release is planned before continuing
-the development of version 0.8.
+This version of the library is published in order to be compatible with
+applications using Tokio 0.3. Use version 0.9.x or later with Tokio 1.0.
 
 ### Documentation
 
-- [Version 0.8.x (Tokio 0.3)](https://docs.rs/ldap3/0.8.1/ldap3/)
-
-- [Version 0.7.x (Tokio 0.2)](https://docs.rs/ldap3/0.7.2/ldap3/)
+- [Version 0.8.x (Tokio 0.3)](https://docs.rs/ldap3/0.8.2/ldap3/)
 
 ### Note
 
