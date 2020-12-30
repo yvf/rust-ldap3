@@ -133,6 +133,18 @@ pub enum LdapError {
     /// No values provided for the Add operation.
     #[error("adapter init error: {0}")]
     AdapterInit(String),
+
+    /// Error converting an octet- or percent-decoded string to UTF-8.
+    #[error("utf8 decoding error")]
+    DecodingUTF8,
+
+    /// Invalid scope string in LDAP URL.
+    #[error("invalid scope string in LDAP URL: {0}")]
+    InvalidScopeString(String),
+
+    /// Unreconized LDAP URL extension marked as critical.
+    #[error("unrecognized critical LDAP URL extension: {0}")]
+    UnrecognizedCriticalExtension(String),
 }
 
 impl From<LdapError> for io::Error {

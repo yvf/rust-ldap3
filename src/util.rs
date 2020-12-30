@@ -1,4 +1,12 @@
 use std::borrow::Cow;
+use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
+
+use crate::result::{LdapError, Result};
+use crate::search::Scope;
+
+use percent_encoding::percent_decode_str;
+use url::Url;
 
 /// Escape a filter literal.
 ///
@@ -107,6 +115,206 @@ pub fn dn_escape<'a, S: Into<Cow<'a, str>>>(val: S) -> Cow<'a, str> {
     } else {
         val
     }
+}
+
+/// LDAP URL extensions.
+///
+/// Historically, very few extensions have been described in the LDAP standards,
+/// and extension support is very library- and application-specific. This crate
+/// recognizes two widely implemented extensions (__bindname__ and __x-bindpw__),
+/// as well as several experimental ones.
+#[derive(Clone, Debug)]
+pub enum LdapUrlExt<'a> {
+    /// __Bindname__, the DN for the Simple Bind operation. Originally specified in RFC 2256,
+    /// but dropped from its successor, RFC 4516 ("lack of known implementations").
+    Bindname(Cow<'a, str>),
+
+    /// __X-bindpw__, the password for Simple Bind. Never standardized, and not recommended
+    /// because of security implications.
+    XBindpw(Cow<'a, str>), // draft-hedstrom-dhc-ldap-02
+
+    /// __1.3.6.1.4.1.10094.1.5.1__, experimental.
+    Credentials(Cow<'a, str>),
+
+    /// __1.3.6.1.4.1.10094.1.5.2__, experimental.
+    SaslMech(Cow<'a, str>),
+
+    /// __1.3.6.1.4.1.1466.20037__, StartTLS extended operation. Has no value. Should signal
+    /// to the application to use StartTLS when connecting.
+    StartTLS,
+
+    /// Unknown extension.
+    Unknown(Cow<'a, str>),
+}
+
+impl<'a> PartialEq for LdapUrlExt<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (LdapUrlExt::Bindname(_), LdapUrlExt::Bindname(_)) => true,
+            (LdapUrlExt::XBindpw(_), LdapUrlExt::XBindpw(_)) => true,
+            (LdapUrlExt::Credentials(_), LdapUrlExt::Credentials(_)) => true,
+            (LdapUrlExt::SaslMech(_), LdapUrlExt::SaslMech(_)) => true,
+            (LdapUrlExt::StartTLS, LdapUrlExt::StartTLS) => true,
+            (LdapUrlExt::Unknown(_), LdapUrlExt::Unknown(_)) => true,
+            _ => false,
+        }
+    }
+}
+
+impl<'a> Eq for LdapUrlExt<'a> {}
+
+impl<'a> Hash for LdapUrlExt<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            LdapUrlExt::Bindname(_) => "Bindname".hash(state),
+            LdapUrlExt::XBindpw(_) => "XBindpw".hash(state),
+            LdapUrlExt::Credentials(_) => "Credentials".hash(state),
+            LdapUrlExt::SaslMech(_) => "SaslMech".hash(state),
+            LdapUrlExt::StartTLS => "StartTLS".hash(state),
+            LdapUrlExt::Unknown(_) => "Unknown".hash(state),
+        }
+    }
+}
+
+/// Parameters of an LDAP URL.
+///
+/// The LDAP URL specification describes a number of optional URL parameters,
+/// contained in the query part, which mostly provide Search operation settings.
+/// Additionally, the URL can have a list of extensions, describing further options.
+///
+/// When populating the `extensions` set, extension value is ignored in hashing and
+/// comparisons, meaning that only a single extension instance can be recognized.
+/// Searching the set for a value-bearing variant should be done with an empty value:
+///
+/// ```rust
+/// # use ldap3::{get_url_params, LdapUrlExt};
+/// # use ldap3::result::Result;
+/// # use url::Url;
+/// # fn main() -> Result<()> {
+/// let url = Url::parse("ldapi://%2fvar%2frun%2fldapi/????1.3.6.1.4.1.10094.1.5.2=EXTERNAL")?;
+/// let params = get_url_params(&url)?;
+/// let mech = match params.extensions.get(&LdapUrlExt::SaslMech("".into())) {
+///     Some(&LdapUrlExt::SaslMech(ref val)) => val.as_ref(),
+///     _ => "",
+/// };
+/// assert_eq!(mech, "EXTERNAL");
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Clone, Debug)]
+pub struct LdapUrlParams<'a> {
+    /// Search base, percent-decoded.
+    pub base: Cow<'a, str>,
+
+    /// Attribute list, returned as `*` (all attributes) if missing.
+    pub attrs: Vec<&'a str>,
+
+    /// Search scope, returned as `Scope::Subtree` if missing.
+    pub scope: Scope,
+
+    /// Filter string, percent-decoded.
+    pub filter: Cow<'a, str>,
+
+    /// Extensions, whose values are percent-decoded.
+    pub extensions: HashSet<LdapUrlExt<'a>>,
+}
+
+#[inline]
+fn ascii_lc_equal(s: &str, t: &str) -> bool {
+    if s.len() != t.len() {
+        return false;
+    }
+    s.as_bytes()
+        .iter()
+        .zip(t.as_bytes().iter().map(u8::to_ascii_lowercase))
+        .all(|(&s, t)| s == t)
+}
+
+/// Extract parameters from an LDAP URL.
+pub fn get_url_params(url: &Url) -> Result<LdapUrlParams<'_>> {
+    let mut base = url.path();
+    if base.chars().next().unwrap_or('\0') == '/' {
+        base = &base[1..];
+    }
+    let base = percent_decode_str(base)
+        .decode_utf8()
+        .map_err(|_| LdapError::DecodingUTF8)?;
+    let mut query = url.query().unwrap_or("").splitn(4, '?');
+    let attrs = match query.next() {
+        Some("") | None => vec!["*"],
+        Some(alist) => alist.split(',').collect(),
+    };
+    let scope = match query.next() {
+        Some("") | None => Scope::Subtree,
+        Some(scope_str) => match scope_str {
+            "base" => Scope::Base,
+            "one" => Scope::OneLevel,
+            "sub" => Scope::Subtree,
+            any => return Err(LdapError::InvalidScopeString(any.into())),
+        },
+    };
+    let filter = match query.next() {
+        Some("") | None => "(objectClass=*)",
+        Some(filter) => filter,
+    };
+    let filter = percent_decode_str(filter)
+        .decode_utf8()
+        .map_err(|_| LdapError::DecodingUTF8)?;
+    let extensions = match query.next() {
+        Some("") | None => HashSet::new(),
+        Some(exts) => {
+            let mut ext_set = HashSet::new();
+            for ext in exts.split(',') {
+                let (crit, id, val) = {
+                    let mut crit = false;
+                    let mut idv = ext.split('=');
+                    let mut id = idv.next().unwrap_or("");
+                    if id != "" && &id[..1] == "!" {
+                        id = &id[1..];
+                        crit = true;
+                    }
+                    let val = idv.next();
+                    (
+                        crit,
+                        id,
+                        percent_decode_str(val.unwrap_or(""))
+                            .decode_utf8()
+                            .map_err(|_| LdapError::DecodingUTF8)?,
+                    )
+                };
+                let ext = match id {
+                    "1.3.6.1.4.1.10094.1.5.1" => LdapUrlExt::Credentials(val),
+                    "1.3.6.1.4.1.10094.1.5.2" => LdapUrlExt::SaslMech(val),
+                    "1.3.6.1.4.1.1466.20037" => LdapUrlExt::StartTLS,
+                    ext => {
+                        if ascii_lc_equal("bindname", ext) {
+                            LdapUrlExt::Bindname(val)
+                        } else if ascii_lc_equal("x-bindpw", ext) {
+                            LdapUrlExt::XBindpw(val)
+                        } else if crit {
+                            return Err(LdapError::UnrecognizedCriticalExtension(format!(
+                                "{:?}",
+                                LdapUrlExt::Unknown(ext.into())
+                            )));
+                        } else {
+                            LdapUrlExt::Unknown("".into())
+                        }
+                    }
+                };
+                if ext != LdapUrlExt::Unknown("".into()) {
+                    ext_set.insert(ext);
+                }
+            }
+            ext_set
+        }
+    };
+    Ok(LdapUrlParams {
+        base,
+        attrs,
+        scope,
+        filter,
+        extensions,
+    })
 }
 
 #[cfg(test)]
