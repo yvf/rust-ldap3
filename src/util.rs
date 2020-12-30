@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
+use crate::filter::Unescaper;
 use crate::result::{LdapError, Result};
 use crate::search::Scope;
 
@@ -315,6 +316,45 @@ pub fn get_url_params(url: &Url) -> Result<LdapUrlParams<'_>> {
         filter,
         extensions,
     })
+}
+
+/// Unescape a string using LDAP filter escapes.
+///
+/// If a string contains `\nn` hexadecimal escapes, return a string where those
+/// escapes are turned back into characters they represent. The result must be
+/// a valid UTF-8 string, otherwise an error is returned.
+pub fn ldap_str_unescape<'a, S: Into<Cow<'a, str>>>(val: S) -> Result<Cow<'a, str>> {
+    let val = val.into();
+    let mut output = None;
+    let mut esc = Unescaper::Value(0);
+    for (i, &c) in val.as_bytes().iter().enumerate() {
+        esc = esc.feed(c);
+        match esc {
+            Unescaper::WantFirst => {
+                if output.is_none() {
+                    output = Some(Vec::with_capacity(val.len() + 12)); // guess: up to 4 escaped chars
+                    output.as_mut().unwrap().extend(val[..i].as_bytes());
+                }
+            }
+            Unescaper::Value(c) => {
+                if output.is_some() {
+                    output.as_mut().unwrap().push(c);
+                }
+            }
+            _ => (),
+        }
+    }
+    if output.is_some() {
+        if let Unescaper::Value(_) = esc {
+            Ok(Cow::Owned(
+                String::from_utf8(output.unwrap()).map_err(|_| LdapError::DecodingUTF8)?,
+            ))
+        } else {
+            Err(LdapError::DecodingUTF8)
+        }
+    } else {
+        Ok(val)
+    }
 }
 
 #[cfg(test)]
