@@ -271,24 +271,8 @@ impl LdapConnAsync {
     /// Open a connection to an LDAP server specified by `url`, using
     /// `settings` to specify additional parameters.
     pub async fn with_settings(settings: LdapConnSettings, url: &str) -> Result<(Self, Ldap)> {
-        if url.starts_with("ldapi://") {
-            Ok(LdapConnAsync::new_unix(url, settings).await?)
-        } else {
-            // For some reason, "mut settings" is transformed to "__arg0" in the docs,
-            // this is a workaround. On GitHub, at the time of writing, there is:
-            //
-            // https://github.com/rust-lang/docs.rs/issues/737
-            //
-            // But no issue in the Rust repo.
-            let mut settings = settings;
-            let timeout = settings.conn_timeout.take();
-            let conn_future = LdapConnAsync::new_tcp(url, settings);
-            Ok(if let Some(timeout) = timeout {
-                time::timeout(timeout, conn_future).await?
-            } else {
-                conn_future.await
-            }?)
-        }
+        let url = Url::parse(url)?;
+        Self::from_url_with_settings(settings, &url).await
     }
 
     /// Open a connection to an LDAP server specified by `url`.
@@ -308,9 +292,40 @@ impl LdapConnAsync {
         Self::with_settings(LdapConnSettings::new(), url).await
     }
 
+    /// Open a connection to an LDAP server specified by an already parsed `Url`, using
+    /// `settings` to specify additional parameters.
+    pub async fn from_url_with_settings(
+        settings: LdapConnSettings,
+        url: &Url,
+    ) -> Result<(Self, Ldap)> {
+        if url.scheme() == "ldapi" {
+            LdapConnAsync::new_unix(url, settings).await
+        } else {
+            // For some reason, "mut settings" is transformed to "__arg0" in the docs,
+            // this is a workaround. On GitHub, at the time of writing, there is:
+            //
+            // https://github.com/rust-lang/docs.rs/issues/737
+            //
+            // But no issue in the Rust repo.
+            let mut settings = settings;
+            let timeout = settings.conn_timeout.take();
+            let conn_future = LdapConnAsync::new_tcp(url, settings);
+            Ok(if let Some(timeout) = timeout {
+                time::timeout(timeout, conn_future).await?
+            } else {
+                conn_future.await
+            }?)
+        }
+    }
+
+    /// Open a connection to an LDAP server specified by an already parsed `Url`.
+    pub async fn from_url(url: &Url) -> Result<(Self, Ldap)> {
+        Self::from_url_with_settings(LdapConnSettings::new(), url).await
+    }
+
     #[cfg(unix)]
-    async fn new_unix(url: &str, _settings: LdapConnSettings) -> Result<(Self, Ldap)> {
-        let path = url.split('/').nth(2).unwrap();
+    async fn new_unix(url: &Url, _settings: LdapConnSettings) -> Result<(Self, Ldap)> {
+        let path = url.host_str().unwrap_or("");
         if path.is_empty() {
             return Err(LdapError::EmptyUnixPath);
         }
@@ -323,13 +338,12 @@ impl LdapConnAsync {
     }
 
     #[cfg(not(unix))]
-    async fn new_unix(_url: &str, _settings: LdapConnSettings) -> Result<(Self, Ldap)> {
+    async fn new_unix(_url: &Url, _settings: LdapConnSettings) -> Result<(Self, Ldap)> {
         unimplemented!("no Unix domain sockets on non-Unix platforms");
     }
 
     #[allow(unused_mut)]
-    async fn new_tcp(url: &str, mut settings: LdapConnSettings) -> Result<(Self, Ldap)> {
-        let url = Url::parse(url)?;
+    async fn new_tcp(url: &Url, mut settings: LdapConnSettings) -> Result<(Self, Ldap)> {
         let mut port = 389;
         let scheme = match url.scheme() {
             s @ "ldap" => {
