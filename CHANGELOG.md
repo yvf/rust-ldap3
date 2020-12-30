@@ -1,3 +1,23 @@
+## v0.9.0/v0.8.2/v0.7.3, 2020-12-30
+
+* The new main branch, 0.9.x, ported to Tokio 1.0.
+
+* The `lber` crate was bumped to 0.3.0 because its
+  dependency, the `bytes` crate, went to 1.0 along
+  with Tokio. (0.9.x only.)
+
+* Two new connection establishment functions
+  accept an url::Url reference instead of &str.
+  They exist to avoid re-parsing the URL if its
+  parameters were extracted earlier.
+
+* LDAP URL parsing added. The syntax specified by
+  RFC 4516 is mapped into the LdapUrlParams struct.
+  An LDAP URL must be parsed by url::Url::parse()
+  before extracting its components.
+
+* Matched Values control support added.
+
 ## v0.8.1/v0.7.2, 2020-11-24
 
 * Timeouts are honored in Search operations
