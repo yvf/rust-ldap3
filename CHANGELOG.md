@@ -1,3 +1,10 @@
+## v0.8.3, 2021-01-05
+
+* Fix id/value splitting in extension parsing,
+  limiting the number of elements to at most 2.
+  (The bug can be worked around by percent-encoding
+  the equals sign.)
+
 ## v0.8.2, 2020-12-30
 
 * Two new connection establishment functions

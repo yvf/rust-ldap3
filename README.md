@@ -9,7 +9,7 @@ applications using Tokio 0.3. Use version 0.9.x or later with Tokio 1.0.
 
 ### Documentation
 
-- [Version 0.8.x (Tokio 0.3)](https://docs.rs/ldap3/0.8.2/ldap3/)
+- [Version 0.8.3 (Tokio 0.3)](https://docs.rs/ldap3/0.8.3/ldap3/)
 
 ### Note
 
