@@ -268,7 +268,7 @@ pub fn get_url_params(url: &Url) -> Result<LdapUrlParams<'_>> {
             for ext in exts.split(',') {
                 let (crit, id, val) = {
                     let mut crit = false;
-                    let mut idv = ext.split('=');
+                    let mut idv = ext.splitn(2, '=');
                     let mut id = idv.next().unwrap_or("");
                     if id != "" && &id[..1] == "!" {
                         id = &id[1..];
