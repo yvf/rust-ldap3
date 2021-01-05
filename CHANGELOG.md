@@ -1,3 +1,10 @@
+## v0.9.1/v0.8.3/v0.7.4, 2021-01-05
+
+* Fix id/value splitting in extension parsing,
+  limiting the number of elements to at most 2.
+  (The bug can be worked around by percent-encoding
+  the equals sign.)
+
 ## v0.9.0/v0.8.2/v0.7.3, 2020-12-30
 
 * The new main branch, 0.9.x, ported to Tokio 1.0.
