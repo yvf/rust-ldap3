@@ -1,6 +1,6 @@
 [package]
 authors = ["Ivan Nejgebauer <inejge@gmail.com>"]
-description = "Pure-Rust LDAPv3 Client"
+description = "Pure-Rust LDAP Client"
 documentation = "https://docs.rs/ldap3"
 keywords = ["ldap", "client", "tokio", "async"]
 license = "MIT/Apache-2.0"
