@@ -24,6 +24,7 @@ compatibility fixes for the next six months, and continue development solely on 
 ### Note
 
 The library is client-only. One cannot make an LDAP server or a proxy with it.
+It supports only version 3 of the protocol over connection-oriented transports.
 
 ## Usage
 

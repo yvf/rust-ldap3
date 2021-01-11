@@ -1,3 +1,10 @@
+## v0.9.2, 2021-01-11
+
+* SEO: update `Cargo.toml` description to use "LDAP"
+  insetead of "LDAPv3", in hope that the crate won't
+  be relegated to the second page of search results
+  for "ldap" on crates.io.
+
 ## v0.9.1/v0.8.3/v0.7.4, 2021-01-05
 
 * Fix id/value splitting in extension parsing,
@@ -14,16 +21,17 @@
   with Tokio. (0.9.x only.)
 
 * Two new connection establishment functions
-  accept an url::Url reference instead of &str.
+  accept a `url::Url` reference instead of `&str`.
   They exist to avoid re-parsing the URL if its
   parameters were extracted earlier.
 
 * LDAP URL parsing added. The syntax specified by
-  RFC 4516 is mapped into the LdapUrlParams struct.
-  An LDAP URL must be parsed by url::Url::parse()
+  RFC 4516 is mapped into the `LdapUrlParams` struct.
+  An LDAP URL must be parsed by `url::Url::parse()`
   before extracting its components.
 
-* Matched Values control support added.
+* Matched Values control support added
+  ([#65](https://github.com/inejge/ldap3/pull/65)).
 
 ## v0.8.1/v0.7.2, 2020-11-24
 
