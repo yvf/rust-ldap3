@@ -9,13 +9,13 @@ the bump of the `bytes` crate to 1.0 made it necessary to increase the `lber` ve
 number. For that reason, `ldap3` will also go one version up, to 0.9. Things should
 be quieter from now on because of Tokio's 1.0 compatibility promise, though.
 
-All functional changes in 0.9.1 have been backported to 0.8.3 (Tokio 0.3) and 0.7.4
+All functional changes in 0.9.2 have been backported to 0.8.3 (Tokio 0.3) and 0.7.4
 (Tokio 0.2). The plan is to limit further 0.8.x and 0.7.x changes to bug- and
 compatibility fixes for the next six months, and continue development solely on 0.9.x.
 
 ### Documentation
 
-- [Version 0.9.x (Tokio 1.0)](https://docs.rs/ldap3/0.9.1/ldap3/)
+- [Version 0.9.x (Tokio 1.0)](https://docs.rs/ldap3/0.9.2/ldap3/)
 
 - [Version 0.8.x (Tokio 0.3)](https://docs.rs/ldap3/0.8.3/ldap3/)
 
