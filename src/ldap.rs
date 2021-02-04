@@ -133,6 +133,11 @@ impl Ldap {
         Ok((result, exop))
     }
 
+    /// Says if the underlying connection has been closed
+    pub fn is_closed(&self) -> bool {
+        self.tx.is_closed()
+    }
+
     /// Use the provided `SearchOptions` with the next Search operation, which can
     /// be invoked directly on the result of this method. If this method is used in
     /// combination with a non-Search operation, the provided options will be silently
