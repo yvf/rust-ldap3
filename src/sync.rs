@@ -86,6 +86,11 @@ impl LdapConn {
         self
     }
 
+    /// Says if the underlying connection has been closed
+    pub fn is_closed(&mut self) -> bool {
+        self.ldap.tx.is_closed()
+    }
+
     /// See [`Ldap::simple_bind()`](struct.Ldap.html#method.simple_bind).
     pub fn simple_bind(&mut self, bind_dn: &str, bind_pw: &str) -> Result<LdapResult> {
         let rt = &mut self.rt;

@@ -134,7 +134,7 @@ impl Ldap {
     }
 
     /// Says if the underlying connection has been closed
-    pub fn is_closed(&self) -> bool {
+    pub fn is_closed(&mut self) -> bool {
         self.tx.is_closed()
     }
 
