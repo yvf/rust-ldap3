@@ -86,7 +86,7 @@ impl LdapConn {
         self
     }
 
-    /// Says if the underlying connection has been closed
+    /// See [`Ldap::is_closed()`](struct.Ldap.html#method.is_closed).
     pub fn is_closed(&mut self) -> bool {
         self.ldap.tx.is_closed()
     }

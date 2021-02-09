@@ -1,3 +1,10 @@
+## WIP
+
+* Add the `is_closed()` method to `Ldap` and `LdapConn`.
+  This is a quick check whether the underlying socket has
+  been closed, actually checking the connection usability
+  requires a roundtrip with an operation like WhoAmI.
+
 ## v0.9.2, 2021-01-11
 
 * SEO: update `Cargo.toml` description to use "LDAP"
