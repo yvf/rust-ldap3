@@ -27,7 +27,7 @@ use native_tls::TlsConnector;
 use percent_encoding::percent_decode;
 #[cfg(feature = "tls-rustls")]
 use rustls::ClientConfig;
-use tokio::io::{self, AsyncRead, AsyncWrite, ReadBuf};
+use tokio::io::{self, AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::TcpStream;
 #[cfg(unix)]
 use tokio::net::UnixStream;
@@ -539,9 +539,11 @@ impl LdapConnAsync {
                                     msgmap.1.remove(&id);
                                 },
                                 LdapOp::Unbind => {
-                                    if let Err(e) = self.stream.close().await {
+                                    if let Err(e) = self.stream.get_mut().shutdown().await {
                                         warn!("socket shutdown error: {}", e);
-                                        return Err(LdapError::from(e));
+                                    }
+                                    if let Err(e) = self.stream.close().await {
+                                        warn!("socket close error: {}", e);
                                     }
                                 },
                             }

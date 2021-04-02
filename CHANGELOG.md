@@ -1,4 +1,9 @@
-## WIP
+## v0.9.3, 2021-04-02
+
+* Tweak the socket shutdown code for Unbind to a) actually
+  perform a graceful socket shutdown, b) ignore errors
+  after successfully writing the Unbind op packet, since
+  from that point the connection is finished anyway.
 
 * Add the `is_closed()` method to `Ldap` and `LdapConn`.
   This is a quick check whether the underlying socket has
