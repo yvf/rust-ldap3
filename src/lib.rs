@@ -89,8 +89,11 @@
 
 #[macro_use]
 extern crate nom;
+#[doc(hidden)]
 #[macro_use]
 pub extern crate log;
+#[doc(hidden)]
+pub use tokio;
 
 /// Type alias for the LDAP message ID.
 pub type RequestId = i32;

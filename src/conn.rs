@@ -259,7 +259,7 @@ pub struct LdapConnAsync {
 #[macro_export]
 macro_rules! drive {
     ($conn:expr) => {
-        tokio::spawn(async move {
+        $crate::tokio::spawn(async move {
             if let Err(e) = $conn.drive().await {
                 $crate::log::warn!("LDAP connection error: {}", e);
             }
