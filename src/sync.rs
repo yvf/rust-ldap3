@@ -106,12 +106,12 @@ impl LdapConn {
     }
 
     /// See [`Ldap::search()`](struct.Ldap.html#method.search).
-    pub fn search<'a, S: AsRef<str> + Send + Sync + 'a>(
+    pub fn search<'a, S: AsRef<str> + Send + Sync + 'a, A: AsRef<[S]> + Send + Sync + 'a>(
         &mut self,
         base: &str,
         scope: Scope,
         filter: &str,
-        attrs: Vec<S>,
+        attrs: A,
     ) -> Result<SearchResult> {
         let rt = &mut self.rt;
         let ldap = &mut self.ldap;
@@ -121,13 +121,18 @@ impl LdapConn {
     /// Perform a Search, but unlike `search()`, which returns all results at once, return a handle which
     /// will be used for retrieving entries one by one. See [`EntryStream`](struct.EntryStream.html)
     /// for the explanation of the protocol which must be adhered to in this case.
-    pub fn streaming_search<'a, 'b, S: AsRef<str> + Send + Sync + 'a>(
+    pub fn streaming_search<
+        'a,
+        'b,
+        S: AsRef<str> + Send + Sync + 'a,
+        A: AsRef<[S]> + Send + Sync + 'a,
+    >(
         &'b mut self,
         base: &str,
         scope: Scope,
         filter: &str,
-        attrs: Vec<S>,
-    ) -> Result<EntryStream<'a, 'b, S>> {
+        attrs: A,
+    ) -> Result<EntryStream<'a, 'b, S, A>> {
         let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         let stream =
@@ -140,16 +145,17 @@ impl LdapConn {
     pub fn streaming_search_with<
         'a,
         'b,
-        V: IntoAdapterVec<'a, S>,
+        V: IntoAdapterVec<'a, S, A>,
         S: AsRef<str> + Send + Sync + 'a,
+        A: AsRef<[S]> + Send + Sync + 'a,
     >(
         &'b mut self,
         adapters: V,
         base: &str,
         scope: Scope,
         filter: &str,
-        attrs: Vec<S>,
-    ) -> Result<EntryStream<'a, 'b, S>> {
+        attrs: A,
+    ) -> Result<EntryStream<'a, 'b, S, A>> {
         let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         let stream = rt.block_on(async move {
@@ -256,14 +262,15 @@ impl LdapConn {
 /// Tokio runtime with `LdapConn` from which it's obtained, but the two can't be
 /// used in parallel, which is enforced by capturing the reference to `LdapConn`
 /// during the lifetime of `EntryStream`.
-pub struct EntryStream<'a, 'b, S> {
-    stream: SearchStream<'a, S>,
+pub struct EntryStream<'a, 'b, S, A> {
+    stream: SearchStream<'a, S, A>,
     conn: &'b mut LdapConn,
 }
 
-impl<'a, 'b, S> EntryStream<'a, 'b, S>
+impl<'a, 'b, S, A> EntryStream<'a, 'b, S, A>
 where
     S: AsRef<str> + Send + Sync + 'a,
+    A: AsRef<[S]> + Send + Sync + 'a,
 {
     /// See [`SearchStream::next()`](struct.SearchStream.html#method.next).
     #[allow(clippy::should_implement_trait)]

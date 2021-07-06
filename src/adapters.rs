@@ -143,34 +143,34 @@ use async_trait::async_trait;
 ///     }
 /// }
 #[async_trait]
-pub trait Adapter<'a, S>: AdapterClone<'a, S> + Debug + Send + Sync + 'a {
+pub trait Adapter<'a, S, A = Vec<S>>: AdapterClone<'a, S, A> + Debug + Send + Sync + 'a {
     /// Initialize the stream.
     async fn start(
         &mut self,
-        stream: &mut SearchStream<'a, S>,
+        stream: &mut SearchStream<'a, S, A>,
         base: &str,
         scope: Scope,
         filter: &str,
-        attrs: Vec<S>,
+        attrs: A,
     ) -> Result<()>;
 
     /// Fetch the next entry from the stream.
-    async fn next(&mut self, stream: &mut SearchStream<'a, S>) -> Result<Option<ResultEntry>>;
+    async fn next(&mut self, stream: &mut SearchStream<'a, S, A>) -> Result<Option<ResultEntry>>;
 
     /// Return the result from the stream.
-    async fn finish(&mut self, stream: &mut SearchStream<'a, S>) -> LdapResult;
+    async fn finish(&mut self, stream: &mut SearchStream<'a, S, A>) -> LdapResult;
 }
 
 /// Helper trait to enforce `Clone` on `Adapter` implementors.
-pub trait AdapterClone<'a, S> {
-    fn box_clone(&self) -> Box<dyn Adapter<'a, S> + 'a>;
+pub trait AdapterClone<'a, S, A> {
+    fn box_clone(&self) -> Box<dyn Adapter<'a, S, A> + 'a>;
 }
 
-impl<'a, S, T> AdapterClone<'a, S> for T
+impl<'a, S, A, T> AdapterClone<'a, S, A> for T
 where
-    T: Adapter<'a, S> + Clone + 'a,
+    T: Adapter<'a, S, A> + Clone + 'a,
 {
-    fn box_clone(&self) -> Box<dyn Adapter<'a, S> + 'a> {
+    fn box_clone(&self) -> Box<dyn Adapter<'a, S, A> + 'a> {
         Box::new(self.clone())
     }
 }
@@ -184,22 +184,23 @@ where
 pub trait SoloMarker {}
 
 /// Helper trait for `Adapter` instance/chain conversions.
-pub trait IntoAdapterVec<'a, S> {
-    fn into(self) -> Vec<Box<dyn Adapter<'a, S> + 'a>>;
+pub trait IntoAdapterVec<'a, S, A> {
+    fn into(self) -> Vec<Box<dyn Adapter<'a, S, A> + 'a>>;
 }
 
-impl<'a, S> IntoAdapterVec<'a, S> for Vec<Box<dyn Adapter<'a, S> + 'a>> {
-    fn into(self) -> Vec<Box<dyn Adapter<'a, S> + 'a>> {
+impl<'a, S, A> IntoAdapterVec<'a, S, A> for Vec<Box<dyn Adapter<'a, S, A> + 'a>> {
+    fn into(self) -> Vec<Box<dyn Adapter<'a, S, A> + 'a>> {
         self
     }
 }
 
-impl<'a, A, S> IntoAdapterVec<'a, S> for A
+impl<'a, Ad, S, A> IntoAdapterVec<'a, S, A> for Ad
 where
-    A: Adapter<'a, S> + SoloMarker,
+    Ad: Adapter<'a, S, A> + SoloMarker,
     S: AsRef<str> + Send + Sync + 'a,
+    A: AsRef<[S]> + Send + Sync + 'a,
 {
-    fn into(self) -> Vec<Box<dyn Adapter<'a, S> + 'a>> {
+    fn into(self) -> Vec<Box<dyn Adapter<'a, S, A> + 'a>> {
         vec![Box::new(self)]
     }
 }
@@ -241,23 +242,24 @@ impl EntriesOnly {
 impl SoloMarker for EntriesOnly {}
 
 #[async_trait]
-impl<'a, S> Adapter<'a, S> for EntriesOnly
+impl<'a, S, A> Adapter<'a, S, A> for EntriesOnly
 where
     S: AsRef<str> + Send + Sync + 'a,
+    A: AsRef<[S]> + Send + Sync + 'a,
 {
     async fn start(
         &mut self,
-        stream: &mut SearchStream<'a, S>,
+        stream: &mut SearchStream<'a, S, A>,
         base: &str,
         scope: Scope,
         filter: &str,
-        attrs: Vec<S>,
+        attrs: A,
     ) -> Result<()> {
         self.refs.as_mut().expect("refs").clear();
         stream.start(base, scope, filter, attrs).await
     }
 
-    async fn next(&mut self, stream: &mut SearchStream<'a, S>) -> Result<Option<ResultEntry>> {
+    async fn next(&mut self, stream: &mut SearchStream<'a, S, A>) -> Result<Option<ResultEntry>> {
         loop {
             return match stream.next().await {
                 Ok(None) => Ok(None),
@@ -276,7 +278,7 @@ where
         }
     }
 
-    async fn finish(&mut self, stream: &mut SearchStream<'a, S>) -> LdapResult {
+    async fn finish(&mut self, stream: &mut SearchStream<'a, S, A>) -> LdapResult {
         let mut res = stream.finish().await;
         res.refs.extend(self.refs.take().expect("refs"));
         res
@@ -317,17 +319,18 @@ impl<S> PagedResults<S> {
 }
 
 #[async_trait]
-impl<'a, S> Adapter<'a, S> for PagedResults<S>
+impl<'a, S, A> Adapter<'a, S, A> for PagedResults<S>
 where
     S: AsRef<str> + Clone + Debug + Send + Sync + 'a,
+    A: AsRef<[S]> + Send + Sync + 'a,
 {
     async fn start(
         &mut self,
-        stream: &mut SearchStream<'a, S>,
+        stream: &mut SearchStream<'a, S, A>,
         base: &str,
         scope: Scope,
         filter: &str,
-        attrs: Vec<S>,
+        attrs: A,
     ) -> Result<()> {
         let mut stream = stream;
         let stream_ldap = stream.ldap_handle();
@@ -370,11 +373,11 @@ where
         self.base = String::from(base);
         self.scope = scope;
         self.filter = String::from(filter);
-        self.attrs = attrs.clone();
+        self.attrs = attrs.as_ref().to_vec();
         stream.start(base, scope, filter, attrs).await
     }
 
-    async fn next(&mut self, stream: &mut SearchStream<'a, S>) -> Result<Option<ResultEntry>> {
+    async fn next(&mut self, stream: &mut SearchStream<'a, S, A>) -> Result<Option<ResultEntry>> {
         'ent: loop {
             match stream.next().await {
                 Ok(None) => {
@@ -405,12 +408,7 @@ where
                             );
                             ldap.controls = Some(controls);
                             let new_stream = match ldap
-                                .streaming_search(
-                                    &self.base,
-                                    self.scope,
-                                    &self.filter,
-                                    self.attrs.clone(),
-                                )
+                                .streaming_search(&self.base, self.scope, &self.filter, &self.attrs)
                                 .await
                             {
                                 Ok(strm) => strm,
@@ -433,7 +431,7 @@ where
         }
     }
 
-    async fn finish(&mut self, stream: &mut SearchStream<'a, S>) -> LdapResult {
+    async fn finish(&mut self, stream: &mut SearchStream<'a, S, A>) -> LdapResult {
         stream.finish().await
     }
 }

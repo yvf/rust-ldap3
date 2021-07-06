@@ -572,21 +572,22 @@ pub enum StreamState {
 /// stream operations directly, while the latter first passes through a chain of
 /// [adapters](adapters/index.html) given at the time of stream creation.
 #[derive(Debug)]
-pub struct SearchStream<'a, S> {
+pub struct SearchStream<'a, S, A> {
     pub(crate) ldap: Ldap,
     pub(crate) rx: Option<mpsc::UnboundedReceiver<(SearchItem, Vec<Control>)>>,
     state: StreamState,
-    adapters: Vec<Arc<Mutex<Box<dyn Adapter<'a, S> + 'a>>>>,
+    adapters: Vec<Arc<Mutex<Box<dyn Adapter<'a, S, A> + 'a>>>>,
     ax: usize,
     timeout: Option<Duration>,
     pub res: Option<LdapResult>,
 }
 
-impl<'a, S> SearchStream<'a, S>
+impl<'a, S, A> SearchStream<'a, S, A>
 where
     S: AsRef<str> + Send + Sync + 'a,
+    A: AsRef<[S]> + Send + Sync + 'a,
 {
-    pub(crate) fn new(ldap: Ldap, adapters: Vec<Box<dyn Adapter<'a, S> + 'a>>) -> Self {
+    pub(crate) fn new(ldap: Ldap, adapters: Vec<Box<dyn Adapter<'a, S, A> + 'a>>) -> Self {
         SearchStream {
             ldap,
             rx: None,
@@ -603,7 +604,7 @@ where
         base: &str,
         scope: Scope,
         filter: &str,
-        attrs: Vec<S>,
+        attrs: A,
     ) -> Result<()> {
         let opts = match self.ldap.search_opts.take() {
             Some(opts) => opts,
@@ -644,6 +645,7 @@ where
                 },
                 Tag::Sequence(Sequence {
                     inner: attrs
+                        .as_ref()
                         .into_iter()
                         .map(|s| {
                             Tag::OctetString(OctetString {
@@ -724,13 +726,7 @@ where
     /// not meant for calling from regular user code. It must be public for user-defined
     /// adapters to work, but explicitly calling it on a `SearchStream` handle
     /// is a no-op: it will immediately return `Ok(())`.
-    pub async fn start(
-        &mut self,
-        base: &str,
-        scope: Scope,
-        filter: &str,
-        attrs: Vec<S>,
-    ) -> Result<()> {
+    pub async fn start(&mut self, base: &str, scope: Scope, filter: &str, attrs: A) -> Result<()> {
         if self.state != StreamState::Fresh {
             return Ok(());
         }
@@ -815,7 +811,7 @@ where
     /// of the method call. Adapter instances are cloned and collected into the
     /// resulting vector. The purpose of this method is to enable uniformly
     /// configured Search calls on the connections newly opened in an adapter.
-    pub async fn adapter_chain_tail(&mut self) -> Vec<Box<dyn Adapter<'a, S> + 'a>> {
+    pub async fn adapter_chain_tail(&mut self) -> Vec<Box<dyn Adapter<'a, S, A> + 'a>> {
         let mut chain = vec![];
         for ix in self.ax..self.adapters.len() {
             let adapter = self.adapters[ix].clone();

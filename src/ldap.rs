@@ -255,12 +255,12 @@ impl Ldap {
     ///
     /// This method should be used if it's known that the result set won't be
     /// large. For other situations, one can use [`streaming_search()`](#method.streaming_search).
-    pub async fn search<'a, S: AsRef<str> + Send + Sync + 'a>(
+    pub async fn search<'a, S: AsRef<str> + Send + Sync + 'a, A: AsRef<[S]> + Send + Sync + 'a>(
         &mut self,
         base: &str,
         scope: Scope,
         filter: &str,
-        attrs: Vec<S>,
+        attrs: A,
     ) -> Result<SearchResult> {
         let mut stream = self
             .streaming_search_with(EntriesOnly::new(), base, scope, filter, attrs)
@@ -277,13 +277,17 @@ impl Ldap {
     /// the parameters), which returns all results at once, return a handle which
     /// will be used for retrieving entries one by one. See [`SearchStream`](struct.SearchStream.html)
     /// for the explanation of the protocol which must be adhered to in this case.
-    pub async fn streaming_search<'a, S: AsRef<str> + Send + Sync + 'a>(
+    pub async fn streaming_search<
+        'a,
+        S: AsRef<str> + Send + Sync + 'a,
+        A: AsRef<[S]> + Send + Sync + 'a,
+    >(
         &mut self,
         base: &str,
         scope: Scope,
         filter: &str,
-        attrs: Vec<S>,
-    ) -> Result<SearchStream<'a, S>> {
+        attrs: A,
+    ) -> Result<SearchStream<'a, S, A>> {
         self.streaming_search_with(vec![], base, scope, filter, attrs)
             .await
     }
@@ -293,16 +297,17 @@ impl Ldap {
     /// or a vector of boxed `Adapter` trait objects.
     pub async fn streaming_search_with<
         'a,
-        V: IntoAdapterVec<'a, S>,
+        V: IntoAdapterVec<'a, S, A>,
         S: AsRef<str> + Send + Sync + 'a,
+        A: AsRef<[S]> + Send + Sync + 'a,
     >(
         &mut self,
         adapters: V,
         base: &str,
         scope: Scope,
         filter: &str,
-        attrs: Vec<S>,
-    ) -> Result<SearchStream<'a, S>> {
+        attrs: A,
+    ) -> Result<SearchStream<'a, S, A>> {
         let mut ldap = self.clone();
         ldap.controls = self.controls.take();
         ldap.timeout = self.timeout.take();
