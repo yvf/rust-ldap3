@@ -309,13 +309,14 @@ pub struct PagedResults<S: AsRef<str>, A> {
 impl<S, A> SoloMarker for PagedResults<S, A>
 where
     S: AsRef<str> + Send + Sync,
-    A: AsRef<[S]> + Send + Sync
-{}
+    A: AsRef<[S]> + Send + Sync,
+{
+}
 
 impl<S, A> PagedResults<S, A>
 where
     S: AsRef<str> + Send + Sync,
-    A: AsRef<[S]> + Send + Sync
+    A: AsRef<[S]> + Send + Sync,
 {
     /// Construct a new adapter instance with the requested page size.
     pub fn new(page_size: i32) -> Self {
@@ -421,7 +422,12 @@ where
                             );
                             ldap.controls = Some(controls);
                             let new_stream = match ldap
-                                .streaming_search(&self.base, self.scope, &self.filter, self.attrs.as_ref().unwrap())
+                                .streaming_search(
+                                    &self.base,
+                                    self.scope,
+                                    &self.filter,
+                                    self.attrs.as_ref().unwrap(),
+                                )
                                 .await
                             {
                                 Ok(strm) => strm,
