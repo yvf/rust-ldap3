@@ -37,9 +37,10 @@ use async_trait::async_trait;
 ///
 /// * Must be `Send` and `Sync`.
 ///
-/// The trait is parametrized with `'a`, the lifetime bound propagated to trait objects,  and `S`, which
-/// is used in the `start()`  method as the generic type for the attribute name vector. (It must appear here
-/// because of object safety.) When implementing the trait, `S` must be constrained to `AsRef<str> + Send + Sync + 'a`.
+/// The trait is parametrized with `'a`, the lifetime bound propagated to trait objects, `S`, used in the `start()`
+/// method as the generic type for attribute names, and `A`, the vector of attribute names. (They appear here
+/// because of object safety; `A` enables initialization with owned or borrowed attribute lists.) When implementing the trait,
+/// `S` must be constrained to `AsRef<str> + Send + Sync + 'a`, and `A` to `AsRef<[S]> + Send + Sync + 'a`.
 /// To use a bare instance of a struct implementing this trait in the call to `streaming_search_with()`, the struct
 /// must also implement [`SoloMarker`](trait.SoloMarker.html).
 ///
@@ -91,19 +92,20 @@ use async_trait::async_trait;
 /// // Adapter impl must be derived with the async_trait proc macro
 /// // until Rust supports async fns in traits directly
 /// #[async_trait]
-/// impl<'a, S> Adapter<'a, S> for EntriesOnly
+/// impl<'a, S, A> Adapter<'a, S, A> for EntriesOnly
 /// where
-///     // The S generic parameter must have these bounds
+///     // The S and A generic parameters must have these bounds
 ///     S: AsRef<str> + Send + Sync + 'a,
+///     A: AsRef<[S]> + Send + Sync + 'a,
 /// {
 ///     // The start() method doesn't do much
 ///     async fn start(
 ///         &mut self,
-///         stream: &mut SearchStream<'a, S>,
+///         stream: &mut SearchStream<'a, S, A>,
 ///         base: &str,
 ///         scope: Scope,
 ///         filter: &str,
-///         attrs: Vec<S>,
+///         attrs: A,
 ///     ) -> Result<()> {
 ///         self.refs.as_mut().expect("refs").clear();
 ///         // Call up the adapter chain
@@ -114,7 +116,7 @@ use async_trait::async_trait;
 ///     // a single result entry is returned
 ///     async fn next(
 ///         &mut self,
-///         stream: &mut SearchStream<'a, S>
+///         stream: &mut SearchStream<'a, S, A>
 ///     ) -> Result<Option<ResultEntry>> {
 ///         loop {
 ///             // Call up the adapter chain
@@ -136,7 +138,7 @@ use async_trait::async_trait;
 ///     }
 ///
 ///     // The result returned from the upcall is modified by our values
-///     async fn finish(&mut self, stream: &mut SearchStream<'a, S>) -> LdapResult {
+///     async fn finish(&mut self, stream: &mut SearchStream<'a, S, A>) -> LdapResult {
 ///         // Call up the adapter chain
 ///         let mut res = stream.finish().await;
 ///         res.refs.extend(self.refs.take().expect("refs"));
