@@ -2,23 +2,22 @@
 
 A pure-Rust LDAP client library using the Tokio stack.
 
-### Compatibility with Tokio versions
+### Version notice
 
-Tokio 1.0 is the long-term stable version of the async runtime, and `ldap3` 0.9
-is compatible with it. For the earlier Tokio releases, use `ldap3` 0.8 (Tokio 0.3)
-or 0.7 (Tokio 0.2).
+Version 0.10 gets a dependencies update, move to Edition 2021, and an
+experimental API update which lets the user pass either owned or borrowed
+attribute lists. This is a breaking change, especially if you've used or
+written your own search adapters, although type inference should cover
+most cases. If the change is too disruptive, the dual attribute list
+support could be removed in a future release.
 
-All functional changes in 0.9.2 have been backported to 0.8.3 and 0.7.4. The plan is
-to limit further 0.8.x and 0.7.x changes to bug- and compatibility fixes until June
-2021, and continue development solely on 0.9.x.
+Version 0.9 is unchanged, although it may get bug fixes for a while.
 
 ### Documentation
 
-- [Version 0.9.x (Tokio 1.0)](https://docs.rs/ldap3/0.9.3/ldap3/)
+- [Version 0.10.x](https://docs.rs/ldap3/0.10.0/ldap3/)
 
-- [Version 0.8.x (Tokio 0.3)](https://docs.rs/ldap3/0.8.3/ldap3/)
-
-- [Version 0.7.x (Tokio 0.2)](https://docs.rs/ldap3/0.7.4/ldap3/)
+- [Version 0.9.x](https://docs.rs/ldap3/0.9.3/ldap3/)
 
 ### Note
 

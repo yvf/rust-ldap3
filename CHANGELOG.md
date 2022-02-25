@@ -1,3 +1,16 @@
+## v0.10.0, 2022-02-25
+
+* Update dependencies.
+
+* Change to Edition 2021.
+
+* [breaking change] Enable passing either owned or borrowed
+  attribute lists to the search function. This adds another
+  generic parameter to the Adapter trait, which infects all
+  dependent structs. Type inference should take care of most
+  cases, but creating Adapter dynamic instances must be
+  modified. The same goes for custom Adapter implementations.
+
 ## v0.9.3, 2021-04-02
 
 * Tweak the socket shutdown code for Unbind to a) actually
