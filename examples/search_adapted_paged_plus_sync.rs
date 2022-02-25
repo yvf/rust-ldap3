@@ -10,7 +10,7 @@ use ldap3::{LdapConn, Scope, SearchEntry};
 
 fn main() -> Result<()> {
     let mut ldap = LdapConn::new("ldap://localhost:2389")?;
-    let adapters: Vec<Box<dyn Adapter<_>>> = vec![
+    let adapters: Vec<Box<dyn Adapter<_, _>>> = vec![
         Box::new(EntriesOnly::new()),
         Box::new(PagedResults::new(400)),
     ];

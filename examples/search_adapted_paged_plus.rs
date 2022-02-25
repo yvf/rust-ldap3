@@ -11,7 +11,7 @@ use ldap3::{LdapConnAsync, Scope, SearchEntry};
 async fn main() -> Result<()> {
     let (conn, mut ldap) = LdapConnAsync::new("ldap://localhost:2389").await?;
     ldap3::drive!(conn);
-    let adapters: Vec<Box<dyn Adapter<_>>> = vec![
+    let adapters: Vec<Box<dyn Adapter<_, _>>> = vec![
         Box::new(EntriesOnly::new()),
         Box::new(PagedResults::new(400)),
     ];

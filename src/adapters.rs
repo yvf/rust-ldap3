@@ -19,6 +19,7 @@
 //! because the sync API is just a blocking façade for the async one.
 
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 use crate::controls::{self, Control, ControlType};
 use crate::ldap::Ldap;
@@ -143,7 +144,7 @@ use async_trait::async_trait;
 ///     }
 /// }
 #[async_trait]
-pub trait Adapter<'a, S, A = Vec<S>>: AdapterClone<'a, S, A> + Debug + Send + Sync + 'a {
+pub trait Adapter<'a, S, A>: AdapterClone<'a, S, A> + Debug + Send + Sync + 'a {
     /// Initialize the stream.
     async fn start(
         &mut self,
@@ -293,18 +294,27 @@ where
 /// retrieved in the first protocol operation, the adapter will automatically issue
 /// further Searches until the whole search is done.
 #[derive(Clone, Debug)]
-pub struct PagedResults<S> {
+pub struct PagedResults<S: AsRef<str>, A> {
     page_size: i32,
     ldap: Option<Ldap>,
     base: String,
     scope: Scope,
     filter: String,
-    attrs: Vec<S>,
+    attrs: Option<A>,
+    _s: PhantomData<S>,
 }
 
-impl<S> SoloMarker for PagedResults<S> {}
+impl<S, A> SoloMarker for PagedResults<S, A>
+where
+    S: AsRef<str> + Send + Sync,
+    A: AsRef<[S]> + Send + Sync
+{}
 
-impl<S> PagedResults<S> {
+impl<S, A> PagedResults<S, A>
+where
+    S: AsRef<str> + Send + Sync,
+    A: AsRef<[S]> + Send + Sync
+{
     /// Construct a new adapter instance with the requested page size.
     pub fn new(page_size: i32) -> Self {
         Self {
@@ -313,16 +323,17 @@ impl<S> PagedResults<S> {
             base: String::from(""),
             scope: Scope::Base,
             filter: String::from(""),
-            attrs: vec![],
+            attrs: None,
+            _s: PhantomData,
         }
     }
 }
 
 #[async_trait]
-impl<'a, S, A> Adapter<'a, S, A> for PagedResults<S>
+impl<'a, S, A> Adapter<'a, S, A> for PagedResults<S, A>
 where
     S: AsRef<str> + Clone + Debug + Send + Sync + 'a,
-    A: AsRef<[S]> + Send + Sync + 'a,
+    A: AsRef<[S]> + Clone + Debug + Send + Sync + 'a,
 {
     async fn start(
         &mut self,
@@ -373,7 +384,7 @@ where
         self.base = String::from(base);
         self.scope = scope;
         self.filter = String::from(filter);
-        self.attrs = attrs.as_ref().to_vec();
+        self.attrs = Some(attrs.clone());
         stream.start(base, scope, filter, attrs).await
     }
 
@@ -408,7 +419,7 @@ where
                             );
                             ldap.controls = Some(controls);
                             let new_stream = match ldap
-                                .streaming_search(&self.base, self.scope, &self.filter, &self.attrs)
+                                .streaming_search(&self.base, self.scope, &self.filter, self.attrs.as_ref().unwrap())
                                 .await
                             {
                                 Ok(strm) => strm,
