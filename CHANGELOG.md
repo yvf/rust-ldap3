@@ -1,3 +1,8 @@
+## v0.10.1, 2022-02-25
+
+* Fix rustls build. The API changed substantially between
+  0.19 and 0.20.
+
 ## v0.10.0, 2022-02-25
 
 * Update dependencies.

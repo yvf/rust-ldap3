@@ -15,7 +15,7 @@ Version 0.9 is unchanged, although it may get bug fixes for a while.
 
 ### Documentation
 
-- [Version 0.10.x](https://docs.rs/ldap3/0.10.0/ldap3/)
+- [Version 0.10.x](https://docs.rs/ldap3/0.10.1/ldap3/)
 
 - [Version 0.9.x](https://docs.rs/ldap3/0.9.3/ldap3/)
 

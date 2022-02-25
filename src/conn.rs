@@ -169,6 +169,10 @@ impl LdapConnSettings {
     /// Set a custom TLS configuration, which enables setting various options
     /// when establishing a secure connection. The default of `None` will
     /// use a configuration with default values.
+    ///
+    /// Note that the default configuration has an empty root certificate store.
+    /// If you want to have the server certificate verified, you'll have to create
+    /// a custom configuration.
     pub fn set_config(mut self, config: Arc<ClientConfig>) -> Self {
         self.config = Some(config);
         self
