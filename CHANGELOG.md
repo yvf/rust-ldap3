@@ -1,3 +1,9 @@
+## v0.10.2, 2022-02-26
+
+* Use the native root certificate store for rustls cert
+  verification. The store is initialized once and cloned for
+  each new connection.
+
 ## v0.10.1, 2022-02-25
 
 * Fix rustls build. The API changed substantially between

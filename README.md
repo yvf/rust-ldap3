@@ -11,13 +11,13 @@ written your own search adapters, although type inference should cover
 most cases. If the change is too disruptive, the dual attribute list
 support could be removed in a future release.
 
-Version 0.9 is unchanged, although it may get bug fixes for a while.
+Version 0.9 will only get bug fixes.
 
 ### Documentation
 
-- [Version 0.10.x](https://docs.rs/ldap3/0.10.1/ldap3/)
+- [Version 0.10.x](https://docs.rs/ldap3/0.10.2/ldap3/)
 
-- [Version 0.9.x](https://docs.rs/ldap3/0.9.3/ldap3/)
+- [Version 0.9.x](https://docs.rs/ldap3/0.9.4/ldap3/)
 
 ### Note
 
@@ -34,7 +34,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies.ldap3]
-version = "0.9"
+version = "0.10.2"
 ```
 
 ## Examples
