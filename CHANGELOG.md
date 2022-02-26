@@ -1,3 +1,8 @@
+## v0.9.4, 2022-02-26
+
+* Bugfix release: fix tokio dependency in the drive!
+  macro.
+
 ## v0.9.3, 2021-04-02
 
 * Tweak the socket shutdown code for Unbind to a) actually
