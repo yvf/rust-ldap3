@@ -21,12 +21,14 @@ use lber::structures::{Null, Tag};
 #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
 use futures_util::future::TryFutureExt;
 use futures_util::sink::SinkExt;
+#[cfg(feature = "tls-rustls")]
+use lazy_static::lazy_static;
 #[cfg(feature = "tls-native")]
 use native_tls::TlsConnector;
 #[cfg(unix)]
 use percent_encoding::percent_decode;
 #[cfg(feature = "tls-rustls")]
-use rustls::{Certificate, ClientConfig, ServerName};
+use rustls::{Certificate, ClientConfig, RootCertStore, ServerName};
 use tokio::io::{self, AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::TcpStream;
 #[cfg(unix)]
@@ -70,6 +72,17 @@ impl rustls::client::ServerCertVerifier for NoCertVerification {
     ) -> std::result::Result<rustls::client::ServerCertVerified, rustls::Error> {
         Ok(rustls::client::ServerCertVerified::assertion())
     }
+}
+
+#[cfg(feature = "tls-rustls")]
+lazy_static! {
+    static ref CACERTS: RootCertStore = {
+        let mut store = RootCertStore::empty();
+        for cert in rustls_native_certs::load_native_certs().unwrap_or_else(|_| vec![]) {
+            if let Ok(_) = store.add(&Certificate(cert.0)) {}
+        }
+        store
+    };
 }
 
 impl AsyncRead for ConnType {
@@ -170,9 +183,8 @@ impl LdapConnSettings {
     /// when establishing a secure connection. The default of `None` will
     /// use a configuration with default values.
     ///
-    /// Note that the default configuration has an empty root certificate store.
-    /// If you want to have the server certificate verified, you'll have to create
-    /// a custom configuration.
+    /// The default configuration will try to load the system certificate store
+    /// and use it for verification.
     pub fn set_config(mut self, config: Arc<ClientConfig>) -> Self {
         self.config = Some(config);
         self
@@ -459,7 +471,7 @@ impl LdapConnAsync {
     fn create_config(settings: &LdapConnSettings) -> Arc<ClientConfig> {
         let mut config = ClientConfig::builder()
             .with_safe_defaults()
-            .with_root_certificates(rustls::RootCertStore::empty())
+            .with_root_certificates(CACERTS.clone())
             .with_no_client_auth();
         if settings.no_tls_verify {
             let no_cert_verifier = NoCertVerification;
