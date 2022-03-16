@@ -28,6 +28,12 @@
 //!
 //! * __sync__ (enabled by default): Synchronous API support.
 //!
+//! * __gssapi__ (disabled by default): Kerberos/GSSAPI support. This feature needs Clang
+//!   and its development libraries (for `bindgen`), as well as the Kerberos development
+//!   libraries. On Debian/Ubuntu, that means `clang-N`, `libclang-N-dev` and `libkrb5-dev`.
+//!   It should be clear from these requirements that GSSAPI support uses FFI to C libraries;
+//!   you should consider the security implications of this fact.
+//!
 //! * __tls__ (enabled by default): TLS support, backed by the `native-tls` crate, which uses
 //!  a platform-specific TLS backend. This is an alias for __tls-native__.
 //!

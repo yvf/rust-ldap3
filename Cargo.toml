@@ -28,6 +28,7 @@ tokio-native-tls = { version = "0.3.0", optional = true }
 rustls = { version = "0.20.4", optional = true }
 tokio-rustls = { version = "0.23.2", optional = true, features = ["dangerous_configuration"] }
 rustls-native-certs = { version = "0.6.1", optional = true }
+cross-krb5 = { version = "0.2.2", optional = true }
 maplit = "1.0.2"
 async-trait = "0.1.41"
 
@@ -41,6 +42,7 @@ tls = ["tls-native"]
 tls-native = ["native-tls", "tokio-native-tls", "tokio/rt"]
 tls-rustls = ["rustls", "tokio-rustls", "rustls-native-certs", "tokio/rt"]
 sync = ["tokio/rt"]
+gssapi = ["cross-krb5"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "io-util", "sync", "time", "net", "rt-multi-thread"] }

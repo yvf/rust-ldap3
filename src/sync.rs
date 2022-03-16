@@ -105,6 +105,14 @@ impl LdapConn {
         rt.block_on(async move { ldap.sasl_external_bind().await })
     }
 
+    #[cfg(feature = "gssapi")]
+    /// See [`Ldap::sasl_gssapi_bind()`](struct.Ldap.html#method.sasl_gssapi_bind).
+    pub fn sasl_gssapi_bind(&mut self, server_fqdn: &str) -> Result<LdapResult> {
+        let rt = &mut self.rt;
+        let ldap = &mut self.ldap;
+        rt.block_on(async move { ldap.sasl_gssapi_bind(server_fqdn).await })
+    }
+
     /// See [`Ldap::search()`](struct.Ldap.html#method.search).
     pub fn search<'a, S: AsRef<str> + Send + Sync + 'a, A: AsRef<[S]> + Send + Sync + 'a>(
         &mut self,

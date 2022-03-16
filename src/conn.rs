@@ -4,6 +4,8 @@ use std::net::IpAddr;
 use std::pin::Pin;
 #[cfg(feature = "tls-rustls")]
 use std::str::FromStr;
+#[cfg(feature = "gssapi")]
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::time::Duration;
@@ -415,6 +417,7 @@ impl LdapConnAsync {
                     panic!("underlying stream not TCP");
                 };
                 conn.stream = parts.codec.framed(ConnType::Tls(tls_stream));
+                ldap.has_tls = true;
             }
             _ => unimplemented!(),
         }
@@ -492,7 +495,18 @@ impl LdapConnAsync {
     }
 
     fn conn_pair(ctype: ConnType) -> (Self, Ldap) {
-        let codec = LdapCodec;
+        #[cfg(feature = "gssapi")]
+        let client_ctx = Arc::new(Mutex::new(None));
+        let codec = LdapCodec {
+            #[cfg(feature = "gssapi")]
+            has_decoded_data: false,
+            #[cfg(feature = "gssapi")]
+            sasl_wrap: Arc::new(AtomicBool::new(false)),
+            #[cfg(feature = "gssapi")]
+            client_ctx: client_ctx.clone(),
+        };
+        #[cfg(feature = "gssapi")]
+        let sasl_wrap = codec.sasl_wrap.clone();
         let (tx, rx) = mpsc::unbounded_channel();
         let (id_scrub_tx, id_scrub_rx) = mpsc::unbounded_channel();
         let conn = LdapConnAsync {
@@ -507,6 +521,11 @@ impl LdapConnAsync {
             msgmap: conn.msgmap.clone(),
             tx,
             id_scrub_tx,
+            #[cfg(feature = "gssapi")]
+            sasl_wrap,
+            #[cfg(feature = "gssapi")]
+            client_ctx,
+            has_tls: false,
             last_id: 0,
             timeout: None,
             controls: None,

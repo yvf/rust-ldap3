@@ -4,14 +4,18 @@ A pure-Rust LDAP client library using the Tokio stack.
 
 ### Version notice
 
-Version 0.10 gets a dependencies update, move to Edition 2021, and an
+New after 0.10.2: cross-platform Kerberos/GSSAPI support if compiled
+with the __gssapi__ feature. See `Ldap::sasl_gssapi_bind()`. This feature
+is experimental; expect breaking changes.
+
+The 0.10 branch gets a dependencies update, move to Edition 2021, and an
 experimental API update which lets the user pass either owned or borrowed
 attribute lists. This is a breaking change, especially if you've used or
 written your own search adapters, although type inference should cover
 most cases. If the change is too disruptive, the dual attribute list
 support could be removed in a future release.
 
-Version 0.9 will only get bug fixes.
+The 0.9 branch will only get bug fixes.
 
 ### Documentation
 
@@ -93,8 +97,14 @@ The following features are available at compile time:
 
 * __sync__ (enabled by default): Synchronous API support.
 
+* __gssapi__ (disabled by default): Kerberos/GSSAPI support. This feature needs Clang
+  and its development libraries (for `bindgen`), as well as the Kerberos development
+  libraries. On Debian/Ubuntu, that means `clang-N`, `libclang-N-dev` and `libkrb5-dev`.
+  It should be clear from these requirements that GSSAPI support uses FFI to C libraries;
+  you should consider the security implications of this fact.
+
 * __tls__ (enabled by default): TLS support, backed by the `native-tls` crate, which uses
- a platform-specific TLS backend. This is an alias for __tls-native__.
+  a platform-specific TLS backend. This is an alias for __tls-native__.
 
 * __tls-rustls__ (disabled by default): TLS support, backed by the Rustls library.
 

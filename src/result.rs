@@ -12,6 +12,7 @@ use std::result::Result as StdResult;
 
 use crate::controls::Control;
 use crate::exop::Exop;
+use crate::ldap::SaslCreds;
 use crate::protocol::{LdapOp, MaybeControls, ResultSender};
 use crate::search::parse_refs;
 use crate::search::ResultEntry;
@@ -145,6 +146,16 @@ pub enum LdapError {
     /// Unreconized LDAP URL extension marked as critical.
     #[error("unrecognized critical LDAP URL extension: {0}")]
     UnrecognizedCriticalExtension(String),
+
+    #[cfg(feature = "gssapi")]
+    /// GSSAPI operation error.
+    #[error("GSSAPI operation error: {0}")]
+    GssapiOperationError(String),
+
+    #[cfg(feature = "gssapi")]
+    /// No token received from GSSAPI acceptor.
+    #[error("no token received from acceptor or bad op result (rc={0})")]
+    NoGssapiToken(u32),
 }
 
 impl From<LdapError> for io::Error {
@@ -281,7 +292,7 @@ impl LdapResult {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct LdapResultExt(pub LdapResult, pub Exop);
+pub(crate) struct LdapResultExt(pub LdapResult, pub Exop, pub SaslCreds);
 
 impl From<Tag> for LdapResultExt {
     fn from(t: Tag) -> LdapResultExt {
@@ -300,6 +311,7 @@ impl From<Tag> for LdapResultExt {
                         name: None,
                         val: None,
                     },
+                    SaslCreds(None),
                 )
             }
             _ => unimplemented!(),
@@ -334,12 +346,16 @@ impl From<Tag> for LdapResultExt {
         let mut refs = Vec::new();
         let mut exop_name = None;
         let mut exop_val = None;
+        let mut sasl_creds = None;
         loop {
             match tags.next() {
                 None => break,
                 Some(comp) => match comp.id {
                     3 => {
                         refs.extend(parse_refs(comp));
+                    }
+                    7 => {
+                        sasl_creds = Some(comp.expect_primitive().expect("octet string"));
                     }
                     10 => {
                         exop_name = Some(
@@ -366,6 +382,7 @@ impl From<Tag> for LdapResultExt {
                 name: exop_name,
                 val: exop_val,
             },
+            SaslCreds(sasl_creds),
         )
     }
 }

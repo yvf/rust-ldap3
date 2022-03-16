@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 use std::hash::Hash;
+#[cfg(feature = "gssapi")]
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -17,9 +19,15 @@ use crate::RequestId;
 use lber::common::TagClass;
 use lber::structures::{Boolean, Enumerated, Integer, Null, OctetString, Sequence, Set, Tag};
 
+#[cfg(feature = "gssapi")]
+use cross_krb5::{ClientCtx, InitiateFlags, K5Ctx};
 use maplit::hashset;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time;
+
+/// SASL bind exchange wrapper.
+#[derive(Clone, Debug)]
+pub(crate) struct SaslCreds(pub Option<Vec<u8>>);
 
 /// Possible sub-operations for the Modify operation.
 #[derive(Clone, Debug, PartialEq)]
@@ -70,6 +78,11 @@ pub struct Ldap {
     pub(crate) tx: mpsc::UnboundedSender<(RequestId, LdapOp, Tag, MaybeControls, ResultSender)>,
     pub(crate) id_scrub_tx: mpsc::UnboundedSender<RequestId>,
     pub(crate) last_id: RequestId,
+    #[cfg(feature = "gssapi")]
+    pub(crate) sasl_wrap: Arc<AtomicBool>,
+    #[cfg(feature = "gssapi")]
+    pub(crate) client_ctx: Arc<Mutex<Option<ClientCtx>>>,
+    pub(crate) has_tls: bool,
     pub timeout: Option<Duration>,
     pub controls: MaybeControls,
     pub search_opts: Option<SearchOptions>,
@@ -81,12 +94,49 @@ impl Clone for Ldap {
             msgmap: self.msgmap.clone(),
             tx: self.tx.clone(),
             id_scrub_tx: self.id_scrub_tx.clone(),
+            #[cfg(feature = "gssapi")]
+            sasl_wrap: self.sasl_wrap.clone(),
+            #[cfg(feature = "gssapi")]
+            client_ctx: self.client_ctx.clone(),
+            has_tls: self.has_tls,
             last_id: 0,
             timeout: None,
             controls: None,
             search_opts: None,
         }
     }
+}
+
+fn sasl_bind_req(mech: &str, creds: Option<&[u8]>) -> Tag {
+    let mut inner_vec = vec![Tag::OctetString(OctetString {
+        inner: Vec::from(mech),
+        ..Default::default()
+    })];
+    if let Some(creds) = creds {
+        inner_vec.push(Tag::OctetString(OctetString {
+            inner: creds.to_vec(),
+            ..Default::default()
+        }));
+    }
+    Tag::Sequence(Sequence {
+        id: 0,
+        class: TagClass::Application,
+        inner: vec![
+            Tag::Integer(Integer {
+                inner: 3,
+                ..Default::default()
+            }),
+            Tag::OctetString(OctetString {
+                inner: Vec::new(),
+                ..Default::default()
+            }),
+            Tag::Sequence(Sequence {
+                id: 3,
+                class: TagClass::Context,
+                inner: inner_vec,
+            }),
+        ],
+    })
 }
 
 impl Ldap {
@@ -113,7 +163,11 @@ impl Ldap {
         next_ldap_id
     }
 
-    pub(crate) async fn op_call(&mut self, op: LdapOp, req: Tag) -> Result<(LdapResult, Exop)> {
+    pub(crate) async fn op_call(
+        &mut self,
+        op: LdapOp,
+        req: Tag,
+    ) -> Result<(LdapResult, Exop, SaslCreds)> {
         let id = self.next_msgid();
         self.last_id = id;
         let (tx, rx) = oneshot::channel();
@@ -128,9 +182,9 @@ impl Ldap {
             rx.await
         }?;
         let (ldap_ext, controls) = (LdapResultExt::from(response.0), response.1);
-        let (mut result, exop) = (ldap_ext.0, ldap_ext.1);
+        let (mut result, exop, sasl_creds) = (ldap_ext.0, ldap_ext.1, ldap_ext.2);
         result.ctrls = controls;
-        Ok((result, exop))
+        Ok((result, exop, sasl_creds))
     }
 
     /// Check whether the underlying connection has been closed.
@@ -204,40 +258,76 @@ impl Ldap {
         Ok(self.op_call(LdapOp::Single, req).await?.0)
     }
 
-    /// Do a SASL EXTERNAL bind on the connection. The identity of the client
+    /// Do an SASL EXTERNAL bind on the connection. The identity of the client
     /// must have already been established by connection-specific methods, as
     /// is the case for Unix domain sockets or TLS client certificates. The bind
     /// is made with the hardcoded empty authzId value.
     pub async fn sasl_external_bind(&mut self) -> Result<LdapResult> {
-        let req = Tag::Sequence(Sequence {
-            id: 0,
-            class: TagClass::Application,
-            inner: vec![
-                Tag::Integer(Integer {
-                    inner: 3,
-                    ..Default::default()
-                }),
-                Tag::OctetString(OctetString {
-                    inner: Vec::new(),
-                    ..Default::default()
-                }),
-                Tag::Sequence(Sequence {
-                    id: 3,
-                    class: TagClass::Context,
-                    inner: vec![
-                        Tag::OctetString(OctetString {
-                            inner: Vec::from("EXTERNAL"),
-                            ..Default::default()
-                        }),
-                        Tag::OctetString(OctetString {
-                            inner: Vec::new(),
-                            ..Default::default()
-                        }),
-                    ],
-                }),
-            ],
-        });
+        let req = sasl_bind_req("EXTERNAL", None);
         Ok(self.op_call(LdapOp::Single, req).await?.0)
+    }
+
+    #[cfg(feature = "gssapi")]
+    /// Do an SASL GSSAPI bind on the connection, using the default Kerberos credentials
+    /// for the current user and `server_fqdn` for the LDAP server SPN. If the connection
+    /// is in the clear, request and install the Kerberos confidentiality protection
+    /// (i.e., encryption) security layer. If the connection is already encrypted with TLS,
+    /// use Kerberos just for authentication and proceed with no security layer.
+    ///
+    /// __Note__: this feature is experimental. Expect breaking changes to the function
+    /// signature and functionality.
+    pub async fn sasl_gssapi_bind(&mut self, server_fqdn: &str) -> Result<LdapResult> {
+        const GSSAUTH_P_NONE: u8 = 1;
+        const GSSAUTH_P_PRIVACY: u8 = 4;
+
+        let mut spn = String::from("ldap/");
+        spn.push_str(server_fqdn);
+        let (client_ctx, token) = ClientCtx::initiate(InitiateFlags::empty(), None, &spn)
+            .map_err(|e| LdapError::GssapiOperationError(format!("{:#}", e)))?;
+        let req = sasl_bind_req("GSSAPI", Some(&token));
+        let ans = self.op_call(LdapOp::Single, req).await?;
+        let token = match (ans.2).0 {
+            Some(token) if (ans.0).rc == 14 => token,
+            _ => return Err(LdapError::NoGssapiToken((ans.0).rc)),
+        };
+        let mut client_ctx = client_ctx
+            .finish(&token)
+            .map_err(|e| LdapError::GssapiOperationError(format!("{:#}", e)))?;
+        let req = sasl_bind_req("GSSAPI", None);
+        let ans = self.op_call(LdapOp::Single, req).await?;
+        let token = match (ans.2).0 {
+            Some(token) if (ans.0).rc == 14 => token,
+            _ => return Err(LdapError::NoGssapiToken((ans.0).rc)),
+        };
+        let buf = client_ctx
+            .unwrap(&token)
+            .map_err(|e| LdapError::GssapiOperationError(format!("{:#}", e)))?;
+        let needed_layer = if self.has_tls {
+            GSSAUTH_P_NONE
+        } else {
+            GSSAUTH_P_PRIVACY
+        };
+        if buf[0] | needed_layer == 0 {
+            return Err(LdapError::GssapiOperationError(format!(
+                "no appropriate security layer offered: needed {}, mask {}",
+                needed_layer, buf[0]
+            )));
+        }
+        // FIXME: the max_size constant is taken from OpenLDAP GSSAPI code as a fallback
+        // value for broken GSSAPI libraries. It's meant to serve as a safe value until
+        // gss_wrap_size_limit() equivalent is available in cross-krb5.
+        let send_max_size = (0x9FFFB8u32 | (needed_layer as u32) << 24).to_be_bytes();
+        let size_msg = client_ctx
+            .wrap(true, &send_max_size)
+            .map_err(|e| LdapError::GssapiOperationError(format!("{:#}", e)))?;
+        let req = sasl_bind_req("GSSAPI", Some(&size_msg));
+        let res = self.op_call(LdapOp::Single, req).await?.0;
+        if needed_layer == GSSAUTH_P_PRIVACY {
+            self.sasl_wrap.swap(true, Ordering::Relaxed);
+        }
+        let client_opt = &mut *self.client_ctx.lock().unwrap();
+        client_opt.replace(client_ctx);
+        Ok(res)
     }
 
     /// Perform a Search with the given base DN (`base`), scope, filter, and
