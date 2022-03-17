@@ -154,8 +154,8 @@ pub enum LdapError {
 
     #[cfg(feature = "gssapi")]
     /// No token received from GSSAPI acceptor.
-    #[error("no token received from acceptor or bad op result (rc={0})")]
-    NoGssapiToken(u32),
+    #[error("no token received from acceptor")]
+    NoGssapiToken,
 }
 
 impl From<LdapError> for io::Error {

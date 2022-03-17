@@ -277,6 +277,7 @@ impl Ldap {
     /// __Note__: this feature is experimental. Expect breaking changes to the function
     /// signature and functionality.
     pub async fn sasl_gssapi_bind(&mut self, server_fqdn: &str) -> Result<LdapResult> {
+        const LDAP_RESULT_SASL_BIND_IN_PROGRESS: u32 = 14;
         const GSSAUTH_P_NONE: u8 = 1;
         const GSSAUTH_P_PRIVACY: u8 = 4;
 
@@ -286,18 +287,24 @@ impl Ldap {
             .map_err(|e| LdapError::GssapiOperationError(format!("{:#}", e)))?;
         let req = sasl_bind_req("GSSAPI", Some(&token));
         let ans = self.op_call(LdapOp::Single, req).await?;
+        if (ans.0).rc != LDAP_RESULT_SASL_BIND_IN_PROGRESS {
+            return Ok(ans.0);
+        }
         let token = match (ans.2).0 {
-            Some(token) if (ans.0).rc == 14 => token,
-            _ => return Err(LdapError::NoGssapiToken((ans.0).rc)),
+            Some(token) => token,
+            _ => return Err(LdapError::NoGssapiToken),
         };
         let mut client_ctx = client_ctx
             .finish(&token)
             .map_err(|e| LdapError::GssapiOperationError(format!("{:#}", e)))?;
         let req = sasl_bind_req("GSSAPI", None);
         let ans = self.op_call(LdapOp::Single, req).await?;
+        if (ans.0).rc != LDAP_RESULT_SASL_BIND_IN_PROGRESS {
+            return Ok(ans.0);
+        }
         let token = match (ans.2).0 {
-            Some(token) if (ans.0).rc == 14 => token,
-            _ => return Err(LdapError::NoGssapiToken((ans.0).rc)),
+            Some(token) => token,
+            _ => return Err(LdapError::NoGssapiToken),
         };
         let buf = client_ctx
             .unwrap(&token)
@@ -322,11 +329,13 @@ impl Ldap {
             .map_err(|e| LdapError::GssapiOperationError(format!("{:#}", e)))?;
         let req = sasl_bind_req("GSSAPI", Some(&size_msg));
         let res = self.op_call(LdapOp::Single, req).await?.0;
-        if needed_layer == GSSAUTH_P_PRIVACY {
-            self.sasl_wrap.swap(true, Ordering::Relaxed);
+        if res.rc == 0 {
+            if needed_layer == GSSAUTH_P_PRIVACY {
+                self.sasl_wrap.swap(true, Ordering::Relaxed);
+            }
+            let client_opt = &mut *self.client_ctx.lock().unwrap();
+            client_opt.replace(client_ctx);
         }
-        let client_opt = &mut *self.client_ctx.lock().unwrap();
-        client_opt.replace(client_ctx);
         Ok(res)
     }
 
