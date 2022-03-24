@@ -20,7 +20,7 @@ use lber::common::TagClass;
 use lber::structures::{Boolean, Enumerated, Integer, Null, OctetString, Sequence, Set, Tag};
 
 #[cfg(feature = "gssapi")]
-use cross_krb5::{ClientCtx, InitiateFlags, K5Ctx};
+use cross_krb5::{ClientCtx, InitiateFlags, K5Ctx, Step};
 use maplit::hashset;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time;
@@ -82,6 +82,8 @@ pub struct Ldap {
     pub(crate) sasl_wrap: Arc<AtomicBool>,
     #[cfg(feature = "gssapi")]
     pub(crate) client_ctx: Arc<Mutex<Option<ClientCtx>>>,
+    #[cfg(feature = "gssapi")]
+    pub(crate) tls_endpoint_token: Arc<Option<Vec<u8>>>,
     pub(crate) has_tls: bool,
     pub timeout: Option<Duration>,
     pub controls: MaybeControls,
@@ -98,6 +100,8 @@ impl Clone for Ldap {
             sasl_wrap: self.sasl_wrap.clone(),
             #[cfg(feature = "gssapi")]
             client_ctx: self.client_ctx.clone(),
+            #[cfg(feature = "gssapi")]
+            tls_endpoint_token: self.tls_endpoint_token.clone(),
             has_tls: self.has_tls,
             last_id: 0,
             timeout: None,
@@ -274,8 +278,13 @@ impl Ldap {
     /// (i.e., encryption) security layer. If the connection is already encrypted with TLS,
     /// use Kerberos just for authentication and proceed with no security layer.
     ///
-    /// __Note__: this feature is experimental. Expect breaking changes to the function
-    /// signature and functionality.
+    /// On TLS connections, the __tls-server-end-point__ channel binding token will be
+    /// supplied to the server if possible. This enables binding to Active Directory servers
+    /// with the strictest LDAP channel binding enforcement policy.
+    ///
+    /// The underlying GSSAPI libraries issue blocking filesystem and network calls when
+    /// querying the ticket cache or the Kerberos servers.  Therefore, the function should not
+    /// be used in heavily concurrent contexts with frequent Bind operations.
     pub async fn sasl_gssapi_bind(&mut self, server_fqdn: &str) -> Result<LdapResult> {
         const LDAP_RESULT_SASL_BIND_IN_PROGRESS: u32 = 14;
         const GSSAUTH_P_NONE: u8 = 1;
@@ -283,8 +292,22 @@ impl Ldap {
 
         let mut spn = String::from("ldap/");
         spn.push_str(server_fqdn);
-        let (client_ctx, token) = ClientCtx::initiate(InitiateFlags::empty(), None, &spn)
-            .map_err(|e| LdapError::GssapiOperationError(format!("{:#}", e)))?;
+        let cti = if self.has_tls {
+            let cbt = {
+                let mut cbt = Vec::from(&b"tls-server-end-point:"[..]);
+                if let Some(ref token) = self.tls_endpoint_token.as_ref() {
+                    cbt.extend(token);
+                    Some(cbt)
+                } else {
+                    None
+                }
+            };
+            ClientCtx::new(InitiateFlags::empty(), None, &spn, cbt.as_deref())
+        } else {
+            ClientCtx::new(InitiateFlags::empty(), None, &spn, None)
+        };
+        let (client_ctx, token) =
+            cti.map_err(|e| LdapError::GssapiOperationError(format!("{:#}", e)))?;
         let req = sasl_bind_req("GSSAPI", Some(&token));
         let ans = self.op_call(LdapOp::Single, req).await?;
         if (ans.0).rc != LDAP_RESULT_SASL_BIND_IN_PROGRESS {
@@ -294,9 +317,17 @@ impl Ldap {
             Some(token) => token,
             _ => return Err(LdapError::NoGssapiToken),
         };
-        let mut client_ctx = client_ctx
-            .finish(&token)
+        let step = client_ctx
+            .step(&token)
             .map_err(|e| LdapError::GssapiOperationError(format!("{:#}", e)))?;
+        let mut client_ctx = match step {
+            Step::Finished((ctx, None)) => ctx,
+            _ => {
+                return Err(LdapError::GssapiOperationError(format!(
+                    "GSSAPI exchange not finished or has an additional token"
+                )))
+            }
+        };
         let req = sasl_bind_req("GSSAPI", None);
         let ans = self.op_call(LdapOp::Single, req).await?;
         if (ans.0).rc != LDAP_RESULT_SASL_BIND_IN_PROGRESS {

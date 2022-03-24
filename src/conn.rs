@@ -29,6 +29,8 @@ use lazy_static::lazy_static;
 use native_tls::TlsConnector;
 #[cfg(unix)]
 use percent_encoding::percent_decode;
+#[cfg(all(feature = "gssapi", feature = "tls-rustls"))]
+use ring::digest::{self, digest, Algorithm};
 #[cfg(feature = "tls-rustls")]
 use rustls::{Certificate, ClientConfig, RootCertStore, ServerName};
 use tokio::io::{self, AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
@@ -84,6 +86,24 @@ lazy_static! {
             if let Ok(_) = store.add(&Certificate(cert.0)) {}
         }
         store
+    };
+}
+
+#[cfg(all(feature = "gssapi", feature = "tls-rustls"))]
+lazy_static! {
+    static ref ENDPOINT_ALG: HashMap<&'static str, &'static Algorithm> = {
+        use maplit::hashmap;
+
+        hashmap! {
+            "1.2.840.113549.1.1.4" => &digest::SHA256,
+            "1.2.840.113549.1.1.5" => &digest::SHA256,
+            "1.2.840.113549.1.1.11" => &digest::SHA256,
+            "1.2.840.113549.1.1.12" => &digest::SHA384,
+            "1.2.840.113549.1.1.13" => &digest::SHA512,
+            "1.2.840.10045.4.3.2" => &digest::SHA256,
+            "1.2.840.10045.4.3.3" => &digest::SHA384,
+            "1.2.840.10045.4.3.4" => &digest::SHA512,
+        }
     };
 }
 
@@ -416,6 +436,11 @@ impl LdapConnAsync {
                 } else {
                     panic!("underlying stream not TCP");
                 };
+                #[cfg(feature = "gssapi")]
+                {
+                    ldap.tls_endpoint_token =
+                        Arc::new(LdapConnAsync::get_tls_endpoint_token(&tls_stream));
+                }
                 conn.stream = parts.codec.framed(ConnType::Tls(tls_stream));
                 ldap.has_tls = true;
             }
@@ -494,6 +519,48 @@ impl LdapConnAsync {
         builder.build().expect("connector")
     }
 
+    #[cfg(all(feature = "gssapi", feature = "tls-native"))]
+    fn get_tls_endpoint_token(s: &TlsStream<TcpStream>) -> Option<Vec<u8>> {
+        match s.get_ref().tls_server_end_point() {
+            Ok(ep) => {
+                if ep.is_none() {
+                    warn!("no endpoint token returned");
+                }
+                ep
+            }
+            Err(e) => {
+                warn!("error calculating endpoint token: {}", e);
+                None
+            }
+        }
+    }
+
+    #[cfg(all(feature = "gssapi", feature = "tls-rustls"))]
+    fn get_tls_endpoint_token(s: &TlsStream<TcpStream>) -> Option<Vec<u8>> {
+        use x509_parser::prelude::*;
+
+        if let Some(certs) = s.get_ref().1.peer_certificates() {
+            let peer_cert = &certs[0].0;
+            let leaf = match X509Certificate::from_der(peer_cert) {
+                Ok(leaf) => leaf,
+                Err(e) => {
+                    warn!("error parsing peer certificate: {}", e);
+                    return None;
+                }
+            };
+            let sigalg = leaf.1.signature_algorithm.algorithm.to_id_string();
+            if let Some(alg) = ENDPOINT_ALG.get(&*sigalg) {
+                Some(Vec::from(digest(alg, peer_cert).as_ref()))
+            } else {
+                warn!("unknown signature algorithm, oid={}", sigalg);
+                None
+            }
+        } else {
+            warn!("no peer certificates found");
+            None
+        }
+    }
+
     fn conn_pair(ctype: ConnType) -> (Self, Ldap) {
         #[cfg(feature = "gssapi")]
         let client_ctx = Arc::new(Mutex::new(None));
@@ -525,6 +592,8 @@ impl LdapConnAsync {
             sasl_wrap,
             #[cfg(feature = "gssapi")]
             client_ctx,
+            #[cfg(feature = "gssapi")]
+            tls_endpoint_token: Arc::new(None),
             has_tls: false,
             last_id: 0,
             timeout: None,
