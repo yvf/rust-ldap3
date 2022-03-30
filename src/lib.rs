@@ -93,6 +93,8 @@
 //! }
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 #[macro_use]
 extern crate nom;
 #[doc(hidden)]

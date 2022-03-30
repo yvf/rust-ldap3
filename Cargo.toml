@@ -50,5 +50,10 @@ gssapi = ["cross-krb5"]
 tokio = { version = "1", features = ["macros", "io-util", "sync", "time", "net", "rt-multi-thread"] }
 env_logger = "0.9.0"
 
+[package.metadata.docs.rs]
+default-features = false
+features = ["sync", "tls", "gssapi"]
+rustdoc-args = ["--cfg", "docsrs"]
+
 [workspace]
 members = [".", "lber"]

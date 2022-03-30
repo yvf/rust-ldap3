@@ -271,6 +271,7 @@ impl Ldap {
         Ok(self.op_call(LdapOp::Single, req).await?.0)
     }
 
+    #[cfg_attr(docsrs, doc(cfg(feature = "gssapi")))]
     #[cfg(feature = "gssapi")]
     /// Do an SASL GSSAPI bind on the connection, using the default Kerberos credentials
     /// for the current user and `server_fqdn` for the LDAP server SPN. If the connection
@@ -283,7 +284,7 @@ impl Ldap {
     /// with the strictest LDAP channel binding enforcement policy.
     ///
     /// The underlying GSSAPI libraries issue blocking filesystem and network calls when
-    /// querying the ticket cache or the Kerberos servers.  Therefore, the function should not
+    /// querying the ticket cache or the Kerberos servers. Therefore, the method should not
     /// be used in heavily concurrent contexts with frequent Bind operations.
     pub async fn sasl_gssapi_bind(&mut self, server_fqdn: &str) -> Result<LdapResult> {
         const LDAP_RESULT_SASL_BIND_IN_PROGRESS: u32 = 14;

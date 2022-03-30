@@ -105,6 +105,7 @@ impl LdapConn {
         rt.block_on(async move { ldap.sasl_external_bind().await })
     }
 
+    #[cfg_attr(docsrs, doc(cfg(feature = "gssapi")))]
     #[cfg(feature = "gssapi")]
     /// See [`Ldap::sasl_gssapi_bind()`](struct.Ldap.html#method.sasl_gssapi_bind).
     pub fn sasl_gssapi_bind(&mut self, server_fqdn: &str) -> Result<LdapResult> {
