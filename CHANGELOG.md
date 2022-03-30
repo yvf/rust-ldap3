@@ -1,3 +1,14 @@
+## v0.10.3, 2022-03-30
+
+* Add support for cross-platform Kerberos/GSSAPI authentication
+  and SASL security layer. Authentication over TLS connections
+  will provide the "tls-server-end-point" channel binding token
+  to the server to maximize Active Directory interoperability.
+
+  GSSAPI support is behind the compile-time "gssapi" feature
+  which is off by default, since it requires FFI to C libraries
+  with a checkered security history.
+
 ## v0.10.2, 2022-02-26
 
 * Use the native root certificate store for rustls cert

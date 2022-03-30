@@ -4,9 +4,10 @@ A pure-Rust LDAP client library using the Tokio stack.
 
 ### Version notice
 
-New after 0.10.2: cross-platform Kerberos/GSSAPI support if compiled
-with the __gssapi__ feature. See `Ldap::sasl_gssapi_bind()`. This feature
-is experimental; expect breaking changes.
+New starting with 0.10.3: cross-platform Kerberos/GSSAPI support if compiled
+with the __gssapi__ feature. This feature enables the use of integrated Windows
+authentication in Active Directory domains. See the description of the feature
+in this README for the details of compile-time requirements.
 
 The 0.10 branch gets a dependencies update, move to Edition 2021, and an
 experimental API update which lets the user pass either owned or borrowed
@@ -19,7 +20,7 @@ The 0.9 branch will only get bug fixes.
 
 ### Documentation
 
-- [Version 0.10.x](https://docs.rs/ldap3/0.10.2/ldap3/)
+- [Version 0.10.x](https://docs.rs/ldap3/0.10.3/ldap3/)
 
 - [Version 0.9.x](https://docs.rs/ldap3/0.9.4/ldap3/)
 
@@ -38,7 +39,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies.ldap3]
-version = "0.10.2"
+version = "0.10.3"
 ```
 
 ## Examples
@@ -97,11 +98,15 @@ The following features are available at compile time:
 
 * __sync__ (enabled by default): Synchronous API support.
 
-* __gssapi__ (disabled by default): Kerberos/GSSAPI support. This feature needs Clang
-  and its development libraries (for `bindgen`), as well as the Kerberos development
-  libraries. On Debian/Ubuntu, that means `clang-N`, `libclang-N-dev` and `libkrb5-dev`.
-  It should be clear from these requirements that GSSAPI support uses FFI to C libraries;
-  you should consider the security implications of this fact.
+* __gssapi__ (disabled by default): Kerberos/GSSAPI support. On Windows, system support
+  crates and SDK libraries are used. Elsewhere, the feature needs Clang and its development
+  libraries (for `bindgen`), as well as the Kerberos development libraries. On Debian/Ubuntu,
+  that means `clang-N`, `libclang-N-dev` and `libkrb5-dev`. It should be clear from these
+  requirements that GSSAPI support uses FFI to C libraries; you should consider the security
+  implications of this fact.
+
+  For usage notes and caveats, see the documentation for `Ldap::sasl_gssapi_bind()` in
+  the API reference.
 
 * __tls__ (enabled by default): TLS support, backed by the `native-tls` crate, which uses
   a platform-specific TLS backend. This is an alias for __tls-native__.
