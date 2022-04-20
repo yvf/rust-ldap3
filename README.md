@@ -31,16 +31,16 @@ It supports only version 3 of the protocol over connection-oriented transports.
 
 ## Usage
 
-The library can be used either synchronously or asynchronously. The aim is to
-offer essentially the same call interface for both flavors, with the necessary
-differences in interaction and return values according to the nature of I/O.
-
 Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies.ldap3]
 version = "0.10.3"
 ```
+
+The library can be used either synchronously or asynchronously. The aim is to
+offer essentially the same call interface for both flavors, with the necessary
+differences in interaction and return values according to the nature of I/O.
 
 ## Examples
 

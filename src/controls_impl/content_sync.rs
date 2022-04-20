@@ -95,6 +95,7 @@ pub struct SyncState {
     pub cookie: Option<Vec<u8>>,
 }
 
+/// Possible states for the Sync State control.
 #[derive(Debug)]
 pub enum EntryState {
     Present,

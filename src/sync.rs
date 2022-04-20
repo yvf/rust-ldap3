@@ -24,6 +24,7 @@ use url::Url;
 /// The API is virtually identical to the asynchronous one. The chief difference is
 /// that `LdapConn` is not cloneable: if you need another handle, you must open a
 /// new connection.
+#[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
 #[derive(Debug)]
 pub struct LdapConn {
     rt: Runtime,
@@ -271,6 +272,7 @@ impl LdapConn {
 /// Tokio runtime with `LdapConn` from which it's obtained, but the two can't be
 /// used in parallel, which is enforced by capturing the reference to `LdapConn`
 /// during the lifetime of `EntryStream`.
+#[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
 pub struct EntryStream<'a, 'b, S, A> {
     stream: SearchStream<'a, S, A>,
     conn: &'b mut LdapConn,
