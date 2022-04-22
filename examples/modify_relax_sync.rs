@@ -6,10 +6,11 @@
 // method will return an error indicating that structural
 // object class modification is not allowed.
 
+use std::collections::HashSet;
+
 use ldap3::controls::{MakeCritical, RelaxRules};
 use ldap3::result::Result;
 use ldap3::{LdapConn, Mod, Scope};
-use maplit::hashset;
 
 fn main() -> Result<()> {
     let mut ldap = LdapConn::new("ldap://localhost:2389")?;
@@ -25,16 +26,16 @@ fn main() -> Result<()> {
         .success()?;
     let mod_vec = match rs.len() {
         0 => vec![
-            Mod::Delete("objectClass", hashset! {"inetOrgPerson"}),
-            Mod::Delete("sn", hashset! {"Nejgebauer"}),
-            Mod::Delete("cn", hashset! {"Ivan Nejgebauer"}),
-            Mod::Add("objectClass", hashset! {"account"}),
+            Mod::Delete("objectClass", HashSet::from(["inetOrgPerson"])),
+            Mod::Delete("sn", HashSet::from(["Nejgebauer"])),
+            Mod::Delete("cn", HashSet::from(["Ivan Nejgebauer"])),
+            Mod::Add("objectClass", HashSet::from(["account"])),
         ],
         1 => vec![
-            Mod::Delete("objectClass", hashset! {"account"}),
-            Mod::Add("objectClass", hashset! {"inetOrgPerson"}),
-            Mod::Add("sn", hashset! {"Nejgebauer"}),
-            Mod::Add("cn", hashset! {"Ivan Nejgebauer"}),
+            Mod::Delete("objectClass", HashSet::from(["account"])),
+            Mod::Add("objectClass", HashSet::from(["inetOrgPerson"])),
+            Mod::Add("sn", HashSet::from(["Nejgebauer"])),
+            Mod::Add("cn", HashSet::from(["Ivan Nejgebauer"])),
         ],
         _ => panic!("unexpected result count"),
     };

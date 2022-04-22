@@ -92,18 +92,16 @@ lazy_static! {
 #[cfg(all(feature = "gssapi", feature = "tls-rustls"))]
 lazy_static! {
     static ref ENDPOINT_ALG: HashMap<&'static str, &'static Algorithm> = {
-        use maplit::hashmap;
-
-        hashmap! {
-            "1.2.840.113549.1.1.4" => &digest::SHA256,
-            "1.2.840.113549.1.1.5" => &digest::SHA256,
-            "1.2.840.113549.1.1.11" => &digest::SHA256,
-            "1.2.840.113549.1.1.12" => &digest::SHA384,
-            "1.2.840.113549.1.1.13" => &digest::SHA512,
-            "1.2.840.10045.4.3.2" => &digest::SHA256,
-            "1.2.840.10045.4.3.3" => &digest::SHA384,
-            "1.2.840.10045.4.3.4" => &digest::SHA512,
-        }
+        HashMap::from([
+            ("1.2.840.113549.1.1.4", &digest::SHA256),
+            ("1.2.840.113549.1.1.5", &digest::SHA256),
+            ("1.2.840.113549.1.1.11", &digest::SHA256),
+            ("1.2.840.113549.1.1.12", &digest::SHA384),
+            ("1.2.840.113549.1.1.13", &digest::SHA512),
+            ("1.2.840.10045.4.3.2", &digest::SHA256),
+            ("1.2.840.10045.4.3.3", &digest::SHA384),
+            ("1.2.840.10045.4.3.4", &digest::SHA512),
+        ])
     };
 }
 

@@ -21,7 +21,6 @@ use lber::structures::{Boolean, Enumerated, Integer, Null, OctetString, Sequence
 
 #[cfg(feature = "gssapi")]
 use cross_krb5::{ClientCtx, InitiateFlags, K5Ctx, Step};
-use maplit::hashset;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time;
 
@@ -580,7 +579,7 @@ impl Ldap {
                                 }
                                 Mod::Delete(attr, set) => (1, attr, set),
                                 Mod::Replace(attr, set) => (2, attr, set),
-                                Mod::Increment(attr, val) => (3, attr, hashset! { val }),
+                                Mod::Increment(attr, val) => (3, attr, HashSet::from([val])),
                             };
                             if set.is_empty() && is_add {
                                 any_add_empty = true;

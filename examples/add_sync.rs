@@ -1,8 +1,9 @@
 // Demonstrates the Add operation.
 
+use std::collections::HashSet;
+
 use ldap3::result::Result;
 use ldap3::LdapConn;
-use maplit::hashset;
 
 fn main() -> Result<()> {
     let mut ldap = LdapConn::new("ldap://localhost:2389")?;
@@ -12,10 +13,10 @@ fn main() -> Result<()> {
         .add(
             "uid=extra,ou=People,dc=example,dc=org",
             vec![
-                ("objectClass", hashset! {"inetOrgPerson"}),
-                ("uid", hashset! {"extra"}),
-                ("cn", hashset! {"Extra User"}),
-                ("sn", hashset! {"User"}),
+                ("objectClass", HashSet::from(["inetOrgPerson"])),
+                ("uid", HashSet::from(["extra"])),
+                ("cn", HashSet::from(["Extra User"])),
+                ("sn", HashSet::from(["User"])),
             ],
         )?
         .success()?;
