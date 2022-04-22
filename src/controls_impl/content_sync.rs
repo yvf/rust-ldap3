@@ -136,11 +136,9 @@ impl ControlParser for SyncState {
             .expect("syncstate: element 2")
             .expect_primitive()
             .expect("syncstate: entryUUID");
-        let cookie = if let Some(tag) = tags.next() {
-            Some(tag.expect_primitive().expect("syncstate: synCookie"))
-        } else {
-            None
-        };
+        let cookie = tags
+            .next()
+            .map(|tag| tag.expect_primitive().expect("syncstate: synCookie"));
         SyncState {
             state,
             entry_uuid,

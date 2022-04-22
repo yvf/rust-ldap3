@@ -323,8 +323,8 @@ impl Ldap {
         let mut client_ctx = match step {
             Step::Finished((ctx, None)) => ctx,
             _ => {
-                return Err(LdapError::GssapiOperationError(format!(
-                    "GSSAPI exchange not finished or has an additional token"
+                return Err(LdapError::GssapiOperationError(String::from(
+                    "GSSAPI exchange not finished or has an additional token",
                 )))
             }
         };

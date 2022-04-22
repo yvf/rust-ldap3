@@ -45,6 +45,7 @@ pub enum LdapOp {
     Unbind,
 }
 
+#[allow(clippy::type_complexity)]
 fn decode_inner(buf: &mut BytesMut) -> Result<Option<(RequestId, (Tag, Vec<Control>))>, io::Error> {
     let decoding_error = io::Error::new(io::ErrorKind::Other, "decoding error");
     let mut parser = Parser::new();

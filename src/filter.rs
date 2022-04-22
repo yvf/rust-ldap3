@@ -1,4 +1,5 @@
 #![allow(clippy::blocks_in_if_conditions)]
+#![allow(clippy::result_unit_err)]
 
 use std::default::Default;
 use std::str;
@@ -399,9 +400,7 @@ named!(
 named!(
     descr<&[u8]>,
     recognize!(do_parse!(
-        _leading: verify!(be_u8, |a: u8| is_alphabetic(a))
-            >> _rest: take_while!(is_alnum_hyphen)
-            >> ()
+        _leading: verify!(be_u8, is_alphabetic) >> _rest: take_while!(is_alnum_hyphen) >> ()
     ))
 );
 

@@ -403,8 +403,8 @@ impl LdapConnAsync {
             port = url_port;
         }
         let (_hostname, host_port) = match url.host_str() {
-            Some(h) if h != "" => (h, format!("{}:{}", h, port)),
-            Some(h) if h == "" => ("localhost", format!("localhost:{}", port)),
+            Some(h) if !h.is_empty() => (h, format!("{}:{}", h, port)),
+            Some(h) if !h.is_empty() => ("localhost", format!("localhost:{}", port)),
             _ => panic!("unexpected None from url.host_str()"),
         };
         let stream = TcpStream::connect(host_port.as_str()).await?;
@@ -430,7 +430,7 @@ impl LdapConnAsync {
                 }
                 let parts = conn.stream.into_parts();
                 let tls_stream = if let ConnType::Tcp(stream) = parts.io {
-                    LdapConnAsync::create_tls_stream(settings, &_hostname, stream).await?
+                    LdapConnAsync::create_tls_stream(settings, _hostname, stream).await?
                 } else {
                     panic!("underlying stream not TCP");
                 };

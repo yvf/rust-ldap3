@@ -150,15 +150,15 @@ pub enum LdapUrlExt<'a> {
 
 impl<'a> PartialEq for LdapUrlExt<'a> {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (LdapUrlExt::Bindname(_), LdapUrlExt::Bindname(_)) => true,
-            (LdapUrlExt::XBindpw(_), LdapUrlExt::XBindpw(_)) => true,
-            (LdapUrlExt::Credentials(_), LdapUrlExt::Credentials(_)) => true,
-            (LdapUrlExt::SaslMech(_), LdapUrlExt::SaslMech(_)) => true,
-            (LdapUrlExt::StartTLS, LdapUrlExt::StartTLS) => true,
-            (LdapUrlExt::Unknown(_), LdapUrlExt::Unknown(_)) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (LdapUrlExt::Bindname(_), LdapUrlExt::Bindname(_))
+                | (LdapUrlExt::XBindpw(_), LdapUrlExt::XBindpw(_))
+                | (LdapUrlExt::Credentials(_), LdapUrlExt::Credentials(_))
+                | (LdapUrlExt::SaslMech(_), LdapUrlExt::SaslMech(_))
+                | (LdapUrlExt::StartTLS, LdapUrlExt::StartTLS)
+                | (LdapUrlExt::Unknown(_), LdapUrlExt::Unknown(_))
+        )
     }
 }
 
@@ -270,7 +270,7 @@ pub fn get_url_params(url: &Url) -> Result<LdapUrlParams<'_>> {
                     let mut crit = false;
                     let mut idv = ext.splitn(2, '=');
                     let mut id = idv.next().unwrap_or("");
-                    if id != "" && &id[..1] == "!" {
+                    if !id.is_empty() && &id[..1] == "!" {
                         id = &id[1..];
                         crit = true;
                     }

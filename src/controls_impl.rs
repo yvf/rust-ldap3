@@ -219,14 +219,8 @@ pub fn parse_controls(t: StructureTag) -> Vec<Control> {
                 _ => panic!("decoding error"),
             },
         };
-        let val = match maybe_val {
-            None => None,
-            Some(v) => Some(v.expect_primitive().expect("octet string")),
-        };
-        let known_type = match CONTROLS.get(&*ctype) {
-            Some(val) => Some(*val),
-            None => None,
-        };
+        let val = maybe_val.map(|v| v.expect_primitive().expect("octet string"));
+        let known_type = CONTROLS.get(&*ctype).copied();
         ctrls.push(Control(known_type, RawControl { ctype, crit, val }));
     }
     ctrls

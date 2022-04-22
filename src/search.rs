@@ -576,6 +576,7 @@ pub struct SearchStream<'a, S, A> {
     pub(crate) ldap: Ldap,
     pub(crate) rx: Option<mpsc::UnboundedReceiver<(SearchItem, Vec<Control>)>>,
     state: StreamState,
+    #[allow(clippy::type_complexity)]
     adapters: Vec<Arc<Mutex<Box<dyn Adapter<'a, S, A> + 'a>>>>,
     ax: usize,
     timeout: Option<Duration>,
@@ -646,7 +647,7 @@ where
                 Tag::Sequence(Sequence {
                     inner: attrs
                         .as_ref()
-                        .into_iter()
+                        .iter()
                         .map(|s| {
                             Tag::OctetString(OctetString {
                                 inner: Vec::from(s.as_ref()),
