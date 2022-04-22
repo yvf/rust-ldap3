@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::hash::Hash;
 #[cfg(feature = "gssapi")]
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -78,7 +78,7 @@ pub struct Ldap {
     pub(crate) id_scrub_tx: mpsc::UnboundedSender<RequestId>,
     pub(crate) last_id: RequestId,
     #[cfg(feature = "gssapi")]
-    pub(crate) sasl_wrap: Arc<AtomicBool>,
+    pub(crate) sasl_param: Arc<RwLock<(bool, u32)>>, // sasl_wrap, sasl_max_send
     #[cfg(feature = "gssapi")]
     pub(crate) client_ctx: Arc<Mutex<Option<ClientCtx>>>,
     #[cfg(feature = "gssapi")]
@@ -96,7 +96,7 @@ impl Clone for Ldap {
             tx: self.tx.clone(),
             id_scrub_tx: self.id_scrub_tx.clone(),
             #[cfg(feature = "gssapi")]
-            sasl_wrap: self.sasl_wrap.clone(),
+            sasl_param: self.sasl_param.clone(),
             #[cfg(feature = "gssapi")]
             client_ctx: self.client_ctx.clone(),
             #[cfg(feature = "gssapi")]
@@ -337,7 +337,7 @@ impl Ldap {
             Some(token) => token,
             _ => return Err(LdapError::NoGssapiToken),
         };
-        let buf = client_ctx
+        let mut buf = client_ctx
             .unwrap(&token)
             .map_err(|e| LdapError::GssapiOperationError(format!("{:#}", e)))?;
         let needed_layer = if self.has_tls {
@@ -354,15 +354,20 @@ impl Ldap {
         // FIXME: the max_size constant is taken from OpenLDAP GSSAPI code as a fallback
         // value for broken GSSAPI libraries. It's meant to serve as a safe value until
         // gss_wrap_size_limit() equivalent is available in cross-krb5.
-        let send_max_size = (0x9FFFB8u32 | (needed_layer as u32) << 24).to_be_bytes();
+        let recv_max_size = (0x9FFFB8u32 | (needed_layer as u32) << 24).to_be_bytes();
         let size_msg = client_ctx
-            .wrap(true, &send_max_size)
+            .wrap(true, &recv_max_size)
             .map_err(|e| LdapError::GssapiOperationError(format!("{:#}", e)))?;
         let req = sasl_bind_req("GSSAPI", Some(&size_msg));
         let res = self.op_call(LdapOp::Single, req).await?.0;
         if res.rc == 0 {
             if needed_layer == GSSAUTH_P_PRIVACY {
-                self.sasl_wrap.swap(true, Ordering::Relaxed);
+                buf[0] = 0;
+                let send_max_size =
+                    u32::from_be_bytes((&buf[..]).try_into().expect("send max size"));
+                let mut sasl_param = self.sasl_param.write().expect("sasl param");
+                sasl_param.0 = true;
+                sasl_param.1 = send_max_size;
             }
             let client_opt = &mut *self.client_ctx.lock().unwrap();
             client_opt.replace(client_ctx);

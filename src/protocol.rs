@@ -1,6 +1,6 @@
 use std::io;
 #[cfg(feature = "gssapi")]
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::RwLock;
 #[cfg(feature = "gssapi")]
 use std::sync::{Arc, Mutex};
 
@@ -28,7 +28,7 @@ pub(crate) struct LdapCodec {
     #[cfg(feature = "gssapi")]
     pub(crate) has_decoded_data: bool,
     #[cfg(feature = "gssapi")]
-    pub(crate) sasl_wrap: Arc<AtomicBool>,
+    pub(crate) sasl_param: Arc<RwLock<(bool, u32)>>, // sasl_wrap, sasl_max_send
     #[cfg(feature = "gssapi")]
     pub(crate) client_ctx: Arc<Mutex<Option<ClientCtx>>>,
 }
@@ -127,7 +127,7 @@ impl Decoder for LdapCodec {
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         const U32_SIZE: usize = std::mem::size_of::<u32>();
 
-        let sasl_wrap = self.sasl_wrap.load(Ordering::Relaxed);
+        let sasl_wrap = { self.sasl_param.read().expect("sasl param").0 };
         if !sasl_wrap || buf.is_empty() {
             return decode_inner(buf);
         }
@@ -149,7 +149,7 @@ impl Decoder for LdapCodec {
         let client_opt = &mut *self.client_ctx.lock().expect("client ctx lock");
         let client_ctx = client_opt.as_mut().expect("client Option mut ref");
         let mut decoded = client_ctx.unwrap_iov(sasl_len as usize, buf).map_err(|e| {
-            io::Error::new(io::ErrorKind::Other, format!("gss_wrap error: {:#}", e))
+            io::Error::new(io::ErrorKind::Other, format!("gss_unwrap error: {:#}", e))
         })?;
         let res = decode_inner(&mut decoded);
         if res.is_ok() && !decoded.is_empty() && buf.is_empty() {
@@ -179,10 +179,23 @@ fn maybe_wrap(
 ) -> io::Result<()> {
     let mut out_buf = BytesMut::new();
     write::encode_into(&mut out_buf, outstruct)?;
-    let sasl_wrap = codec.sasl_wrap.load(Ordering::Relaxed);
+    let (sasl_wrap, sasl_send_max) = {
+        let sasl_param = codec.sasl_param.read().expect("sasl param");
+        (sasl_param.0, sasl_param.1)
+    };
     if sasl_wrap {
         let client_opt = &mut *codec.client_ctx.lock().expect("client_ctx lock");
         let client_ctx = client_opt.as_mut().expect("client Option mut ref");
+        if out_buf.len() > sasl_send_max as usize {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "buffer too large for GSSAPI: {} > {}",
+                    out_buf.len(),
+                    sasl_send_max
+                ),
+            ));
+        }
         let sasl_buf = client_ctx.wrap(true, &out_buf).map_err(|e| {
             io::Error::new(io::ErrorKind::Other, format!("gss_wrap error: {:#}", e))
         })?;

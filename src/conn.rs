@@ -5,7 +5,7 @@ use std::pin::Pin;
 #[cfg(feature = "tls-rustls")]
 use std::str::FromStr;
 #[cfg(feature = "gssapi")]
-use std::sync::atomic::AtomicBool;
+use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::time::Duration;
@@ -566,12 +566,12 @@ impl LdapConnAsync {
             #[cfg(feature = "gssapi")]
             has_decoded_data: false,
             #[cfg(feature = "gssapi")]
-            sasl_wrap: Arc::new(AtomicBool::new(false)),
+            sasl_param: Arc::new(RwLock::new((false, 0))),
             #[cfg(feature = "gssapi")]
             client_ctx: client_ctx.clone(),
         };
         #[cfg(feature = "gssapi")]
-        let sasl_wrap = codec.sasl_wrap.clone();
+        let sasl_param = codec.sasl_param.clone();
         let (tx, rx) = mpsc::unbounded_channel();
         let (id_scrub_tx, id_scrub_rx) = mpsc::unbounded_channel();
         let conn = LdapConnAsync {
@@ -587,7 +587,7 @@ impl LdapConnAsync {
             tx,
             id_scrub_tx,
             #[cfg(feature = "gssapi")]
-            sasl_wrap,
+            sasl_param,
             #[cfg(feature = "gssapi")]
             client_ctx,
             #[cfg(feature = "gssapi")]
