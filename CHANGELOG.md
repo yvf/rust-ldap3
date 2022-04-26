@@ -1,3 +1,13 @@
+## v0.10.4, 2022-04-26
+
+* Check the send buffer size before GSSAPI wrapping, if any.
+  (Not expected to matter in realistic usage.)
+
+* Deprecate `ldap_str_unescape()` in favor of `ldap_unescape()`.
+  The latter name should have been used from the start.
+
+* Minor documentation fixes.
+
 ## v0.10.3, 2022-03-30
 
 * Add support for cross-platform Kerberos/GSSAPI authentication

@@ -20,7 +20,7 @@ The 0.9 branch will only get bug fixes.
 
 ### Documentation
 
-- [Version 0.10.x](https://docs.rs/ldap3/0.10.3/ldap3/)
+- [Version 0.10.x](https://docs.rs/ldap3/0.10.4/ldap3/)
 
 - [Version 0.9.x](https://docs.rs/ldap3/0.9.4/ldap3/)
 
@@ -35,7 +35,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies.ldap3]
-version = "0.10.3"
+version = "0.10.4"
 ```
 
 The library can be used either synchronously or asynchronously. The aim is to
