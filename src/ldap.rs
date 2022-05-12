@@ -266,7 +266,7 @@ impl Ldap {
     /// is the case for Unix domain sockets or TLS client certificates. The bind
     /// is made with the hardcoded empty authzId value.
     pub async fn sasl_external_bind(&mut self) -> Result<LdapResult> {
-        let req = sasl_bind_req("EXTERNAL", None);
+        let req = sasl_bind_req("EXTERNAL", Some(b""));
         Ok(self.op_call(LdapOp::Single, req).await?.0)
     }
 
