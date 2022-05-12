@@ -1,3 +1,9 @@
+## v0.10.5, 2022-04-26
+
+* Fix SASL EXTERNAL binds ([#83](https://github.com/inejge/ldap3/issues/83)).
+  An empty authzId must be encoded as such in the Bind request,
+  not left out.
+
 ## v0.10.4, 2022-04-26
 
 * Check the send buffer size before GSSAPI wrapping, if any.
