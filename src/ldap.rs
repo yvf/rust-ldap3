@@ -214,9 +214,9 @@ impl Ldap {
     /// itself. See the module-level documentation for the list of directly supported
     /// controls and procedures for defining custom controls.
     ///
-    /// This method accepts either a single `RawControl` or a `Vec` of them, in
-    /// order to make the call site less noisy, since it's expected that passing
-    /// a single control will comprise the majority of uses.
+    /// This method accepts either a control vector or a single `RawControl`. The
+    /// latter is intended to make the call site less noisy, since it's expected
+    /// that passing a single control will comprise the majority of uses.
     ///
     /// The desired operation can be invoked on the result of this method.
     pub fn with_controls<V: IntoRawControlVec>(&mut self, ctrls: V) -> &mut Self {
