@@ -1,4 +1,4 @@
-## v0.10.5, 2022-04-26
+## v0.10.5, 2022-05-12
 
 * Fix SASL EXTERNAL binds ([#83](https://github.com/inejge/ldap3/issues/83)).
   An empty authzId must be encoded as such in the Bind request,
