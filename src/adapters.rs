@@ -77,12 +77,9 @@ use async_trait::async_trait;
 /// # use ldap3::result::{LdapResult, Result};
 /// # use ldap3::parse_refs;
 /// // An adapter must implement Clone and Debug
-/// //
-/// // The slightly awkward Option-wrapping lets us move the vector
-/// // out of the struct in finish()
 /// #[derive(Clone, Debug)]
 /// pub struct EntriesOnly {
-///     refs: Option<Vec<String>>,
+///     refs: Vec<String>,
 /// }
 ///
 /// // This impl enables the use of a bare struct instance
@@ -107,7 +104,7 @@ use async_trait::async_trait;
 ///         filter: &str,
 ///         attrs: A,
 ///     ) -> Result<()> {
-///         self.refs.as_mut().expect("refs").clear();
+///         self.refs.clear();
 ///         // Call up the adapter chain
 ///         stream.start(base, scope, filter, attrs).await
 ///     }
@@ -126,7 +123,7 @@ use async_trait::async_trait;
 ///                     if re.is_intermediate() {
 ///                         continue;
 ///                     } else if re.is_ref() {
-///                         self.refs.as_mut().expect("refs").extend(parse_refs(re.0));
+///                         self.refs.extend(parse_refs(re.0));
 ///                         continue;
 ///                     } else {
 ///                         Ok(Some(re))
@@ -141,7 +138,7 @@ use async_trait::async_trait;
 ///     async fn finish(&mut self, stream: &mut SearchStream<'a, S, A>) -> LdapResult {
 ///         // Call up the adapter chain
 ///         let mut res = stream.finish().await;
-///         res.refs.extend(self.refs.take().expect("refs"));
+///         res.refs.extend(std::mem::take(&mut self.refs));
 ///         res
 ///     }
 /// }
