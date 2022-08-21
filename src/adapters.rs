@@ -228,14 +228,14 @@ where
 /// ```
 #[derive(Clone, Debug)]
 pub struct EntriesOnly {
-    refs: Option<Vec<String>>,
+    refs: Vec<String>,
 }
 
 /// Create a new adapter instance.
 #[allow(clippy::new_without_default)]
 impl EntriesOnly {
     pub fn new() -> Self {
-        Self { refs: Some(vec![]) }
+        Self { refs: vec![] }
     }
 }
 
@@ -255,7 +255,7 @@ where
         filter: &str,
         attrs: A,
     ) -> Result<()> {
-        self.refs.as_mut().expect("refs").clear();
+        self.refs.clear();
         stream.start(base, scope, filter, attrs).await
     }
 
@@ -267,7 +267,7 @@ where
                     if re.is_intermediate() {
                         continue;
                     } else if re.is_ref() {
-                        self.refs.as_mut().expect("refs").extend(parse_refs(re.0));
+                        self.refs.extend(parse_refs(re.0));
                         continue;
                     } else {
                         Ok(Some(re))
@@ -280,7 +280,7 @@ where
 
     async fn finish(&mut self, stream: &mut SearchStream<'a, S, A>) -> LdapResult {
         let mut res = stream.finish().await;
-        res.refs.extend(self.refs.take().expect("refs"));
+        res.refs.extend(std::mem::take(&mut self.refs));
         res
     }
 }
