@@ -13,7 +13,7 @@ use std::time::Duration;
 #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
 use crate::exop_impl::StartTLS;
 use crate::ldap::Ldap;
-use crate::protocol::{ItemSender, LdapCodec, LdapOp, MaybeControls, ResultSender};
+use crate::protocol::{ItemSender, LdapCodec, LdapOp, MaybeControls, MiscSender, ResultSender};
 use crate::result::{LdapError, Result};
 use crate::search::SearchItem;
 use crate::RequestId;
@@ -287,6 +287,7 @@ pub struct LdapConnAsync {
     searchmap: HashMap<i32, ItemSender>,
     rx: mpsc::UnboundedReceiver<(RequestId, LdapOp, Tag, MaybeControls, ResultSender)>,
     id_scrub_rx: mpsc::UnboundedReceiver<RequestId>,
+    misc_rx: mpsc::UnboundedReceiver<MiscSender>,
     stream: Framed<ConnType, LdapCodec>,
 }
 
@@ -574,18 +575,21 @@ impl LdapConnAsync {
         let sasl_param = codec.sasl_param.clone();
         let (tx, rx) = mpsc::unbounded_channel();
         let (id_scrub_tx, id_scrub_rx) = mpsc::unbounded_channel();
+        let (misc_tx, misc_rx) = mpsc::unbounded_channel();
         let conn = LdapConnAsync {
             msgmap: Arc::new(Mutex::new((0, HashSet::new()))),
             resultmap: HashMap::new(),
             searchmap: HashMap::new(),
             rx,
             id_scrub_rx,
+            misc_rx,
             stream: codec.framed(ctype),
         };
         let ldap = Ldap {
             msgmap: conn.msgmap.clone(),
             tx,
             id_scrub_tx,
+            misc_tx,
             #[cfg(feature = "gssapi")]
             sasl_param,
             #[cfg(feature = "gssapi")]
@@ -599,6 +603,42 @@ impl LdapConnAsync {
             search_opts: None,
         };
         (conn, ldap)
+    }
+
+    #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
+    async fn get_peer_certificate_der(&self) -> Result<Option<Vec<u8>>> {
+        let tls = match self.stream.get_ref() {
+            ConnType::Tls(tls) => tls.get_ref(),
+            _ => return Ok(None),
+        };
+        match () {
+            #[cfg(feature = "tls-native")]
+            () => {
+                let cert = tls.peer_certificate();
+                match cert {
+                    Ok(c) => match c {
+                        Some(x) => match x.to_der() {
+                            Ok(ret) => Ok(Some(ret)),
+                            Err(e) => Err(LdapError::from(e)),
+                        },
+                        None => Ok(None),
+                    },
+                    Err(e) => Err(LdapError::from(e)),
+                }
+            }
+            #[cfg(feature = "tls-rustls")]
+            () => {
+                let certs = match tls.1.peer_certificates() {
+                    Some(certs) => certs,
+                    None => return Ok(None),
+                };
+                if certs.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(certs[0].clone().0))
+                }
+            }
+        }
     }
 
     /// Repeatedly poll the connection until it exits.
@@ -657,6 +697,25 @@ impl LdapConnAsync {
                             if let Err(e) = tx.send((Tag::Null(Null { ..Default::default() }), vec![])) {
                                 warn!("ldap null result send error: {:?}", e);
                             }
+                        }
+                    } else {
+                        break;
+                    }
+                },
+                misc = self.misc_rx.recv() => {
+                    if let Some(sender) = misc {
+                        match sender {
+                            #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
+                            MiscSender::Cert(tx) => {
+                                match self.get_peer_certificate_der().await {
+                                    Ok(v) => {
+                                        if let Err(e) = tx.send(v) {
+                                            warn!("Couldn't send peer certificate over channel: {:?}", e);
+                                        }
+                                    },
+                                    Err(e) => warn!("Couldn't get peer certificate: {}", e),
+                                }
+                            },
                         }
                     } else {
                         break;

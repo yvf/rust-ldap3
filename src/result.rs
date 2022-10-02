@@ -13,6 +13,7 @@ use std::result::Result as StdResult;
 use crate::controls::Control;
 use crate::exop::Exop;
 use crate::ldap::SaslCreds;
+use crate::protocol::MiscSender;
 use crate::protocol::{LdapOp, MaybeControls, ResultSender};
 use crate::search::parse_refs;
 use crate::search::ResultEntry;
@@ -68,6 +69,13 @@ pub enum LdapError {
     IdScrubSend {
         #[from]
         source: mpsc::error::SendError<RequestId>,
+    },
+
+    /// Error while sending a misc result.
+    #[error("cert send error: {source}")]
+    MiscSend {
+        #[from]
+        source: mpsc::error::SendError<MiscSender>,
     },
 
     /// Operation or connection timeout.

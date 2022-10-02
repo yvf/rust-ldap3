@@ -38,6 +38,12 @@ pub(crate) type ItemSender = mpsc::UnboundedSender<(SearchItem, Vec<Control>)>;
 pub(crate) type ResultSender = oneshot::Sender<(Tag, Vec<Control>)>;
 
 #[derive(Debug)]
+pub enum MiscSender {
+    #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
+    Cert(oneshot::Sender<Option<Vec<u8>>>),
+}
+
+#[derive(Debug)]
 pub enum LdapOp {
     Single,
     Search(ItemSender),

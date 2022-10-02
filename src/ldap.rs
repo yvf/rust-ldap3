@@ -9,7 +9,7 @@ use crate::adapters::{EntriesOnly, IntoAdapterVec};
 use crate::controls_impl::IntoRawControlVec;
 use crate::exop::Exop;
 use crate::exop_impl::construct_exop;
-use crate::protocol::{LdapOp, MaybeControls, ResultSender};
+use crate::protocol::{LdapOp, MaybeControls, MiscSender, ResultSender};
 use crate::result::{
     CompareResult, ExopResult, LdapError, LdapResult, LdapResultExt, Result, SearchResult,
 };
@@ -76,6 +76,7 @@ pub struct Ldap {
     pub(crate) msgmap: Arc<Mutex<(RequestId, HashSet<RequestId>)>>,
     pub(crate) tx: mpsc::UnboundedSender<(RequestId, LdapOp, Tag, MaybeControls, ResultSender)>,
     pub(crate) id_scrub_tx: mpsc::UnboundedSender<RequestId>,
+    pub(crate) misc_tx: mpsc::UnboundedSender<MiscSender>,
     pub(crate) last_id: RequestId,
     #[cfg(feature = "gssapi")]
     pub(crate) sasl_param: Arc<RwLock<(bool, u32)>>, // sasl_wrap, sasl_max_send
@@ -95,6 +96,7 @@ impl Clone for Ldap {
             msgmap: self.msgmap.clone(),
             tx: self.tx.clone(),
             id_scrub_tx: self.id_scrub_tx.clone(),
+            misc_tx: self.misc_tx.clone(),
             #[cfg(feature = "gssapi")]
             sasl_param: self.sasl_param.clone(),
             #[cfg(feature = "gssapi")]
@@ -718,5 +720,15 @@ impl Ldap {
             .op_call(LdapOp::Abandon(msgid), req)
             .await
             .map(|_| ())?)
+    }
+
+    /// Returns the TLS peer certificate in the DER format.
+    /// The method returns Ok(None) if no certificate was found or
+    /// if the connection does not use TLS.
+    #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
+    pub async fn get_peer_certificate_der(&mut self) -> Result<Option<Vec<u8>>> {
+        let (tx, rx) = oneshot::channel();
+        self.misc_tx.send(MiscSender::Cert(tx))?;
+        Ok(rx.await?)
     }
 }

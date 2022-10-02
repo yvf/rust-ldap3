@@ -257,6 +257,16 @@ impl LdapConn {
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.abandon(msgid).await })
     }
+
+    /// Returns the TLS peer certificate in the DER format.
+    /// The method returns Ok(None) if no certificate was found or
+    /// if the connection does not use TLS.
+    #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
+    pub fn get_peer_certificate_der(&mut self) -> Result<Option<Vec<u8>>> {
+        let rt = &mut self.rt;
+        let ldap = &mut self.ldap;
+        rt.block_on(async move { ldap.get_peer_certificate_der().await })
+    }
 }
 
 /// Handle for obtaining a stream of search results.
