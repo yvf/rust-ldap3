@@ -606,7 +606,7 @@ impl LdapConnAsync {
     }
 
     #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
-    async fn get_peer_certificate_der(&self) -> Result<Option<Vec<u8>>> {
+    fn get_peer_certificate(&self) -> Result<Option<Vec<u8>>> {
         let tls = match self.stream.get_ref() {
             ConnType::Tls(tls) => tls.get_ref(),
             _ => return Ok(None),
@@ -707,7 +707,7 @@ impl LdapConnAsync {
                         match sender {
                             #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
                             MiscSender::Cert(tx) => {
-                                match self.get_peer_certificate_der().await {
+                                match self.get_peer_certificate() {
                                     Ok(v) => {
                                         if let Err(e) = tx.send(v) {
                                             warn!("Couldn't send peer certificate over channel: {:?}", e);

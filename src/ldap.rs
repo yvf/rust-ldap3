@@ -722,13 +722,19 @@ impl Ldap {
             .map(|_| ())?)
     }
 
-    /// Returns the TLS peer certificate in the DER format.
+    /// Return the TLS peer certificate in DER format.
     /// The method returns Ok(None) if no certificate was found or
-    /// if the connection does not use TLS.
-    #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
-    pub async fn get_peer_certificate_der(&mut self) -> Result<Option<Vec<u8>>> {
-        let (tx, rx) = oneshot::channel();
-        self.misc_tx.send(MiscSender::Cert(tx))?;
-        Ok(rx.await?)
+    /// the connection does not use TLS.
+    pub async fn get_peer_certificate(&mut self) -> Result<Option<Vec<u8>>> {
+        #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
+        {
+            let (tx, rx) = oneshot::channel();
+            self.misc_tx.send(MiscSender::Cert(tx))?;
+            Ok(rx.await?)
+        }
+        #[cfg(not(any(feature = "tls-native", feature = "tls-rustls")))]
+        {
+            Ok(None)
+        }
     }
 }
