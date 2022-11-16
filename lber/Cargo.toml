@@ -1,5 +1,5 @@
 [package]
-authors = ["Gregor Reitzenstein <dean4devil@paranoidlabs.org>", "Ivan Nejgebauer <inejge@gmail.com>"]
+authors = ["Nadja Reitzenstein <me@dequbed.space>", "Ivan Nejgebauer <inejge@gmail.com>"]
 categories = ["encoding", "parsing"]
 description = "An ASN.1/BER parser/encoder based on nom"
 keywords = ["ASN1", "BER", "nom"]
@@ -7,9 +7,8 @@ license = "MIT"
 name = "lber"
 repository = "https://github.com/inejge/ldap3"
 documentation = "https://docs.rs/ldap3"
-version = "0.3.0"
+version = "0.4.0"
 
 [dependencies]
-byteorder = "1"
 bytes = "1"
-nom = "2"
+nom = "7"

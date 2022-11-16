@@ -23,7 +23,6 @@ use lber::common::TagClass;
 use lber::parse::parse_uint;
 use lber::structures::Tag;
 use lber::universal::Types;
-use lber::IResult;
 
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
@@ -334,7 +333,7 @@ impl From<Tag> for LdapResultExt {
                 .expect("result code")
                 .as_slice(),
         ) {
-            IResult::Done(_, rc) => rc as u32,
+            Ok((_, rc)) => rc as u32,
             _ => panic!("failed to parse result code"),
         };
         let matched = String::from_utf8(

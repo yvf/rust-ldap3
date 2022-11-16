@@ -5,8 +5,6 @@ use universal;
 
 use std::default;
 
-use byteorder::{BigEndian, WriteBytesExt};
-
 /// Integer value.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Integer {
@@ -40,8 +38,11 @@ fn i_e_into_structure(id: u64, class: TagClass, inner: i64) -> structure::Struct
     }
 
     let mut out: Vec<u8> = Vec::with_capacity(count as usize);
-
-    out.write_int::<BigEndian>(inner, count as usize).unwrap();
+    let repr = inner.to_be_bytes();
+    if (count as usize) > repr.len() {
+        out.push(0);
+    }
+    out.extend_from_slice(&repr);
 
     structure::StructureTag {
         id: id,

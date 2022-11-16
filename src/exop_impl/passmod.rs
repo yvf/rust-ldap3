@@ -5,7 +5,7 @@ use bytes::BytesMut;
 use lber::common::TagClass;
 use lber::parse::parse_tag;
 use lber::structures::{ASNTag, OctetString, Sequence, Tag};
-use lber::{write, IResult};
+use lber::write;
 
 pub const PASSMOD_OID: &str = "1.3.6.1.4.1.4203.1.11.1";
 
@@ -87,7 +87,7 @@ impl<'a> From<PasswordModify<'a>> for Exop {
 impl ExopParser for PasswordModifyResp {
     fn parse(val: &[u8]) -> PasswordModifyResp {
         let tags = match parse_tag(val) {
-            IResult::Done(_, tag) => tag,
+            Ok((_, tag)) => tag,
             _ => panic!("failed to parse password modify return value"),
         };
         let mut tags = tags

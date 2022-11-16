@@ -6,7 +6,7 @@ use super::{ControlParser, MakeCritical, RawControl};
 use crate::search::{ResultEntry, SearchEntry};
 use lber::parse::parse_tag;
 use lber::structures::{ASNTag, OctetString, Sequence, Tag};
-use lber::{write, IResult};
+use lber::write;
 
 pub const PRE_READ_OID: &str = "1.3.6.1.1.13.1";
 pub const POST_READ_OID: &str = "1.3.6.1.1.13.2";
@@ -109,7 +109,7 @@ fn from_read_entry<S: AsRef<str>>(re: ReadEntry<S>) -> RawControl {
 impl ControlParser for ReadEntryResp {
     fn parse(val: &[u8]) -> ReadEntryResp {
         let tag = match parse_tag(val) {
-            IResult::Done(_, tag) => tag,
+            Ok((_, tag)) => tag,
             _ => panic!("failed to parse pre-read attribute values"),
         };
         let se = SearchEntry::construct(ResultEntry::new(tag));

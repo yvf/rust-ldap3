@@ -7,7 +7,6 @@ use lber::parse::{parse_tag, parse_uint};
 use lber::structures::{ASNTag, Integer, OctetString, Sequence, Tag};
 use lber::universal::Types;
 use lber::write;
-use lber::IResult;
 
 /// Paged Results control ([RFC 2696](https://tools.ietf.org/html/rfc2696)).
 ///
@@ -56,7 +55,7 @@ impl From<PagedResults> for RawControl {
 impl ControlParser for PagedResults {
     fn parse(val: &[u8]) -> PagedResults {
         let mut pr_comps = match parse_tag(val) {
-            IResult::Done(_, tag) => tag,
+            Ok((_, tag)) => tag,
             _ => panic!("failed to parse paged results value components"),
         }
         .expect_constructed()
@@ -72,7 +71,7 @@ impl ControlParser for PagedResults {
                 .expect("paged results size")
                 .as_slice(),
         ) {
-            IResult::Done(_, size) => size as i32,
+            Ok((_, size)) => size as i32,
             _ => panic!("failed to parse size"),
         };
         let cookie = pr_comps

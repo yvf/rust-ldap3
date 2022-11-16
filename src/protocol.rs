@@ -11,18 +11,18 @@ use crate::RequestId;
 
 use lber::common::TagClass;
 use lber::parse::parse_uint;
-use lber::parse::Parser;
 use lber::structure::{StructureTag, PL};
 use lber::structures::{ASNTag, Integer, Sequence, Tag};
 use lber::universal::Types;
 use lber::write;
-use lber::{Consumer, ConsumerState, IResult, Input, Move};
 
 use bytes::{Buf, BytesMut};
 #[cfg(feature = "gssapi")]
 use cross_krb5::{ClientCtx, K5Ctx};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::codec::{Decoder, Encoder};
+#[cfg(feature = "x509-parser")]
+use x509_parser::nom::Parser;
 
 pub(crate) struct LdapCodec {
     #[cfg(feature = "gssapi")]
@@ -54,18 +54,14 @@ pub enum LdapOp {
 #[allow(clippy::type_complexity)]
 fn decode_inner(buf: &mut BytesMut) -> Result<Option<(RequestId, (Tag, Vec<Control>))>, io::Error> {
     let decoding_error = io::Error::new(io::ErrorKind::Other, "decoding error");
-    let mut parser = Parser::new();
-    let (amt, tag) = match *parser.handle(Input::Element(buf)) {
-        ConsumerState::Continue(_) => return Ok(None),
-        ConsumerState::Error(_e) => return Err(decoding_error),
-        ConsumerState::Done(amt, ref tag) => (amt, tag),
+    let mut parser = lber::Parser::new();
+    let binding = parser.parse(buf);
+    let (i, tag) = match binding {
+        Err(e) if e.is_incomplete() => return Ok(None),
+        Err(_e) => return Err(decoding_error),
+        Ok((i, ref tag)) => (i, tag),
     };
-    let amt = match amt {
-        Move::Await(_) => return Ok(None),
-        Move::Seek(_) => return Err(decoding_error),
-        Move::Consume(amt) => amt,
-    };
-    buf.advance(amt);
+    buf.advance(buf.len() - i.len());
     let tag = tag.clone();
     let mut tags = match tag
         .match_id(Types::Sequence as u64)
@@ -115,7 +111,7 @@ fn decode_inner(buf: &mut BytesMut) -> Result<Option<(RequestId, (Tag, Vec<Contr
             .expect("message id")
             .as_slice(),
     ) {
-        IResult::Done(_, id) => id as i32,
+        Ok((_, id)) => id as i32,
         _ => return Err(decoding_error),
     };
     Ok(Some((msgid, (Tag::StructureTag(protoop), controls))))

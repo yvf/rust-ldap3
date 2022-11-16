@@ -107,7 +107,7 @@ pub enum EntryState {
 impl ControlParser for SyncState {
     fn parse(val: &[u8]) -> Self {
         let mut tags = match parse_tag(val) {
-            IResult::Done(_, tag) => tag,
+            IResult::Ok((_, tag)) => tag,
             _ => panic!("syncstate: failed to parse tag"),
         }
         .expect_constructed()
@@ -122,7 +122,7 @@ impl ControlParser for SyncState {
                 .expect("syncstate: state")
                 .as_slice(),
         ) {
-            IResult::Done(_, state) => state,
+            Ok((_, state)) => state,
             _ => panic!("syncstate: failed to parse state"),
         } {
             0 => EntryState::Present,
@@ -157,7 +157,7 @@ pub struct SyncDone {
 impl ControlParser for SyncDone {
     fn parse(val: &[u8]) -> Self {
         let tags = match parse_tag(val) {
-            IResult::Done(_, tag) => tag,
+            Ok((_, tag)) => tag,
             _ => panic!("syncdone: failed to parse tag"),
         }
         .expect_constructed()
@@ -229,7 +229,7 @@ pub fn parse_syncinfo(entry: ResultEntry) -> SyncInfo {
             Some(tag) if tag.id == 1 => {
                 let syncinfo_val =
                     match parse_tag(tag.expect_primitive().expect("octet string").as_ref()) {
-                        IResult::Done(_, tag) => tag,
+                        Ok((_, tag)) => tag,
                         _ => panic!("syncinfo: error parsing value"),
                     };
                 return match syncinfo_val {
