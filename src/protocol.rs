@@ -21,8 +21,6 @@ use bytes::{Buf, BytesMut};
 use cross_krb5::{ClientCtx, K5Ctx};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::codec::{Decoder, Encoder};
-#[cfg(feature = "x509-parser")]
-use x509_parser::nom::Parser;
 
 pub(crate) struct LdapCodec {
     #[cfg(feature = "gssapi")]
