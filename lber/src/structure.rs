@@ -52,7 +52,7 @@ impl StructureTag {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common::{TagClass, TagStructure};
+    use common::TagClass;
 
     #[test]
     fn expect_exact() {

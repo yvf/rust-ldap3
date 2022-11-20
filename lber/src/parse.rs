@@ -99,8 +99,7 @@ impl Parser {
 #[cfg(test)]
 mod test {
     use super::*;
-    use common::{TagClass, TagStructure};
-    use nom::IResult;
+    use common::TagClass;
     use structure::{StructureTag, PL};
 
     #[test]
