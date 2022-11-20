@@ -4,11 +4,11 @@ use structure::{StructureTag, PL};
 
 use nom;
 use nom::bits::streaming as bits;
-use nom::number::streaming as number;
 use nom::bytes::streaming::take;
 use nom::combinator::map_opt;
-use nom::{InputLength, IResult, Needed};
+use nom::number::streaming as number;
 use nom::sequence::tuple;
+use nom::{IResult, InputLength, Needed};
 
 fn class_bits(i: (&[u8], usize)) -> nom::IResult<(&[u8], usize), TagClass> {
     map_opt(bits::take(2usize), TagClass::from_u8)(i)
@@ -85,8 +85,13 @@ impl Parser {
     pub fn new() -> Self {
         Self
     }
-    pub fn parse<'a>(&mut self, input: &'a [u8]) -> IResult<&'a [u8], StructureTag, nom::error::Error<&'a [u8]>> {
-        if input.is_empty() { return Err(nom::Err::Incomplete(Needed::Unknown)) };
+    pub fn parse<'a>(
+        &mut self,
+        input: &'a [u8],
+    ) -> IResult<&'a [u8], StructureTag, nom::error::Error<&'a [u8]>> {
+        if input.is_empty() {
+            return Err(nom::Err::Incomplete(Needed::Unknown));
+        };
         parse_tag(input)
     }
 }

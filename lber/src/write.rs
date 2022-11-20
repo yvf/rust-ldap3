@@ -110,7 +110,7 @@ fn write_length(w: &mut dyn Write, length: usize) {
         let _ = w.write(&[count | 0x80]);
         let repr = &length.to_be_bytes();
         let len = repr.len();
-        let bytes = &repr[(len-(count as usize))..];
+        let bytes = &repr[(len - (count as usize))..];
         let _ = w.write_all(bytes);
     }
 }
