@@ -37,12 +37,14 @@ fn i_e_into_structure(id: u64, class: TagClass, inner: i64) -> structure::Struct
         count += 1;
     }
 
-    let mut out: Vec<u8> = Vec::with_capacity(count as usize);
+    let mut count = count as usize;
+    let mut out: Vec<u8> = Vec::with_capacity(count);
     let repr = inner.to_be_bytes();
-    if (count as usize) > repr.len() {
+    if count > repr.len() {
         out.push(0);
+        count -= 1;
     }
-    out.extend_from_slice(&repr);
+    out.extend_from_slice(&repr[repr.len() - count..]);
 
     structure::StructureTag {
         id: id,
