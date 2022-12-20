@@ -1,3 +1,12 @@
+## v0.11.0-beta.1, 2022-12-20
+
+* Add an LDAP introductory document (LDAP-primer.md).
+
+* Update `nom` to 7.x.
+
+* Add `Ldap::get_peer_certificate()` and its sync counterpart,
+  which return the server certificate for the connection if present.
+
 ## v0.10.5, 2022-05-12
 
 * Fix SASL EXTERNAL binds ([#83](https://github.com/inejge/ldap3/issues/83)).

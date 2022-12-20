@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! [dependencies.ldap3]
-//! version = "0.10.5"
+//! version = "0.11.0-beta.1"
 //! ```
 //!
 //! ## Summary
@@ -20,7 +20,9 @@
 //! the short description.
 //!
 //! The documentation is written for readers familiar with LDAP concepts and terminology,
-//! which it won't attempt to explain.
+//! which it won't attempt to explain. If you need an introductory text, you can try the
+//! [primer](https://github.com/inejge/ldap3/blob/95d2704de0955edf023e913458decaab9d2df81c/LDAP-primer.md)
+//! included in this library.
 //!
 //! ## Compile-time features
 //!

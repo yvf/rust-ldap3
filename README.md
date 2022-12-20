@@ -4,25 +4,31 @@ A pure-Rust LDAP client library using the Tokio stack.
 
 ### Version notice
 
-New starting with 0.10.3: cross-platform Kerberos/GSSAPI support if compiled
+The 0.11 branch, currently in beta, has had a belated but important dependency
+upgrade: the `nom` parser combinator crate, both in the `lber` support library
+and `ldap3` proper. This should be an implementation detail invisible to the user,
+and the parsers have a battery of tests, but the version was nevertheless bumped up
+out of abundance of caution. There are no functional differences between 0.10.6
+and 0.11.0.
+
+Starting with 0.10.3, there is cross-platform Kerberos/GSSAPI support if compiled
 with the __gssapi__ feature. This feature enables the use of integrated Windows
 authentication in Active Directory domains. See the description of the feature
 in this README for the details of compile-time requirements.
 
-The 0.10 branch gets a dependencies update, move to Edition 2021, and an
-experimental API update which lets the user pass either owned or borrowed
-attribute lists. This is a breaking change, especially if you've used or
-written your own search adapters, although type inference should cover
-most cases. If the change is too disruptive, the dual attribute list
-support could be removed in a future release.
-
-The 0.9 branch will only get bug fixes.
+The 0.11 branch is actively developed. Bug fixes will be ported to 0.10.x. The 0.9
+branch is hence retired.
 
 ### Documentation
 
-- [Version 0.10.x](https://docs.rs/ldap3/0.10.5/ldap3/)
+API reference:
 
-- [Version 0.9.x](https://docs.rs/ldap3/0.9.4/ldap3/)
+- [Version 0.11.x](https://docs.rs/ldap3/0.11.0-beta.1/ldap3/)
+
+- [Version 0.10.x](https://docs.rs/ldap3/0.10.6/ldap3/)
+
+There is an [LDAP introduction](https://github.com/inejge/ldap3/blob/95d2704de0955edf023e913458decaab9d2df81c/LDAP-primer.md)
+for those still looking for bearings in the LDAP world.
 
 ### Note
 
@@ -35,7 +41,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies.ldap3]
-version = "0.10.5"
+version = "0.11.0-beta.1"
 ```
 
 The library can be used either synchronously or asynchronously. The aim is to
