@@ -190,7 +190,8 @@ pub mod controls {
         Assertion, ManageDsaIt, MatchedValues, PagedResults, ProxyAuth, RelaxRules,
     };
     pub use crate::controls_impl::{
-        Control, ControlParser, ControlType, CriticalControl, MakeCritical, RawControl,
+        Control, ControlParser, ControlType, CriticalControl, IntoRawControlVec, MakeCritical,
+        RawControl,
     };
     pub use crate::controls_impl::{
         EntryState, RefreshMode, SyncDone, SyncInfo, SyncRequest, SyncState,
