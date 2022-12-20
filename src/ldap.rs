@@ -192,11 +192,6 @@ impl Ldap {
         Ok((result, exop, sasl_creds))
     }
 
-    /// Check whether the underlying connection has been closed.
-    pub fn is_closed(&mut self) -> bool {
-        self.tx.is_closed()
-    }
-
     /// Use the provided `SearchOptions` with the next Search operation, which can
     /// be invoked directly on the result of this method. If this method is used in
     /// combination with a non-Search operation, the provided options will be silently
@@ -722,9 +717,15 @@ impl Ldap {
             .map(|_| ())?)
     }
 
+    /// Check whether the underlying connection has been closed.
+    pub fn is_closed(&mut self) -> bool {
+        self.tx.is_closed()
+    }
+
     /// Return the TLS peer certificate in DER format.
+    ///
     /// The method returns Ok(None) if no certificate was found or
-    /// the connection does not use TLS.
+    /// the connection does not use or support TLS.
     pub async fn get_peer_certificate(&mut self) -> Result<Option<Vec<u8>>> {
         #[cfg(any(feature = "tls-native", feature = "tls-rustls"))]
         {
