@@ -87,11 +87,6 @@ impl LdapConn {
         self
     }
 
-    /// See [`Ldap::is_closed()`](struct.Ldap.html#method.is_closed).
-    pub fn is_closed(&mut self) -> bool {
-        self.ldap.tx.is_closed()
-    }
-
     /// See [`Ldap::simple_bind()`](struct.Ldap.html#method.simple_bind).
     pub fn simple_bind(&mut self, bind_dn: &str, bind_pw: &str) -> Result<LdapResult> {
         let rt = &mut self.rt;
@@ -256,6 +251,11 @@ impl LdapConn {
         let rt = &mut self.rt;
         let ldap = &mut self.ldap;
         rt.block_on(async move { ldap.abandon(msgid).await })
+    }
+
+    /// See [`Ldap::is_closed()`](struct.Ldap.html#method.is_closed).
+    pub fn is_closed(&mut self) -> bool {
+        self.ldap.tx.is_closed()
     }
 
     /// See [`Ldap::get_peer_certificate()`](struct.Ldap.html#method.get_peer_certificate).
