@@ -16,13 +16,9 @@ written your own search adapters, although type inference should cover
 most cases. If the change is too disruptive, the dual attribute list
 support could be removed in a future release.
 
-The 0.9 branch will only get bug fixes.
-
 ### Documentation
 
-- [Version 0.10.x](https://docs.rs/ldap3/0.10.5/ldap3/)
-
-- [Version 0.9.x](https://docs.rs/ldap3/0.9.4/ldap3/)
+- [Version 0.10.x](https://docs.rs/ldap3/0.10.6/ldap3/)
 
 ### Note
 
@@ -35,7 +31,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies.ldap3]
-version = "0.10.5"
+version = "0.10.6"
 ```
 
 The library can be used either synchronously or asynchronously. The aim is to
