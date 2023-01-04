@@ -1,4 +1,4 @@
-## v0.11.0-beta.1, 2022-12-20
+## v0.11.1, 2023-01-04
 
 * Add an LDAP introductory document (LDAP-primer.md).
 
