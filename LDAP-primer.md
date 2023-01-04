@@ -124,7 +124,7 @@ in the tree. The attribute is named `dn` for "distinguished name", and is unique
 for an entry. Let's repeat the full entry from the previous section and highlight
 the naming attributes:
 
-<pre><code><b>dn</b>: uid=john.doe,ou=People,<span style="color: blue;">dc=example,dc=com</span>
+<pre><code><b>dn</b>: uid=john.doe,ou=People,<i>dc=example,dc=com</i>
 objectClass: top
 objectClass: inetOrgPerson
 <b>uid</b>: john.doe
@@ -152,11 +152,10 @@ elements, which wasn't well suited to domain names used for naming on the intern
 so a method of using domain names in DNs was standardized in RFC 2247 and is
 predominantly used in LDAP today.
 
-The DN above has the rightmost part in a different color. That part directly
-corresponds to the domain __example.com__. In a DIT organized with such
-a mapping, all entries are at or below the domain, which is then called the
-__suffix__ or __naming context__. A single DIT can contain multiple naming
-contexts.
+The DN above has the rightmost part in italic. That part directly corresponds
+to the domain __example.com__. In a DIT organized with such a mapping, all entries
+are at or below the domain, which is then called the __suffix__ or __naming context__.
+A single DIT can contain multiple naming contexts.
 
 There is a special entry at the very root of the DIT. It has an empty DN
 and is called the __root DSE__ (DSA Specific Entry; "DSA" stands for "directory
@@ -225,13 +224,13 @@ other method, like Kerberos. Here one encounters some long-standing unaddressed
 specification deficiencies.
 
 The only standardized way of activating TLS is by first connecting in the clear to
-port 389, then issuing a special operation which starts the TLS handshake. This method,
-called StartTLS, is considered less secure than unconditional TLS establishment, and
-is discouraged in current usage. There is a de-facto standard for unconditional TLS
+port 389, then issuing a special LDAP operation which requests the TLS handshake. This
+method, called StartTLS, is considered less secure than unconditional TLS establishment,
+and is discouraged in current usage. There is a de-facto standard for straight TLS
 connections, where the server listens on port 636. It's supported by everyone, but for
 some reason was never standardized, and it's doubtful that it will ever be.
 
-LDAP has a family of URL schemes which is pretty widely used for specifying connection
+LDAP has a family of URL schemes which are regularly used for specifying connection
 and search parameters. In the most basic usage, the scheme part is __ldap__ for clear
 connections, __ldaps__ for unconditional TLS, and __ldapi__ for UNIX domain sockets
 (definitely nonstandard but widely available on Unix-like systems.) The host part of
@@ -298,7 +297,7 @@ fragment:
     mail: john.doe@example.com
 
 (The email could be added to the entry as previously specified, since the object class
-`inetOrgPerson` has `mail` among its optional attributes.) If one wanted to search for
+_inetOrgPerson_ has `mail` among its optional attributes.) If one wanted to search for
 a user's entry using the value entred in the login form, the resulting filter might be:
 
     (uid=john.doe)
