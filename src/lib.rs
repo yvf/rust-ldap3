@@ -21,7 +21,7 @@
 //!
 //! The documentation is written for readers familiar with LDAP concepts and terminology,
 //! which it won't attempt to explain. If you need an introductory text, you can try the
-//! [primer](https://github.com/inejge/ldap3/blob/ba627b409afcdced737aa758a821f4c8b3447597/LDAP-primer.md)
+//! [primer](https://github.com/inejge/ldap3/blob/27a247c8a6e4e2c86f664f4280c4c6499f0e9fe5/LDAP-primer.md)
 //! included in this library.
 //!
 //! ## Compile-time features

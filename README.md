@@ -27,7 +27,7 @@ API reference:
 
 - [Version 0.10.x](https://docs.rs/ldap3/0.10.6/ldap3/)
 
-There is an [LDAP introduction](https://github.com/inejge/ldap3/blob/ba627b409afcdced737aa758a821f4c8b3447597/LDAP-primer.md)
+There is an [LDAP introduction](https://github.com/inejge/ldap3/blob/27a247c8a6e4e2c86f664f4280c4c6499f0e9fe5/LDAP-primer.md)
 for those still getting their bearings in the LDAP world.
 
 ### Note
