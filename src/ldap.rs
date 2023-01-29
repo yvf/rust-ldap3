@@ -718,6 +718,11 @@ impl Ldap {
     }
 
     /// Check whether the underlying connection has been closed.
+    ///
+    /// This is an indirect check: it queries the status of the channel for communicating with
+    /// the connection structure, not the connection socket itself. The channel being open
+    /// does not mean there is bidirecional communication with the server; to check for that,
+    /// a round-trip operation (e.g., `WhoAmI`) would be necessary.
     pub fn is_closed(&mut self) -> bool {
         self.tx.is_closed()
     }

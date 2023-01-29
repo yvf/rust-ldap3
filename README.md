@@ -2,7 +2,7 @@
 
 A pure-Rust LDAP client library using the Tokio stack.
 
-### Version notice
+### Version notices
 
 The 0.11 branch has had a belated but important dependency
 upgrade: the `nom` parser combinator crate, both in the `lber` support library
@@ -30,10 +30,13 @@ API reference:
 There is an [LDAP introduction](https://github.com/inejge/ldap3/blob/27a247c8a6e4e2c86f664f4280c4c6499f0e9fe5/LDAP-primer.md)
 for those still getting their bearings in the LDAP world.
 
-### Note
+### Miscellaneous Notes
 
 The library is client-only. One cannot make an LDAP server or a proxy with it.
 It supports only version 3 of the protocol over connection-oriented transports.
+
+There is no built-in support for connection pooling, automatic fallback or
+reconnections.
 
 ## Usage
 
