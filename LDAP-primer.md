@@ -52,7 +52,7 @@ the minimum of necessary terminology to explain any issue. For a deeper
 understanding, familiarity with the original specifications is still
 immensely useful, and the interested reader shouldn't shy away even from
 the ISO/ITU-T standards. X.501 (The Directory: Models), 1993 edition, is
-[readily available online](https://www.itu.int/rec/T-REC-X.501-199311-S/en).
+[available online](https://www.itu.int/rec/T-REC-X.501-199311-S/en).
 If one makes peace with the style, it's evident that many LDAP concepts are
 a simplified extrapolation of those in X.501.
 
@@ -173,8 +173,8 @@ a hierarchy, in which all structural classes are ultimately derived from the
 _top_ class. That's why there will always be an `objectClass` attribute with
 that value in an entry.
 
-In the John Doe entry used as an example, the class _inetOrgPerson_ is derived
-from _organizationalPerson_, in turn a descendant of  _person_, which mandates
+In the John Doe entry used as an example, the (structural) class _inetOrgPerson_
+is derived from _organizationalPerson_, in turn a descendant of  _person_, which mandates
 the `cn` and `sn` attributes. Furthermore, `userPassword` is an optional attribute
 of _person_, while `uid` is an optional attribute of _inetOrgPerson_, although
 it's mandatory in this entry since it's a naming attribute.
@@ -230,7 +230,7 @@ and is discouraged in current usage. There is a de-facto standard for straight T
 connections, where the server listens on port 636. It's supported by everyone, but for
 some reason was never standardized, and it's doubtful that it will ever be.
 
-LDAP has a family of URL schemes which are regularly used for specifying connection
+LDAP has a family of URL schemes for specifying connection
 and search parameters. In the most basic usage, the scheme part is __ldap__ for clear
 connections, __ldaps__ for unconditional TLS, and __ldapi__ for UNIX domain sockets
 (definitely nonstandard but widely available on Unix-like systems.) The host part of
