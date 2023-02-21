@@ -30,7 +30,7 @@ API reference:
 There is an [LDAP introduction](https://github.com/inejge/ldap3/blob/27a247c8a6e4e2c86f664f4280c4c6499f0e9fe5/LDAP-primer.md)
 for those still getting their bearings in the LDAP world.
 
-### Miscellaneous Notes
+### Miscellaneous notes
 
 The library is client-only. One cannot make an LDAP server or a proxy with it.
 It supports only version 3 of the protocol over connection-oriented transports.
