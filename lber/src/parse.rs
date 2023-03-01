@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use common::TagClass;
 use common::TagStructure;
 use structure::{StructureTag, PL};
@@ -6,6 +8,7 @@ use nom;
 use nom::bits::streaming as bits;
 use nom::bytes::streaming::take;
 use nom::combinator::map_opt;
+use nom::error::{Error, ErrorKind, ParseError};
 use nom::number::streaming as number;
 use nom::sequence::tuple;
 use nom::{IResult, InputLength, Needed};
@@ -26,15 +29,19 @@ fn parse_type_header(i: &[u8]) -> nom::IResult<&[u8], (TagClass, TagStructure, u
     nom::bits(tuple((class_bits, pc_bit, tagnr_bits)))(i)
 }
 
-fn parse_length(i: &[u8]) -> nom::IResult<&[u8], u64> {
+fn parse_length(i: &[u8]) -> nom::IResult<&[u8], usize> {
     let (i, len) = number::be_u8(i)?;
     if len < 128 {
-        Ok((i, len as u64))
+        Ok((i, len as usize))
     } else {
         let len = len - 128;
         let (i, b) = take(len)(i)?;
         let (_, len) = parse_uint(b)?;
-        Ok((i, len))
+        Ok((
+            i,
+            usize::try_from(len)
+                .map_err(|_| nom::Err::Failure(Error::from_error_kind(i, ErrorKind::TooLarge)))?,
+        ))
     }
 }
 
