@@ -8,5 +8,5 @@ pub mod structures;
 pub mod universal;
 pub mod write;
 
-pub use nom::IResult;
+pub use nom::{Err, IResult};
 pub use parse::Parser;
