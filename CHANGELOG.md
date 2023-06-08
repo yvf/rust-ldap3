@@ -1,3 +1,24 @@
+## v0.11.3, 2023-06-08
+
+* Handle servers which return zero for `send_max_size` in the
+  GSSAPI negotiation. Zero is effectively treated as unlimited,
+  to avoid artificial low limits. This is a reworked fix for
+  [#97](https://github.com/inejge/ldap3/issues/97), which adjusted
+  the size to 256 KiB.
+
+* Update `rustls` and `tokio-rustls`.
+
+* Fix type visibility in `lber`
+  ([#102](https://github.com/inejge/ldap3/issues/102)).
+
+* Make `lber` compile on 32-bit architectures, which broke because
+  the updated parser had an implicit assumption that `usize` is
+  64 bits. Fixes [#99](https://github.com/inejge/ldap3/issues/99).
+
+## v0.11.2, 2023-06-08
+
+See the list for 0.11.3, no documentation was updated.
+
 ## v0.11.1, 2023-01-04
 
 * Add an LDAP introductory document (LDAP-primer.md).

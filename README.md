@@ -9,7 +9,7 @@ upgrade: the `nom` parser combinator crate, both in the `lber` support library
 and `ldap3` proper. This should be an implementation detail invisible to the user,
 and the parsers have a battery of tests, but the version was nevertheless bumped up
 out of abundance of caution. There are no functional differences between 0.10.6
-and 0.11.1.
+and 0.11.3.
 
 Starting with 0.10.3, there is cross-platform Kerberos/GSSAPI support if compiled
 with the __gssapi__ feature. This feature enables the use of integrated Windows
@@ -23,7 +23,7 @@ branch is hence retired.
 
 API reference:
 
-- [Version 0.11.x](https://docs.rs/ldap3/0.11.1/ldap3/)
+- [Version 0.11.x](https://docs.rs/ldap3/0.11.3/ldap3/)
 
 - [Version 0.10.x](https://docs.rs/ldap3/0.10.6/ldap3/)
 
@@ -44,7 +44,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies.ldap3]
-version = "0.11.1"
+version = "0.11.3"
 ```
 
 The library can be used either synchronously or asynchronously. The aim is to
