@@ -343,7 +343,6 @@ where
         filter: &str,
         attrs: A,
     ) -> Result<()> {
-        let mut stream = stream;
         let stream_ldap = stream.ldap_handle();
         let mut ldap = stream_ldap.clone();
         ldap.timeout = stream_ldap.timeout;
