@@ -222,6 +222,8 @@ impl SearchEntry {
     }
 }
 
+// Not really, IMO
+#[allow(rustdoc::invalid_html_tags)]
 /// Possible states of a `SearchStream`.
 ///
 /// ## `SearchStream` call/state conceptual diagram
