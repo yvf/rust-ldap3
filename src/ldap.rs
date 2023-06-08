@@ -360,14 +360,10 @@ impl Ldap {
         if res.rc == 0 {
             if needed_layer == GSSAUTH_P_PRIVACY {
                 buf[0] = 0;
-                let mut send_max_size =
+                let send_max_size =
                     u32::from_be_bytes((&buf[..]).try_into().expect("send max size"));
-                if send_max_size < 262_144 {
-                    warn!(
-                        "got bogus send_max_size {}, adjusting to 256 KiB",
-                        send_max_size
-                    );
-                    send_max_size = 262_144;
+                if send_max_size == 0 {
+                    warn!("got zero send_max_size, will be treated as unlimited");
                 }
                 let mut sasl_param = self.sasl_param.write().expect("sasl param");
                 sasl_param.0 = true;

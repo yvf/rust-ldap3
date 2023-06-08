@@ -187,7 +187,7 @@ fn maybe_wrap(
     if sasl_wrap {
         let client_opt = &mut *codec.client_ctx.lock().expect("client_ctx lock");
         let client_ctx = client_opt.as_mut().expect("client Option mut ref");
-        if out_buf.len() > sasl_send_max as usize {
+        if sasl_send_max > 0 && out_buf.len() > sasl_send_max as usize {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
                 format!(
