@@ -44,8 +44,7 @@ effort. The IETF/ISO standard wars of the mid- to late 1980s are
 now forgotten, but one can glimpse some of the reasons for the IETF's
 decisive victory by perusing any available X.500 document and noting
 the impenetrable text combined with a jungle of references to other
-such documents. Though ironically we now have a jungle of LDAP standards
-all referencing each other!
+such documents.
 
 This primer will try to lessen the pain by always being clear whether it's
 talking about LDAP, the database or LDAP, the protocol, and introducing
@@ -85,7 +84,7 @@ Still keeping it in JSON:
         "userPassword": "secret"
     }
 
-LDAP usually outputs data in a different text format, called LDIF (LDAP Data Interchange
+LDAP uses a different textual format, called LDIF (LDAP Data Interchange
 Format.) Directly translating the above JSON to LDIF gives:
 
     uid: john.doe
@@ -126,8 +125,9 @@ said in a later section.
 Entries in an LDAP database are logically organized as a tree, called the __directory
 information tree__ (DIT), and every entry has a property describing its position
 in the tree. The property is named `dn` for "distinguished name", and is unique
-for an entry. Note that this is *not* one of the entry attributes. Let's repeat the
-full entry from the previous section and highlight the naming attributes:
+for an entry. Despite using the attribute syntax in the LDIF, it is *not* one of
+the entry attributes. Let's repeat the full entry from the previous section
+and highlight the naming attributes:
 
 <pre><code><b>dn</b>: uid=john.doe,ou=People,<i>dc=example,dc=com</i>
 objectClass: top
@@ -157,17 +157,14 @@ variety of reasons, this never happened, and the directories remained disparate.
 The X.500 naming system has countries and registered organizations as DN root
 elements, which wasn't well suited to domain names used for naming on the internet,
 so a method of using domain names in DNs was standardized in RFC 2247 and is
-predominantly used in LDAP today. You will still see remnants of the original X.500
-naming structure especially inside X.509 certificates, but most LDAP directories still
-have organization entries (usually with an "o" RDN) and organizationalUnit entries
-(usually with an "ou" RDN).
+predominantly used in LDAP today.
 
 The DN above has the rightmost part in italic. That part directly corresponds
 to the domain __example.com__. In a DIT organized with such a mapping, all entries
 are at or below the domain, which is then called the __suffix__ or __naming context__.
 A single DIT can contain multiple naming contexts.
 
-There is a special entry at the very root of the DIT. It has an empty DN (i.e. "")
+There is a special entry at the very root of the DIT. It has an empty DN (i.e., `""`)
 and is called the __root DSE__ (DSA Specific Entry; "DSA" stands for "directory
 system agent", another name for the directory server.) It's used to store basic
 configuration and capability data about the directory server.
@@ -200,9 +197,9 @@ the same attribute.
 Object identifiers are one of the main visible legacies of LDAP's X.500 origins.
 The main branches of the OID namespace are controlled by the international
 standards organizations, ISO and ITU-T (formerly CCITT.) Obtaining one's own OID
-subtree for experimentation or customization involves the IANA (look for enterprise
-numbers), but is also possible without bureaucracy by
-[using a UUID](https://oidref.com/2.25) in the `2.25` OID arc.
+subtree for experimentation or customization is a somewhat involved process, but
+is also possible without bureaucracy by [using a UUID](https://oidref.com/2.25)
+in the `2.25` OID arc.
 
 Aside from the identifier and the names, an attribute definition also describes
 the syntax of attribute values and the ways those values can be compared for
@@ -260,8 +257,7 @@ a TLS-protected connection.
 
 Once a client has a connection, it may issue multiple operations to the server. The client
 can do this asynchronously, that is it does not have to wait for one operation to complete
-before issuing another operation. LDAP connections are often long lived, very unlike
-protocols such as HTTP.
+before issuing another operation. LDAP connections are often long lived.
 
 When the client is finished, it may use the __unbind__ operation or simply drop
 the connection. The name "unbind" is slightly misleading, suggesting the opposite
@@ -293,8 +289,8 @@ all it's necessary to provide:
    the matching entry DNs are returned. The special name `*` means "all attributes," or more
    precisely, all _user_ attributes, since there is an additional set of __operational attributes__
    in each entry, maintained by the directory itself and not modifiable by the user. The set of
-   all operational attributes is requested by the special name `+`. A smart client will only
-   request the attributes that it really needs from the server.
+   all operational attributes is requested by the special name `+`. Most clients will only
+   request the attributes that they really need from the server.
 
 The search operation, like all but two other LDAP operations, returns a result structure, one of
 whose elements is a numeric result code. Zero signifies success, while most non-zero values
@@ -306,9 +302,6 @@ Their representation in the request is binary, but a string format is standardiz
 and supported by all APIs, command line tools and applications. It's a bit quirky and heavy on
 the parentheses, especially if multiple terms and negations are involved, but not too difficult
 to understand and write for most day-to-day uses.
-
-You need to be as careful writing LDAP filters that contain data from a user, as you do
-writing SQL statements, to avoid security problems.
 
 Let's suppose that the John Doe entry also has an email address, given by the following LDIF
 fragment:
@@ -335,18 +328,19 @@ resulting filter would be:
 This filter would match the same entry, but in this case only the `mail` term would evaluate
 to true.
 
-The above examples all use __equality__ filters. LDAP also supports other kinds of filters, notably
-__present__, __substrings__, __greaterOrEqual__, __lessOrEqual__, __approximate__, and
-__extensible__. These can all be combined with __or__ (as above), __and__ or __not__.
+The above examples all use __equality__ filters. LDAP also supports other kinds of filters, of
+which the most useful are __substrings__, for partial string matches, and __present__, for
+matching the entries where an attribute exists irrespective of its value. Filters can be
+combined with __or__ (as above), __and__ or __not__.
 
 ## 3.3. Other LDAP operations
 
 LDAP provides the full set of operations for maintaining the DIT: adding, modifying and deleting
 entries, the analogues of INSERT, UPDATE and DELETE operations on a relational database. A notable
-difference is that LDAP changes usually don't operate in bulk, but on a single entry. The protocol
-guarantees that all modifications of an entry performed in a single operation will be atomic: either
-all of them are visible, or none. The guarantee doesn't extend to a series of modifications or other
-operations that change the DIT.
+difference is that LDAP operations only work on a single entry. The protocol guarantees that all
+modifications of an entry performed in a single operation will be atomic: either all of them
+are visible, or none. The guarantee doesn't extend to a series of modifications or other operations
+that change the DIT.
 
 The __modify__ operation consists of a sequence of modification requests for a single entry. Each
 request can add, delete or replace the values of a single attribute. Logically, the requests must
@@ -364,20 +358,22 @@ and will also optionally delete the previous naming attribute-value pair.
 
 ## 3.4. Extensions
 
-LDAP can be extended by servers in two main ways, using __controls__ and __extended operations__.
-There are lots of RFCs which standardize certain controls and extended operations.
+LDAP operations can be extended in two main ways, using __controls__ and __extended operations__.
+Some extensions are standardized, but a lot of them are tied to specific directory service
+implementations.
 
-An extended operation is simply another operation, like "bind" or "search", that is not part of
+An extended operation is simply another operation, like Bind or Search, that is not part of
 the core LDAP specifications. LDAP servers often support at least three extended operations:
-__StartTLS__, __WhoAmI__, and __PasswordModify__.
+__StartTLS__ (mentioned in Section 3.1), __WhoAmI__, and __PasswordModify__.
 
-Every LDAP operation is also allowed to contain a number of controls, which are there to change
-the operation's behaviour in some way. For example, the __Assertion__ control can be used with a
-"modify" operation to indicate that the server should only modify the entry if the contents of
-the control are true for the entry.
+A control is a named structure, possibly with additional data, attached to an LDAP operation,
+which is there to change the operation's behavior in some way. For example, the __Assertion__
+control can be used with a Modify operation to indicate that the server should only modify the
+entry if the filter attached to the control is true for the entry. An LDAP operation may have
+multiple controls attached, with the caveat that the combination must be semantically valid.
 
-Another example is the __SubtreeDelete__ control which - unusually for LDAP - is used with the
-"delete" operation to delete an entire subtree of entries from the database.
+Another example is the __SubtreeDelete__ control which is used with the Delete operation to delete
+an entire subtree of entries from the DIT.
 
 Each control used has to indicate to the server if the control is "critical" to performing the
 operation, or not. If you include a critical control that the server does not support in some way,
