@@ -25,6 +25,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time;
 
 /// SASL bind exchange wrapper.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub(crate) struct SaslCreds(pub Option<Vec<u8>>);
 
