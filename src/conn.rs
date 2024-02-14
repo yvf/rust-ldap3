@@ -32,7 +32,7 @@ use percent_encoding::percent_decode;
 #[cfg(all(feature = "gssapi", feature = "tls-rustls"))]
 use ring::digest::{self, digest, Algorithm};
 #[cfg(feature = "tls-rustls")]
-use rustls::{Certificate, ClientConfig, RootCertStore, ServerName};
+use rustls::{pki_types::CertificateDer, pki_types::ServerName, ClientConfig, RootCertStore};
 use tokio::io::{self, AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::TcpStream;
 #[cfg(unix)]
@@ -61,20 +61,54 @@ enum ConnType {
 }
 
 #[cfg(feature = "tls-rustls")]
+#[derive(Debug)]
 struct NoCertVerification;
 
 #[cfg(feature = "tls-rustls")]
-impl rustls::client::ServerCertVerifier for NoCertVerification {
+impl rustls::client::danger::ServerCertVerifier for NoCertVerification {
     fn verify_server_cert(
         &self,
-        _: &Certificate,
-        _: &[Certificate],
+        _: &CertificateDer,
+        _: &[CertificateDer],
         _: &ServerName,
-        _: &mut dyn Iterator<Item = &[u8]>,
         _: &[u8],
-        _: std::time::SystemTime,
-    ) -> std::result::Result<rustls::client::ServerCertVerified, rustls::Error> {
-        Ok(rustls::client::ServerCertVerified::assertion())
+        _: rustls::pki_types::UnixTime,
+    ) -> std::result::Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _: &[u8],
+        _: &CertificateDer,
+        _: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _: &[u8],
+        _: &CertificateDer,
+        _: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        vec![
+            rustls::SignatureScheme::RSA_PKCS1_SHA1,
+            rustls::SignatureScheme::ECDSA_SHA1_Legacy,
+            rustls::SignatureScheme::RSA_PKCS1_SHA256,
+            rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
+            rustls::SignatureScheme::RSA_PKCS1_SHA384,
+            rustls::SignatureScheme::ECDSA_NISTP384_SHA384,
+            rustls::SignatureScheme::RSA_PKCS1_SHA512,
+            rustls::SignatureScheme::ECDSA_NISTP521_SHA512,
+            rustls::SignatureScheme::RSA_PSS_SHA256,
+            rustls::SignatureScheme::RSA_PSS_SHA384,
+            rustls::SignatureScheme::RSA_PSS_SHA512,
+        ]
     }
 }
 
@@ -83,7 +117,7 @@ lazy_static! {
     static ref CACERTS: RootCertStore = {
         let mut store = RootCertStore::empty();
         for cert in rustls_native_certs::load_native_certs().unwrap_or_else(|_| vec![]) {
-            if let Ok(_) = store.add(&Certificate(cert.0)) {}
+            if let Ok(_) = store.add(cert) {}
         }
         store
     };
@@ -477,17 +511,19 @@ impl LdapConnAsync {
         };
         TokioTlsConnector::from(config)
             .connect(
-                ServerName::try_from(hostname).or_else(|e| {
-                    if no_tls_verify {
-                        if let Ok(_addr) = IpAddr::from_str(hostname) {
-                            ServerName::try_from("_irrelevant")
+                ServerName::try_from(hostname)
+                    .map(|sn| sn.to_owned())
+                    .or_else(|e| {
+                        if no_tls_verify {
+                            if let Ok(_addr) = IpAddr::from_str(hostname) {
+                                ServerName::try_from("_irrelevant")
+                            } else {
+                                Err(e)
+                            }
                         } else {
                             Err(e)
                         }
-                    } else {
-                        Err(e)
-                    }
-                })?,
+                    })?,
                 stream,
             )
             .await
@@ -497,7 +533,6 @@ impl LdapConnAsync {
     #[cfg(feature = "tls-rustls")]
     fn create_config(settings: &LdapConnSettings) -> Arc<ClientConfig> {
         let mut config = ClientConfig::builder()
-            .with_safe_defaults()
             .with_root_certificates(CACERTS.clone())
             .with_no_client_auth();
         if settings.no_tls_verify {
@@ -635,7 +670,7 @@ impl LdapConnAsync {
                 if certs.is_empty() {
                     Ok(None)
                 } else {
-                    Ok(Some(certs[0].clone().0))
+                    Ok(Some(certs[0].to_vec()))
                 }
             }
         }

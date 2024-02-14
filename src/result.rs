@@ -124,7 +124,7 @@ pub enum LdapError {
     #[error("rustls DNS error: {source}")]
     DNSName {
         #[from]
-        source: rustls::client::InvalidDnsNameError,
+        source: rustls::pki_types::InvalidDnsNameError,
     },
 
     /// LDAP operation result with an error return code.
