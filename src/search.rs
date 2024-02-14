@@ -133,7 +133,7 @@ impl SearchOptions {
 /// attribute can contain unconstrained binary strings, the conversion may fail. In that case,
 /// the attribute and all its values will be in the `bin_attrs` hashmap. Since it's
 /// possible that a particular set of values for a binary attribute _could_ be
-/// converted into UTF-8 `String`s, the presence of of such attribute in the result
+/// converted into UTF-8 `String`s, the presence of such an attribute in the result
 /// entry should be checked for both in `attrs` and `bin_atrrs`.
 #[derive(Debug, Clone)]
 pub struct SearchEntry {

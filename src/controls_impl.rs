@@ -63,16 +63,27 @@ lazy_static! {
     };
 }
 
+/// Conversion trait for single control instances.
+///
+/// The [`Ldap::with_controls()`](crate::Ldap::with_controls) method and its sync counterpart
+/// accept a vector of controls, as dictated by the LDAP specification. However, it's expected
+/// that most uses of controls involve a single instance, so constructing a vector at the call
+/// site is noisy. If a control implements this trait, its single instance may be used
+/// in the call, and a single-element vector is constructed internally.
 pub trait IntoRawControlVec {
+    /// Create a control vector.
     fn into(self) -> Vec<RawControl>;
 }
 
+/// Trivial implementation for a control vector, returning itself.
 impl IntoRawControlVec for Vec<RawControl> {
     fn into(self) -> Vec<RawControl> {
         self
     }
 }
 
+/// Blanket implementation for any control. The vector is constructed by the conversion
+/// method.
 impl<R> IntoRawControlVec for R
 where
     RawControl: From<R>,
