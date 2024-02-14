@@ -112,8 +112,8 @@ look like this:
 The `dn` line will be explained in the next section. Here, just note that
 there are multiple lines starting with "objectClass". That's because most
 LDAP attributes can have multiple values, which is represented in LDIF as separate
-lines with the same attribute name. Attribute values in an entry form a set:
-there must not be any duplicate values for a given attribute.
+lines with the same attribute name. Attribute values in an entry form
+a mathematical set: there must not be any duplicate values for a given attribute.
 
 Attributes cannot exist without values; there's no concept in LDAP of a `null` value.
 
@@ -271,10 +271,10 @@ The only way to retrieve one or more entries via LDAP is to use the __search__ o
 It has a plethora of parameters and options, of which the following four are usually
 all it's necessary to provide:
 
-1. The _search base_, which is the starting point in the DIT for the operation. It must
+1. The _search base_, the starting point in the DIT for the operation. It must
    lie within a naming context; one exception is the search for the root DSE.
 
-2. The _scope_, which bounds the number of entries which the operation will consider. It
+2. The _scope_, which bounds the number of entries that the operation will consider. It
    can have the values _base_, meaning only the entry named as the search base; _one_ (for
    "one level"), which means all entries on the single level immediately below the
    search base, but excluding the base itself; and _sub_ (for "subtree"), containing
@@ -283,7 +283,7 @@ all it's necessary to provide:
 3. The _filter_, an expression computed for all candidate entries, selecting those for which
    it evaluates to true. An empty filter is syntactically invalid, although some LDAP tools
    automatically substitute it with `(objectClass=*)`, meaning "an entry containing
-   a non-empty `objectClass` attribute," which is all of them.
+   a non-empty `objectClass` attribute," that is, all of them.
        
 4. The list of _attributes_ to retrieve from the matching entries. If none are specified, only
    the matching entry DNs are returned. The special name `*` means "all attributes," or more
