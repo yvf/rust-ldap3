@@ -3,6 +3,7 @@ authors = ["Ivan Nejgebauer <inejge@gmail.com>"]
 description = "Pure-Rust LDAP Client"
 documentation = "https://docs.rs/ldap3"
 keywords = ["ldap", "client", "tokio", "async"]
+categories = ["authentication", "network-programming"]
 license = "MIT/Apache-2.0"
 name = "ldap3"
 readme = "README.md"
@@ -40,8 +41,8 @@ version = "0.4.3"
 [features]
 default = ["sync", "tls"]
 tls = ["tls-native"]
-tls-native = ["native-tls", "tokio-native-tls", "tokio/rt"]
-tls-rustls = ["rustls", "tokio-rustls", "rustls-native-certs", "x509-parser", "ring", "tokio/rt"]
+tls-native = ["dep:native-tls", "dep:tokio-native-tls", "tokio/rt"]
+tls-rustls = ["dep:rustls", "dep:tokio-rustls", "dep:rustls-native-certs", "dep:x509-parser", "dep:ring", "tokio/rt"]
 sync = ["tokio/rt"]
 gssapi = ["cross-krb5"]
 
