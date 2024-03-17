@@ -695,7 +695,7 @@ impl Ldap {
             class: TagClass::Application,
             inner: (),
         });
-        Ok(self.op_call(LdapOp::Unbind, req).await.map(|_| ())?)
+        self.op_call(LdapOp::Unbind, req).await.map(|_| ())
     }
 
     /// Return the message ID of the last active operation. When the handle is initialized, this
@@ -715,10 +715,7 @@ impl Ldap {
             class: TagClass::Application,
             inner: msgid as i64,
         });
-        Ok(self
-            .op_call(LdapOp::Abandon(msgid), req)
-            .await
-            .map(|_| ())?)
+        self.op_call(LdapOp::Abandon(msgid), req).await.map(|_| ())
     }
 
     /// Check whether the underlying connection has been closed.

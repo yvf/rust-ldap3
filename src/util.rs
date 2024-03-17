@@ -342,8 +342,8 @@ pub fn ldap_unescape<'a, S: Into<Cow<'a, str>>>(val: S) -> Result<Cow<'a, str>> 
                 }
             }
             Unescaper::Value(c) => {
-                if output.is_some() {
-                    output.as_mut().unwrap().push(c);
+                if let Some(output) = &mut output {
+                    output.push(c);
                 }
             }
             _ => (),

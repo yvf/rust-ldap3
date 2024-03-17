@@ -29,9 +29,10 @@ pub enum Scope {
 }
 
 /// Possible values for alias dereferencing during search.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum DerefAliases {
     /// Never dereference.
+    #[default]
     Never = 0,
     /// Dereference while retrieving objects according to search scope.
     Searching = 1,
@@ -39,12 +40,6 @@ pub enum DerefAliases {
     Finding = 2,
     /// Always dereference.
     Always = 3,
-}
-
-impl Default for DerefAliases {
-    fn default() -> Self {
-        DerefAliases::Never
-    }
 }
 
 #[derive(Debug)]
@@ -743,7 +738,7 @@ where
         let adapter = self.adapters[self.ax].clone();
         let mut adapter = adapter.lock().await;
         self.ax += 1;
-        let res = (&mut adapter).start(self, base, scope, filter, attrs).await;
+        let res = adapter.start(self, base, scope, filter, attrs).await;
         self.ax -= 1;
         if res.is_err() {
             self.state = StreamState::Error;
@@ -770,7 +765,7 @@ where
         let adapter = self.adapters[self.ax].clone();
         let mut adapter = adapter.lock().await;
         self.ax += 1;
-        let res = (&mut adapter).next(self).await;
+        let res = adapter.next(self).await;
         self.ax -= 1;
         match res {
             Ok(None) if self.ax == 0 => self.state = StreamState::Done,
@@ -805,7 +800,7 @@ where
         let adapter = self.adapters[self.ax].clone();
         let mut adapter = adapter.lock().await;
         self.ax += 1;
-        let res = (&mut adapter).finish(self).await;
+        let res = adapter.finish(self).await;
         self.ax -= 1;
         res
     }

@@ -29,16 +29,11 @@ pub struct SyncRequest {
 ///
 /// See the Content Synchronization specification
 /// ([RFC 4533](https://tools.ietf.org/html/rfc4533)).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum RefreshMode {
+    #[default]
     RefreshOnly,
     RefreshAndPersist,
-}
-
-impl Default for RefreshMode {
-    fn default() -> Self {
-        RefreshMode::RefreshOnly
-    }
 }
 
 impl From<RefreshMode> for i64 {
@@ -242,7 +237,7 @@ pub fn parse_syncinfo(entry: ResultEntry) -> SyncInfo {
                                 };
                                 SyncInfo::NewCookie(cookie)
                             }
-                            1 | 2 | 3 => {
+                            1..=3 => {
                                 let mut syncinfo_val = match payload {
                                     PL::C(payload) => payload,
                                     PL::P(_) => panic!("syncinfo: [1,2,3] not a sequence"),

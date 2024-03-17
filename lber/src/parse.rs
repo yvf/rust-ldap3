@@ -92,6 +92,7 @@ impl Parser {
     pub fn new() -> Self {
         Self
     }
+
     pub fn parse<'a>(
         &mut self,
         input: &'a [u8],
@@ -100,6 +101,12 @@ impl Parser {
             return Err(nom::Err::Incomplete(Needed::Unknown));
         };
         parse_tag(input)
+    }
+}
+
+impl Default for Parser {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
