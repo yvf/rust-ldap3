@@ -469,7 +469,7 @@ impl LdapConnAsync {
                 } else {
                     panic!("underlying stream not TCP");
                 };
-                #[cfg(feature = "gssapi")]
+                #[cfg(any(feature = "gssapi", feature = "ntlm"))]
                 {
                     ldap.tls_endpoint_token =
                         Arc::new(LdapConnAsync::get_tls_endpoint_token(&tls_stream));
@@ -553,7 +553,7 @@ impl LdapConnAsync {
         builder.build().expect("connector")
     }
 
-    #[cfg(all(feature = "gssapi", feature = "tls-native"))]
+    #[cfg(all(any(feature = "gssapi", feature = "ntlm"), feature = "tls-native"))]
     fn get_tls_endpoint_token(s: &TlsStream<TcpStream>) -> Option<Vec<u8>> {
         match s.get_ref().tls_server_end_point() {
             Ok(ep) => {
@@ -569,7 +569,7 @@ impl LdapConnAsync {
         }
     }
 
-    #[cfg(all(feature = "gssapi", feature = "tls-rustls"))]
+    #[cfg(all(any(feature = "gssapi", feature = "ntlm"), feature = "tls-rustls"))]
     fn get_tls_endpoint_token(s: &TlsStream<TcpStream>) -> Option<Vec<u8>> {
         use x509_parser::prelude::*;
 
@@ -629,7 +629,7 @@ impl LdapConnAsync {
             sasl_param,
             #[cfg(feature = "gssapi")]
             client_ctx,
-            #[cfg(feature = "gssapi")]
+            #[cfg(any(feature = "gssapi", feature = "ntlm"))]
             tls_endpoint_token: Arc::new(None),
             has_tls: false,
             last_id: 0,

@@ -110,6 +110,15 @@ impl LdapConn {
         rt.block_on(async move { ldap.sasl_gssapi_bind(server_fqdn).await })
     }
 
+    #[cfg_attr(docsrs, doc(cfg(feature = "ntlm")))]
+    #[cfg(feature = "ntlm")]
+    /// See [`Ldap::sasl_ntlm_bind()`](struct.Ldap.html#method.sasl_ntlm_bind).
+    pub fn sasl_ntlm_bind(&mut self, username: &str, password: &str) -> Result<LdapResult> {
+        let rt = &mut self.rt;
+        let ldap = &mut self.ldap;
+        rt.block_on(async move { ldap.sasl_ntlm_bind(username, password).await })
+    }
+
     /// See [`Ldap::search()`](struct.Ldap.html#method.search).
     pub fn search<'a, S: AsRef<str> + Send + Sync + 'a, A: AsRef<[S]> + Send + Sync + 'a>(
         &mut self,

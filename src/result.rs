@@ -163,6 +163,19 @@ pub enum LdapError {
     /// No token received from GSSAPI acceptor.
     #[error("no token received from acceptor")]
     NoGssapiToken,
+
+    #[cfg(feature = "ntlm")]
+    /// SSPI error in NTLM processing.
+    #[error("SSPI NTLM error: {source}")]
+    SSPIError {
+        #[from]
+        source: sspi::Error,
+    },
+
+    #[cfg(feature = "ntlm")]
+    /// No CHALLENGE token received in NTLM exchange.
+    #[error("no CHALLENGE token received in NTLM exchange")]
+    NoNtlmChallengeToken,
 }
 
 impl From<LdapError> for io::Error {
