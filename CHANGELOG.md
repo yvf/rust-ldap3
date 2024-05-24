@@ -1,3 +1,10 @@
+## v0.11.4, 2024-05-24
+
+* Update `cross-krb5` to bring in the updated `libgssapi` (0.7.1)
+  which lets the library work with GSSAPI binds when compiled
+  with Rust 1.78+. Fixes [#126](https://github.com/inejge/ldap3/issues/126)
+  for the 0.11.x branch.
+
 ## v0.11.3, 2023-06-08
 
 * Handle servers which return zero for `send_max_size` in the
