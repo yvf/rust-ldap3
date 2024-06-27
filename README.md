@@ -5,13 +5,13 @@ A pure-Rust LDAP client library using the Tokio stack.
 ### Version notices
 
 The 0.11 branch is now in maintenance mode, and 0.10 is retired. If you're
-using GSSAPI and compiling with Rust 1.78.0 or later, upgrade to 0.11.4.
+using GSSAPI and compiling with Rust 1.78.0 or later, upgrade to 0.11.5.
 
 ### Documentation
 
 API reference:
 
-- [Version 0.11.x](https://docs.rs/ldap3/0.11.4/ldap3/)
+- [Version 0.11.x](https://docs.rs/ldap3/0.11.5/ldap3/)
 
 There is an [LDAP introduction](https://github.com/inejge/ldap3/blob/27a247c8a6e4e2c86f664f4280c4c6499f0e9fe5/LDAP-primer.md)
 for those still getting their bearings in the LDAP world.
@@ -30,7 +30,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies.ldap3]
-version = "0.11.4"
+version = "0.11.5"
 ```
 
 The library can be used either synchronously or asynchronously. The aim is to

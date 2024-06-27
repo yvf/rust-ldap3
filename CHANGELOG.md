@@ -1,3 +1,10 @@
+## v0.11.5, 2024-06-27
+
+* Fix Windows builds with GSSAPI, which were broken by the forced
+  inclusion of `libgssapi`, see [#127](https://github.com/inejge/ldap3/issues/127).
+  The fix is a rather ugly hack which will be in place until `cross-krb5`
+  is updated to require the newer version of `libgssapi`.
+
 ## v0.11.4, 2024-05-24
 
 * Update `cross-krb5` to bring in the updated `libgssapi` (0.7.1)
