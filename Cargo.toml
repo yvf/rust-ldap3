@@ -44,7 +44,7 @@ tls = ["tls-native"]
 tls-native = ["native-tls", "tokio-native-tls", "tokio/rt"]
 tls-rustls = ["rustls", "tokio-rustls", "rustls-native-certs", "x509-parser", "ring", "tokio/rt"]
 sync = ["tokio/rt"]
-gssapi = ["cross-krb5", "libgssapi"]
+gssapi = ["cross-krb5", "libgssapi?/default"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "io-util", "sync", "time", "net", "rt-multi-thread"] }
