@@ -574,7 +574,7 @@ impl LdapConnAsync {
         use x509_parser::prelude::*;
 
         if let Some(certs) = s.get_ref().1.peer_certificates() {
-            let peer_cert = &certs[0].0;
+            let peer_cert = &certs[0];
             let leaf = match X509Certificate::from_der(peer_cert) {
                 Ok(leaf) => leaf,
                 Err(e) => {
